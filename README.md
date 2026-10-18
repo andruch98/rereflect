@@ -183,6 +183,14 @@ model are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 Contributions are welcome — bug reports, features, docs and tests. See
 **[CONTRIBUTING.md](CONTRIBUTING.md)** for dev setup, testing and PR conventions.
 
+## Support the project
+
+Rereflect is free and open source. If it's useful to you, you can chip in with a crypto donation:
+
+<a href="https://nowpayments.io/donation?api_key=52f38854-167a-4828-a00f-0424ab7dcc1e" target="_blank" rel="noreferrer noopener">
+    <img src="https://nowpayments.io/images/embeds/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
+</a>
+
 ## License
 
 Released under the **[MIT License](LICENSE)**. Third-party attributions are in
