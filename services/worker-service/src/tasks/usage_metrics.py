@@ -13,16 +13,19 @@ Tasks:
                               aspect).
   purge_old_usage_history  — scheduled weekly to delete snapshot rows older
                               than USAGE_HISTORY_RETENTION_DAYS.
+  purge_old_usage_events   — scheduled weekly to delete raw usage_events rows
+                              older than USAGE_EVENT_RETENTION_DAYS.
 
 Beat registration: see celery_app.py (``recompute-usage-scores-daily``,
-``purge-old-usage-history``).
+``purge-old-usage-history``, ``purge-old-usage-events``).
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from celery import shared_task
@@ -45,15 +48,37 @@ _HEALTH_RECOMPUTE_DELTA: int = 2
 # operator ever wants a shorter window; no per-org configurability.
 USAGE_HISTORY_RETENTION_DAYS: int = 180
 
+# Retention window for the raw usage_events log (#40). 90 days comfortably
+# exceeds the 30-day window any rollup reads, so the purge cannot change a
+# rollup. Env-configurable (USAGE_EVENT_RETENTION_DAYS) for operators.
+USAGE_EVENT_RETENTION_DAYS: int = int(os.getenv("USAGE_EVENT_RETENTION_DAYS", "90"))
+
 # Batch size for the daily snapshot write's bulk insert (AC 7 — not N+1: a
 # large first-run population is chunked rather than issued as one
 # unboundedly large INSERT).
 _SNAPSHOT_CHUNK_SIZE: int = 1000
 
+# Page size for the daily recompute's customer_usage scan (#41). Bounds the
+# ORM identity map to this many rows instead of every row in every org.
+_RECOMPUTE_PAGE_SIZE: int = 1000
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _to_naive_utc(value: Optional[datetime]) -> Optional[datetime]:
+    """Normalise a datetime to naive UTC.
+
+    tz-aware values are converted to UTC first (an offset is a real instant,
+    not just a label); naive values are assumed to already be UTC. Keeping
+    the rollup entirely naive preserves the existing column semantics while
+    making mixed naive/aware comparisons safe (#43).
+    """
+    if value is not None and value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
 
 
 def _compute_rollup_from_events(
@@ -72,22 +97,26 @@ def _compute_rollup_from_events(
     -------
     dict with keys matching CustomerUsage columns.
     """
+    # Normalise once at the boundary: a tz-aware occurred_at (or `now`) would
+    # otherwise raise TypeError on comparison below (#43).
+    now = _to_naive_utc(now)
     cutoff_7d = now - timedelta(days=7)
     cutoff_14d = now - timedelta(days=14)
     cutoff_30d = now - timedelta(days=30)
 
-    events_7d = [e for e in events if e.occurred_at and e.occurred_at >= cutoff_7d]
-    events_14d = [e for e in events if e.occurred_at and e.occurred_at >= cutoff_14d]
-    events_30d = [e for e in events if e.occurred_at and e.occurred_at >= cutoff_30d]
+    timed = [(e, _to_naive_utc(e.occurred_at)) for e in events]
+    events_7d = [(e, ts) for e, ts in timed if ts and ts >= cutoff_7d]
+    events_14d = [(e, ts) for e, ts in timed if ts and ts >= cutoff_14d]
+    events_30d = [(e, ts) for e, ts in timed if ts and ts >= cutoff_30d]
 
     # Distinct calendar days with at least one event
-    active_days_7d = len(set(e.occurred_at.date() for e in events_7d if e.occurred_at))
-    active_days_14d = len(set(e.occurred_at.date() for e in events_14d if e.occurred_at))
-    active_days_30d = len(set(e.occurred_at.date() for e in events_30d if e.occurred_at))
+    active_days_7d = len({ts.date() for _, ts in events_7d})
+    active_days_14d = len({ts.date() for _, ts in events_14d})
+    active_days_30d = len({ts.date() for _, ts in events_30d})
 
     # Login/activity counts: any track or identify event counts as activity
-    login_count_7d = sum(1 for e in events_7d if e.event_type in ("track", "identify"))
-    login_count_30d = sum(1 for e in events_30d if e.event_type in ("track", "identify"))
+    login_count_7d = sum(1 for e, _ in events_7d if e.event_type in ("track", "identify"))
+    login_count_30d = sum(1 for e, _ in events_30d if e.event_type in ("track", "identify"))
 
     # Distinct feature names from ALL history (not window-limited)
     distinct_features: List[str] = sorted(set(
@@ -95,7 +124,7 @@ def _compute_rollup_from_events(
     ))
     distinct_feature_count = len(distinct_features)
 
-    all_occurred = [e.occurred_at for e in events if e.occurred_at]
+    all_occurred = [ts for _, ts in timed if ts]
     last_active_at = max(all_occurred) if all_occurred else None
     first_seen_at = min(all_occurred) if all_occurred else None
 
@@ -332,6 +361,39 @@ def _load_trend_baselines(
     }
 
 
+def _iter_customer_usage_rows(db, today: "date"):
+    """
+    Keyset-paged iteration over customer_usage, ordered by id.
+
+    Yields ``(row, trend_baselines)``: the page's trend baselines are resolved
+    once per page via ``_load_trend_baselines`` (one batched query per page,
+    never per row). Keeps the daily recompute's memory bounded to
+    ``_RECOMPUTE_PAGE_SIZE`` ORM rows (#41) instead of loading every row
+    across every org into one list.
+    """
+    from src.models import CustomerUsage
+
+    last_id = 0
+    while True:
+        page = (
+            db.query(CustomerUsage)
+            .filter(CustomerUsage.id > last_id)
+            .order_by(CustomerUsage.id)
+            .limit(_RECOMPUTE_PAGE_SIZE)
+            .all()
+        )
+        if not page:
+            return
+
+        baselines = _load_trend_baselines(
+            db, [(row.organization_id, row.customer_email) for row in page], today,
+        )
+        for row in page:
+            yield row, baselines
+
+        last_id = page[-1].id
+
+
 def _do_process_usage_event(
     org_id: int,
     customer_email: Optional[str],
@@ -528,19 +590,20 @@ def recompute_usage_scores() -> Dict[str, int]:
     # `db.commit()` below (AC4).
     pending_trend_transitions: List[Tuple[int, str, Optional[str], str]] = []
 
+    # Orgs seen during the paged scan, used to drive the decline detector
+    # after the loop without a second full-table query.
+    scanned_org_ids: set = set()
+
     with get_db_session() as db:
-        rows = db.query(CustomerUsage).all()
         now = datetime.utcnow()
         today = now.date()
 
-        # trend-detection-and-health aspect: ONE batched query resolves every
-        # scanned customer's trend baseline up front (not per-row — see
+        # trend-detection-and-health aspect: trend baselines are resolved once
+        # per page inside the iterator (not per row — see
         # `_load_trend_baselines`'s docstring for the lookback-cost rationale).
-        trend_baselines = _load_trend_baselines(
-            db, [(row.organization_id, row.customer_email) for row in rows], today,
-        )
-
-        for row in rows:
+        # #41: keyset pages keep the scan's memory bounded.
+        for row, trend_baselines in _iter_customer_usage_rows(db, today):
+            scanned_org_ids.add(row.organization_id)
             total += 1
 
             windows = _rederive_windows(db, row.organization_id, row.customer_email, now)
@@ -717,10 +780,10 @@ def recompute_usage_scores() -> Dict[str, int]:
                 detect_usage_decline_labels,
             )
 
-            # `rows` was already loaded (the full customer_usage scan above)
-            # — reusing it here avoids a second query just to enumerate
-            # org_ids. Sorted for deterministic iteration order.
-            org_ids = sorted({row.organization_id for row in rows})
+            # Every page recorded its org_id during the paged scan above, so
+            # enumerating orgs needs no second query. Sorted for deterministic
+            # iteration order.
+            org_ids = sorted(scanned_org_ids)
 
             for detector_org_id in org_ids:
                 try:
@@ -783,6 +846,45 @@ def purge_old_usage_history() -> Dict[str, Any]:
 
     logger.info(
         "purge_old_usage_history: deleted %d CustomerUsageHistory rows older than %s",
+        deleted, cutoff,
+    )
+
+    return {"status": "complete", "deleted": deleted}
+
+
+# ---------------------------------------------------------------------------
+# usage_events retention purge (#40)
+# ---------------------------------------------------------------------------
+
+
+@shared_task(name="src.tasks.usage_metrics.purge_old_usage_events")
+def purge_old_usage_events() -> Dict[str, Any]:
+    """
+    Delete raw usage_events rows with occurred_at older than
+    USAGE_EVENT_RETENTION_DAYS (default 90, env-configurable) days before now.
+
+    Runs weekly (see celery_app.py ``purge-old-usage-events``). Idempotent: a
+    second immediate run deletes 0. Rows with a NULL occurred_at are kept —
+    the filter never matches them, so un-timestamped events are never silently
+    dropped.
+
+    Returns:
+        dict — {"status": "complete", "deleted": N}
+    """
+    from src.models import UsageEvent
+
+    cutoff = datetime.utcnow() - timedelta(days=USAGE_EVENT_RETENTION_DAYS)
+
+    with get_db_session() as db:
+        deleted = (
+            db.query(UsageEvent)
+            .filter(UsageEvent.occurred_at < cutoff)
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+
+    logger.info(
+        "purge_old_usage_events: deleted %d UsageEvent rows older than %s",
         deleted, cutoff,
     )
 

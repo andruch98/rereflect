@@ -18,7 +18,7 @@ wrapper), mirroring how analysis.py tests use ``_analyze_feedback_item``.
 
 import sys
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1193,3 +1193,175 @@ class TestWorkerAndBackendUsageHistoryColumnsMatch:
             f"  Worker only:  {worker_cols - backend_cols}\n"
             f"  Backend only: {backend_cols - worker_cols}"
         )
+
+
+# ---------------------------------------------------------------------------
+# #40 — raw usage_events retention purge
+# ---------------------------------------------------------------------------
+
+
+class TestPurgeOldUsageEvents:
+    def test_deletes_rows_older_than_retention_keeps_recent(self, db):
+        import src.tasks.usage_metrics as um
+
+        org = _make_org(db)
+        _make_event(db, org.id, email="old@example.com", external_event_id="old-1",
+                    days_ago=um.USAGE_EVENT_RETENTION_DAYS + 1)
+        _make_event(db, org.id, email="recent@example.com", external_event_id="recent-1",
+                    days_ago=10)
+
+        with patch.object(um, "get_db_session", _fake_db_session):
+            result = um.purge_old_usage_events()
+
+        assert result["status"] == "complete"
+        assert result["deleted"] == 1
+        remaining = db.query(UsageEvent).all()
+        assert [e.external_event_id for e in remaining] == ["recent-1"]
+
+    def test_rows_without_occurred_at_are_kept(self, db):
+        import src.tasks.usage_metrics as um
+
+        org = _make_org(db)
+        db.add(UsageEvent(
+            organization_id=org.id, customer_email="null@example.com",
+            event_type="track", event_name="x", external_event_id="null-1",
+            occurred_at=None, received_at=datetime.utcnow(),
+        ))
+        db.commit()
+
+        with patch.object(um, "get_db_session", _fake_db_session):
+            result = um.purge_old_usage_events()
+
+        assert result["deleted"] == 0
+        assert db.query(UsageEvent).count() == 1
+
+    def test_second_immediate_run_deletes_zero(self, db):
+        import src.tasks.usage_metrics as um
+
+        org = _make_org(db)
+        _make_event(db, org.id, external_event_id="old-2",
+                    days_ago=um.USAGE_EVENT_RETENTION_DAYS + 5)
+
+        with patch.object(um, "get_db_session", _fake_db_session):
+            first = um.purge_old_usage_events()
+            second = um.purge_old_usage_events()
+
+        assert first["deleted"] == 1
+        assert second["deleted"] == 0
+
+    def test_retention_defaults_to_90_days(self):
+        import src.tasks.usage_metrics as um
+
+        assert um.USAGE_EVENT_RETENTION_DAYS == 90
+
+    def test_is_registered_celery_task(self):
+        import importlib
+        import src.tasks.usage_metrics as um
+        importlib.reload(um)
+
+        from src.celery_app import celery_app
+        assert "src.tasks.usage_metrics.purge_old_usage_events" in celery_app.tasks
+
+    def test_beat_schedule_has_purge_usage_events_entry(self):
+        from src.celery_app import celery_app
+
+        schedule = celery_app.conf.beat_schedule
+        assert "purge-old-usage-events" in schedule
+        entry = schedule["purge-old-usage-events"]
+        assert entry["task"] == "src.tasks.usage_metrics.purge_old_usage_events"
+        cron = entry["schedule"]
+        assert cron.hour == {2}
+        assert cron.minute == {50}
+        assert cron.day_of_week == {0}
+
+
+# ---------------------------------------------------------------------------
+# #41 — recompute scans customer_usage in bounded pages
+# ---------------------------------------------------------------------------
+
+
+class TestRecomputeUsageScoresPagination:
+    def test_processes_every_row_across_multiple_pages(self, db):
+        import importlib
+        import src.tasks.usage_metrics as um
+        importlib.reload(um)
+
+        org = _make_org(db)
+        for i in range(5):
+            db.add(CustomerUsage(
+                organization_id=org.id,
+                customer_email=f"page{i}@example.com",
+                last_active_at=datetime.utcnow() - timedelta(hours=1),
+                active_days_30d=1,
+                active_days_14d=1,
+                active_days_7d=1,
+                distinct_feature_count=1,
+                distinct_features=["feat-a"],
+                login_count_7d=1,
+                login_count_30d=1,
+                events_total=1,
+                usage_score=50,
+            ))
+        db.commit()
+
+        real_loader = um._load_trend_baselines
+        with patch.object(um, "_RECOMPUTE_PAGE_SIZE", 2), \
+                patch.object(um, "get_db_session", _fake_db_session), \
+                patch.object(um, "_load_trend_baselines", wraps=real_loader) as loader:
+            result = um.recompute_usage_scores()
+
+        assert result["total"] == 5, "every page's rows must be scanned"
+        assert result["snapshot_written"] == 5
+        assert loader.call_count == 3, (
+            "5 rows at page size 2 must be read as 3 pages; a single call means "
+            "the scan is still one unbounded .all()"
+        )
+
+
+# ---------------------------------------------------------------------------
+# #43 — rollup comparison is tz-safe
+# ---------------------------------------------------------------------------
+
+
+class TestRollupTimezoneNormalisation:
+    @staticmethod
+    def _event(occurred_at, event_name="feat-a", event_type="track"):
+        return UsageEvent(
+            organization_id=1,
+            customer_email="tz@example.com",
+            event_type=event_type,
+            event_name=event_name,
+            external_event_id="tz-evt",
+            occurred_at=occurred_at,
+            received_at=datetime.utcnow(),
+        )
+
+    def test_tz_aware_occurred_at_matches_naive_equivalent(self):
+        import src.tasks.usage_metrics as um
+
+        now = datetime(2026, 10, 21, 12, 0, 0)
+        ages = (timedelta(hours=1), timedelta(days=10), timedelta(days=40))
+        naive_events = [self._event(now - age) for age in ages]
+        aware_events = [
+            self._event((now - age).replace(tzinfo=timezone.utc)) for age in ages
+        ]
+
+        expected = um._compute_rollup_from_events(naive_events, now)
+
+        assert um._compute_rollup_from_events(aware_events, now) == expected
+        # A tz-aware `now` must not raise either.
+        assert um._compute_rollup_from_events(
+            naive_events, now.replace(tzinfo=timezone.utc)
+        ) == expected
+
+    def test_non_utc_offset_is_converted_to_utc(self):
+        import src.tasks.usage_metrics as um
+
+        now = datetime(2026, 10, 21, 12, 0, 0)
+        aware = self._event(
+            datetime(2026, 10, 20, 10, 0, tzinfo=timezone(timedelta(hours=2)))
+        )
+        fields = um._compute_rollup_from_events([aware], now)
+
+        assert fields["last_active_at"] == datetime(2026, 10, 20, 8, 0)
+        assert fields["first_seen_at"] == datetime(2026, 10, 20, 8, 0)
