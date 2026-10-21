@@ -1,13 +1,16 @@
 # Development Tracking
 
 **Vision**: Open-source, self-hosted AI feedback analysis you run on your own infrastructure
-**Last Updated**: 2026-07-26 (v1.0.0)
+**Last Updated**: 2026-10-21 (post-1.0 wrap-up batch)
 
 ---
 
 ## Current Status
 
 Shipped as **v1.0.0** (2026-07-26) — free, open-source, self-hosted, MIT, BYOK.
+Post-1.0 merges (admin/owner gating, copilot truthfulness, usage hardening, cohort playbooks,
+worker health recompute, docs) are listed under **Unreleased** in `CHANGELOG.md`; no release tag
+has been cut for them yet.
 
 | Milestone | Status |
 |-----------|--------|
@@ -522,7 +525,7 @@ comments, added 2026-07-29). Five of the seven needed no build work and are reco
   docs land**, ahead of any Intercom feature work.
 </details>
 
-### Follow-ups opened by that branch (all NOT STARTED)
+### Follow-ups opened by that branch (all since fixed; kept for the record)
 
 - ~~**`intercom-envelope-shape`**~~ — **FIXED** on `fix/intercom-envelope-seam` (2026-07-31).
   The route queued `payload["data"]` unwrapped while `IntercomAdapter` expects the full
