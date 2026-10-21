@@ -7,6 +7,41 @@ Prior work lives in the git history and the tracking files (`AI-TRACKING.md`, `D
 
 ## Unreleased
 
+### Fixed — the worker now refreshes customer health through the backend
+
+The worker image never contained `health_score_service`, so every worker-driven health recompute
+(feedback analysis, usage events, HubSpot/Salesforce syncs, the nightly segment job) was a silent
+no-op. The worker now POSTs to a new internal endpoint after its transaction commits, and the
+backend runs the one real scoring implementation. **This is off unless you set
+`INTERNAL_API_SECRET` on both services and `INTERNAL_API_URL` on the worker** (the production
+compose file sets the URL; the secret is operator-supplied). Unset keeps the old behaviour —
+health scores refresh only from backend-driven events — and logs it once per process.
+See `docs/SELF_HOSTING.md`.
+
+### Fixed — copilot stops reporting numbers and actions it does not have
+
+- **The Regenerate button is gone.** It was rendered on every assistant message and always
+  returned "not yet implemented". Regeneration is a future feature.
+- **Usage counters are real.** The final websocket frame now reports actual
+  `tokens_in`/`tokens_out`/`cost_cents`; unpriced or local models report `cost_cents: null`
+  instead of a fabricated zero.
+- **Report errors carry a `message_id`.** The report branch (and the "No AI model configured"
+  path) no longer bypasses the shared transport, so a client can correlate the error to its turn.
+- The module docstring no longer advertises a suggestions endpoint that does not exist.
+
+### Changed — usage telemetry is bounded and timezone-safe
+
+- **Raw `usage_events` are purged weekly** after `USAGE_EVENT_RETENTION_DAYS` (default 90,
+  env-configurable); rows with no timestamp are kept.
+- **The daily usage recompute is paged** (1,000 rows per batch) instead of loading every
+  `customer_usage` row into memory.
+- **Rollup comparisons normalise to naive UTC**, so a tz-aware event can no longer raise
+  `TypeError` mid-recompute.
+
+### Changed — the dead `has_custom_key` field is gone from the AI settings contract
+
+It had zero backend read/write sites; only the frontend type and test fixtures carried it.
+
 ### Changed — members can no longer run destructive or org-wide actions (admin/owner only)
 
 Several mutation routes had no role check, so any signed-in **member** could call them. They now

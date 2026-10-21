@@ -646,34 +646,34 @@ comments, added 2026-07-29). Five of the seven needed no build work and are reco
 
 ### Found while doing the copilot-suggested-actions dig (2026-09-06)
 
-Recorded so they are not re-discovered. **One of these six is now fixed** (the stale plan
-gate, closed 2026-10-21, #46); the other **five remain open**. The branch
+Recorded so they are not re-discovered. **All six are now closed** (2026-10-21): the stale plan
+gate by #46, the other five by #35–#39. The branch
 `feat/copilot-suggested-actions` was planning + a test-only contract guard when this was
 recorded; the feature shipped 2026-09-09 (action-registry, deterministic-proposer,
 frontend-actions-ui, docs-tracking all merged). All six were verified against the code during
 the dig, not inferred from docs.
 
-- [ ] **`copilot.py:5` advertises an endpoint that does not exist.** The module docstring lists
-      `POST /api/v1/conversations/suggestions`; no such route is registered. A reader auditing
-      the copilot surface is actively misled — same class as the false
-      `models/integration.py:19` comment. Correct the docstring even if nothing else changes.
-- [ ] **`regenerate` is exposed but not implemented.** `copilot_ws.py:991` returns a hardcoded
-      "not yet implemented" error, while the frontend ships `regenerate()` in the public hook
-      API (`useCopilotWebSocket.ts:35`). Either implement it or drop it from the hook.
-- [ ] **Copilot usage counters are always zero.** `copilot_ws.py:715-717` initialises
-      `tokens_in`/`tokens_out`/`cost_cents` to `0/0/0.0` and never assigns them, so the final
-      WS frame always reports zero usage. The AI Settings token-budget bars are therefore
-      reading a constant, not a measurement.
+- [x] **`copilot.py:5` advertises an endpoint that does not exist.** — **FIXED #35 (2026-10-21)**:
+      the docstring lists only the routes that are registered. Note: the frontend CommandBar still
+      calls `/conversations/suggestions` and swallows the 404 — implementing that route remains a
+      separate feature decision.
+- [x] **`regenerate` is exposed but not implemented.** — **FIXED #36 (2026-10-21)**: removed the
+      button, the hook method, the `pendingStopMessageId` state and the backend branch. The button
+      was rendered on every assistant message. Regeneration is now a new feature, not a dead call.
+- [x] **Copilot usage counters are always zero.** — **FIXED #37 (2026-10-21)**: real
+      `tokens_in`/`tokens_out`/`cost_cents` in the final frame; priced models use
+      `llm_model_prices`, unpriced/local models report `cost_cents: null` rather than a guess.
 - ~~**Stale plan gate in `RunPlaybookDropdown.tsx:26,47`** — gates on `user?.plan === 'business'`.~~
       **CLOSED 2026-10-21 (#46)** — the file has no `plan`/`business` reference left; it gates on
       `useRole().isAdminOrOwner` (and the same for the unknown-probability early return), which
       is the post-pivot rule. The original entry said this was harmless today
       (`/auth/me` reports `enterprise` under `SELF_HOSTED`) but was exactly the pre-pivot drift
       that broke ~40 tests before 1.0.0.
-- [ ] **Inconsistent error transport on the report branch.** `copilot_ws.py:471-478` sends its
-      error with a raw `websocket.send_json` and no `message_id`; every other error path goes
-      through `manager.send`. A client correlating errors to turns silently loses this one.
-- [ ] **`AISettings.has_custom_key` is dead on the wire** — zero backend read sites.
+- [x] **Inconsistent error transport on the report branch.** — **FIXED #38 (2026-10-21)**: the
+      report branch (and the identical general-path "No AI model configured" error) now goes
+      through `manager.send` with a `message_id`; no raw `send_json` error remains.
+- [x] **`AISettings.has_custom_key` is dead on the wire** — **FIXED #39 (2026-10-21)**: removed
+      from the frontend type and every fixture; no reader existed.
 
 ### Deferred v2 — Intercom (opened 2026-08-01; 3 SHIPPED, 1 NOT STARTED)
 

@@ -50,15 +50,12 @@ carry a `# DUPLICATED` header. Keep them in sync; same shared-package migration
 path as (b) applies. Note the worker also mirrors the `segment` column on its
 `CustomerHealth` model (`src/models/__init__.py`, "catch-up" convention).
 
-### (c) recompute_usage_scores loads all customer_usage rows into memory
+### (c) CLOSED — recompute_usage_scores is keyset-paged (#41, 2026-10-21)
 
-`recompute_usage_scores()` calls `db.query(CustomerUsage).all()`, which loads
-every row across every org into a single Python list.  This is fine at current
-scale but will OOM at tens of millions of rows.
-
-Before scale: replace with a paginated or server-side cursor approach (e.g.
-`yield_per(1000)` in SQLAlchemy) or push the recency-decay computation into
-a single bulk UPDATE SQL statement.
+`recompute_usage_scores()` no longer calls `db.query(CustomerUsage).all()`. It iterates the table
+in keyset-paged batches of 1,000 (`_iter_customer_usage_rows`), resolving trend baselines once
+per page, while preserving the per-row score/trend/health recompute and the
+once-per-customer-per-day history snapshot. Shipped in #52.
 
 ---
 
@@ -75,31 +72,31 @@ current page's emails in a single bulk query (keyed by email dict — no N+1) an
 populates the field per-item; org-scoped; customers without a rollup row → `None`.
 Covered by 4 new TDD tests in `tests/test_customers.py::TestCustomerListLastActiveAt`.
 
-### (e) MINOR OPEN — raw usage_event 90-day retention/purge task not yet shipped
+### (e) CLOSED — raw usage_events retention purge shipped (#40, 2026-10-21)
 
-The `usage_events` raw-log table has no purge/retention job.  At sustained ingest
-rates the table will grow without bound.  Recommended: add a nightly Celery beat task
-that deletes `usage_events` rows older than 90 days (configurable via env), similar to
-the existing `purge_old_calibration_models` pattern.  Block on confirming data-retention
-policy before implementing.
+`purge_old_usage_events` deletes `usage_events` older than `USAGE_EVENT_RETENTION_DAYS`
+(default 90, env-configurable) and is registered on the weekly beat schedule
+(`purge-old-usage-events`). Rows with a NULL `occurred_at` are kept. Idempotent; covered by the
+usage-metrics and beat-integrity suites. Shipped in #52.
 
-### (f) MINOR OPEN — process_usage_event re-aggregates all events per invocation (write amplification)
+### (f) DEFERRED (blocked) — process_usage_event still re-aggregates all events per invocation (#42)
 
 `_do_process_usage_event` (worker-service) recomputes the entire rollup by scanning
 all historical events for a customer each time a single new event arrives.  At scale
-this is O(events_total) work per new event.  Preferred fix: incremental upsert — read
-the existing `customer_usage` row, apply deltas for the new event only, write back once.
-Worth revisiting when per-customer event counts exceed ~10 k.
+this is O(events_total) work per new event.
 
-### (g) MINOR OPEN — _compute_rollup_from_events uses tz-naive datetime comparisons
+**Deferred deliberately (PR #52):** `customer_usage` has no processed-event marker, so a Celery
+replay of the same `external_event_id` is indistinguishable from a first sighting
+(`events_total += 1` would double-count), and the 7/14/30-day counters cannot be decremented
+when events age out. Exact parity needs a schema marker or a per-day bucket table. Revisit when
+per-customer event counts exceed ~10 k.
 
-`_compute_rollup_from_events` compares `event.occurred_at` (which may be tz-aware UTC
-after the AC fix in the ingest route) against `datetime.utcnow()` (tz-naive).  If
-tz-aware datetimes ever reach the worker (e.g., stored with tzinfo from a future
-migration), the comparison will raise `TypeError: can't compare offset-naive and
-offset-aware datetimes`.  Fix: replace `datetime.utcnow()` with
-`datetime.now(timezone.utc)` and strip tzinfo only when comparing against tz-naive
-columns.
+### (g) CLOSED — rollup datetimes are normalised to naive UTC (#43, 2026-10-21)
+
+`_compute_rollup_from_events` runs `now` and every `occurred_at` through `_to_naive_utc`, so a
+tz-aware value is converted (not compared raw) and cannot raise
+`TypeError: can't compare offset-naive and offset-aware datetimes`. Naive results are unchanged.
+Shipped in #52.
 
 ### (h) CLOSED — /usage time series is now zero-filled (#44, 2026-10-21)
 
