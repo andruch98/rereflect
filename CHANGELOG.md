@@ -5,7 +5,7 @@ Every feature is unlocked; the app runs on your own infrastructure with your own
 
 Prior work lives in the git history and the tracking files (`AI-TRACKING.md`, `DEV-TRACKING.md`).
 
-## Unreleased
+## v1.1.0 — 2026-10-21
 
 ### Fixed — the worker now refreshes customer health through the backend
 

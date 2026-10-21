@@ -7,10 +7,9 @@
 
 ## Current Status
 
-Shipped as **v1.0.0** (2026-07-26) — free, open-source, self-hosted, MIT, BYOK.
-Post-1.0 merges (admin/owner gating, copilot truthfulness, usage hardening, cohort playbooks,
-worker health recompute, docs) are listed under **Unreleased** in `CHANGELOG.md`; no release tag
-has been cut for them yet.
+Shipped as **v1.0.0** (2026-07-26) — free, open-source, self-hosted, MIT, BYOK — then
+**v1.1.0** (2026-10-21): admin/owner gating, copilot truthfulness, usage hardening, cohort
+playbooks, worker health recompute. Both are tagged and released on GitHub; see `CHANGELOG.md`.
 
 | Milestone | Status |
 |-----------|--------|

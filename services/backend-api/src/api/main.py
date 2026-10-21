@@ -284,7 +284,7 @@ root_path = os.getenv("ROOT_PATH", "")
 
 app = FastAPI(
     title="Rereflect API",
-    version="1.0.0",
+    version="1.1.0",
     description="Multi-tenant SaaS API for customer feedback analysis",
     lifespan=lifespan,
     root_path=root_path,
@@ -447,7 +447,7 @@ app.include_router(public_api_router.router)
 async def root():
     return {
         "message": "Rereflect API",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "status": "running"
     }
 
