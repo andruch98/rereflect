@@ -13,6 +13,8 @@ class LLMRequest:
     temperature: float = 0.1
     max_tokens: int = 500
     json_mode: bool = True
+    experiment_key: Optional[str] = None
+    experiment_attempted: bool = False
 
 
 @dataclass
@@ -28,3 +30,5 @@ class LLMResponse:
     latency_ms: int                     # Wall clock time in milliseconds
     was_fallback: bool                  # True if this was a fallback call
     fallback_reason: Optional[str]      # "rate_limit", "server_error", "timeout"
+    finish_reason: Optional[str] = None
+    raw_response: Optional[dict] = None

@@ -358,3 +358,40 @@ def generate_churn_analysis(
         org_id=org_id,
         db=db,
     )
+
+
+def categorize_apartment_feedback(text, rating, source_id, model):
+    """One attempt through Rereflect's provider; retain raw invalid output."""
+    import os
+    from src.apartment_reviews import messages, validate_result
+    from src.llm.experiment import ExperimentBlocked
+    from src.llm.factory import LLMProviderFactory
+    audit = {"method": "ai_model", "provider": "openai", "model": model,
+             "raw_output": None, "parsed_result": None, "validation": None,
+             "failure_reason": None, "usage": None}
+    request = LLMRequest(messages=messages(text, rating), temperature=0.1,
+                         max_tokens=4096, json_mode=True, experiment_key=source_id)
+    audit["request"] = {"messages": request.messages, "temperature": 0.1,
+                        "max_tokens": 4096, "response_format": {"type": "json_object"}, "model": model}
+    try:
+        key = os.environ.get("OPENAI_API_KEY")
+        if not key:
+            raise ValueError("OPENAI_API_KEY is unavailable")
+        provider = LLMProviderFactory.create("openai", key, model)
+        response = provider.complete(request)
+        audit.update(raw_output=response.content, raw_response=response.raw_response,
+                     provider=response.provider, model=response.model,
+                     finish_reason=response.finish_reason,
+                     usage={"prompt_tokens": response.prompt_tokens, "completion_tokens": response.completion_tokens,
+                            "total_tokens": response.total_tokens})
+        if response.finish_reason != "stop":
+            raise ValueError("Incomplete model output: " + str(response.finish_reason))
+        audit["parsed_result"] = validate_result(response.content, text, rating)
+        audit["validation"] = {"passed": True, "reason": "Structure, vocabulary, uniqueness and exact quotations checked; interpretation requires human review."}
+    except Exception as exc:
+        # Validation messages contain no credentials; SDK error messages may.
+        reason = str(exc) if isinstance(exc, (ValueError, ExperimentBlocked)) else f"{type(exc).__name__} (HTTP {getattr(exc, 'status_code', None)})"
+        audit["failure_reason"] = reason
+        audit["validation"] = {"passed": False, "reason": reason}
+    audit["provider_attempted"] = request.experiment_attempted
+    return audit

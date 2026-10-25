@@ -93,6 +93,8 @@ class FeedbackItem(Base):
     # The FK constraint exists in the actual database
     organization_id = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
+    star_rating = Column(Integer, nullable=True)
+    apartment_analysis = Column(JSON, nullable=True)
     source = Column(String, nullable=True)  # intercom, zendesk, manual, slack, webhook, etc
     customer_email = Column(String(255), nullable=True)
 

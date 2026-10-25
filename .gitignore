@@ -398,3 +398,6 @@ services/analysis-engine/models/
 .claire/
 
 .serena/
+
+# Private apartment experiment inputs, ledgers and exports belong outside Git.
+experiments/apartment_reviews/private/

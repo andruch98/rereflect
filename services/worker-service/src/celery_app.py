@@ -332,3 +332,12 @@ celery_app.conf.beat_schedule = {
 
 if __name__ == "__main__":
     celery_app.start()
+
+# Isolated apartment experiment: run explicit import jobs only, never Beat jobs.
+import os as _experiment_os
+if _experiment_os.environ.get("APARTMENT_EXPERIMENT_ORG_ID"):
+    celery_app.conf.beat_schedule = {}
+    celery_app.conf.include = ["src.tasks.analysis"]
+    celery_app.conf.worker_concurrency = 1
+    celery_app.conf.worker_prefetch_multiplier = 1
+    celery_app.conf.task_max_retries = 0

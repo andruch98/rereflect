@@ -54,7 +54,27 @@ class OpenAIProvider(LLMProvider):
             kwargs["response_format"] = {"type": "json_object"}
 
         start_time = time.monotonic()
-        response = self._get_client().chat.completions.create(**kwargs)
+        from src.llm.experiment import active, reserve, finish, ExperimentBlocked
+        if active() and not request.experiment_key:
+            raise ExperimentBlocked("Unrelated paid calls are disabled during the apartment experiment")
+        client = self._get_client()
+        if request.experiment_key:
+            # SDK retries are also paid attempts; disable them before reserving.
+            client = client.with_options(max_retries=0)
+            reserve(request.experiment_key, kwargs)
+            request.experiment_attempted = True
+        try:
+            response = client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            if request.experiment_key:
+                status = getattr(exc, "status_code", None)
+                # Error class/status preserves diagnosis without storing headers or keys.
+                reason = f"{type(exc).__name__} (HTTP {status})"
+                finish(request.experiment_key, error=reason,
+                       stop=isinstance(exc, AuthenticationError) or status in (400, 401, 403, 404))
+            raise
+        if request.experiment_key:
+            finish(request.experiment_key, response=response.model_dump(mode="json"))
         latency_ms = int((time.monotonic() - start_time) * 1000)
 
         content = response.choices[0].message.content or ""
@@ -82,6 +102,8 @@ class OpenAIProvider(LLMProvider):
             latency_ms=latency_ms,
             was_fallback=False,
             fallback_reason=None,
+            finish_reason=response.choices[0].finish_reason,
+            raw_response=response.model_dump(mode="json") if request.experiment_key else None,
         )
 
     def validate_key(self) -> Tuple[bool, str]:

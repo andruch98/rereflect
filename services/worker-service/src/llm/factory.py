@@ -38,6 +38,9 @@ class LLMProviderFactory:
         Raises:
             ValueError: If provider is unknown or empty.
         """
+        from src.llm.experiment import active, ExperimentBlocked
+        if active() and provider != "openai":
+            raise ExperimentBlocked("Only the selected OpenAI provider is enabled for this experiment")
         if not provider:
             raise ValueError(f"Unknown provider: {provider!r}")
 
