@@ -53,7 +53,9 @@ for the experiment, with separate AI and fallback CSVs.
 
 ## Run once
 
-Start the ordinary API and worker (no Beat). In experiment mode the worker loads
+Start the ordinary API and worker (no Beat). The API still runs migrations, but
+experiment mode skips startup seed jobs (including Copilot embeddings and BYOK
+key seeding); provision the isolated organization/user explicitly. In experiment mode the worker loads
 only the analysis task module, disables its schedule/retries/side effects, and
 runs with concurrency/prefetch 1. Do not start another worker against this broker.
 Use an authenticated session belonging to the isolated organization. Import
