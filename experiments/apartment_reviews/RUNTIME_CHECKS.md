@@ -1,7 +1,8 @@
 # Apartment experiment: runtime rejection and fallback checks
 
-This describes the implementation at `6ea798cce29fef15c86f533679b90b380733cc97`.
-It documents existing behavior; it does not change it. Examples below are fictional.
+This describes the implementation originally published at
+`6ea798cce29fef15c86f533679b90b380733cc97`, including the subsequent straightforward
+formatting cleanup on this branch. Examples below are fictional.
 The scope is the opt-in apartment CSV → worker → OpenAI → persistence path, including
 its input and call-budget gates. Ordinary software-feedback analysis is a different
 path: `_analyze_feedback_item` returns immediately after the apartment path when
@@ -35,7 +36,46 @@ given in each row:
 - **API**: [API `src/api/routes/feedback.py`](../../services/backend-api/src/api/routes/feedback.py)
 - **Sentiment**: [analysis engine `src/analyzer/sentiment.py`](../../services/analysis-engine/src/analyzer/sentiment.py)
 
-## AI response acceptance: all failures reject the whole analysis
+## Formatting cleanup before AI response acceptance
+
+`validate_result` returns a canonical analysis and optionally records corrections
+in the caller's `normalizations` list. The client saves that list as
+`ai_attempt.normalizations`, even if a later check fails. Raw output, the provider
+response and original review text are never rewritten. Existing saved analyses
+and request ledgers are not automatically revisited or updated.
+
+Permitted corrections, performed without model calls:
+
+- Trim and lowercase sentiment labels; normalize whitespace/case in topic names.
+- Map only the 21 canonical names and their explicit `&` → `and` alternatives
+  back to canonical topic names. No fuzzy matching or new semantic synonyms.
+- Accept `quotes` as an alias for `quotations`. If both are present, their JSON
+  values must be identical; otherwise fail instead of choosing one.
+- Ignore extra top-level/topic fields in the canonical result, while retaining
+  them in raw output. Required fields must still be present.
+- Convert explicit `topics: null` to `[]`, a single topic object to a one-item
+  list, and a quotation string to a one-item list. Missing topics are not empty
+  topics; other malformed types still fail.
+- Remove identical duplicate JSON keys. Equality compares serialized decoded
+  values, preserving distinctions such as `false` versus `0`, even when nested.
+  Conflicting duplicate keys still fail, including within extra fields.
+- Remove blank string quotations when usable evidence remains and deduplicate
+  repeated source quotations. Non-string or unsupported nonblank quotations still
+  fail; an empty final quotation list still fails.
+- Remove identical topic entries after cleanup. Entries with the same topic but
+  different sentiment or different evidence (including evidence order) still fail.
+- Match quotations exactly first. Otherwise permit only whitespace runs and
+  straight/curly single/double quotation-mark differences. Return the matching
+  contiguous **original** source passage, never rewritten evidence. Quotation
+  capitalization, other punctuation, words, numbers, typos and joined passages
+  are not repaired. If several passages match, the first matching source passage
+  is used; this does not establish contextual relevance.
+
+JSON extraction from prose/code fences, conflicting-topic merging, semantic
+repair, technical-error reclassification and partial results remain deferred.
+An explicit null topic list is formatting-compatible, not proof of completeness.
+
+## AI response acceptance: all remaining failures reject the whole analysis
 
 Every row below has the **Fallback** outcome defined above. None removes or fixes
 only one field. The first encountered error is recorded; validation does not
@@ -45,22 +85,22 @@ collect every possible error in an invalid response.
 | --- | --- | --- | --- |
 | `response.finish_reason != "stop"` (including `None`) | Provider did not declare a normal completed response. This check precedes JSON validation. | Syntactically complete JSON with finish reason `length` is still rejected. | Client / `categorize_apartment_feedback` |
 | `json.loads(raw, object_pairs_hook=pairs)` raises | Output is not parseable as the required JSON document. No fence stripping, extraction or repair is attempted. | Markdown fences or an introductory sentence around otherwise valid JSON. | Contract / `validate_result` |
-| An object key occurs twice in `pairs(items)` | Duplicate JSON keys are ambiguous; the hook applies to every parsed object. | Two identical `sentiment` keys with the same value. | Contract / `validate_result.pairs` |
-| Parsed result is not a `dict`, or its key set is not exactly `{"sentiment", "topics"}` | Wrong outer structure, missing fields or additional fields. | An extra explanatory `summary` field; an array wrapping one valid object. | Contract / `validate_result` |
-| Overall sentiment is not a string or is not in `SENTIMENTS` | Only exact lowercase `positive`, `negative`, `mixed`, `neutral`, `unknown` are accepted. | `"Positive"` or `"positive "`. | Contract / `validate_result` |
-| `topics` is not a list | Topics must be a JSON array, including an empty array when appropriate. | `null` instead of `[]` for no topics. | Contract / `validate_result` |
-| Any topic is not a dictionary, or its keys are not exactly `name`, `sentiment`, `quotations` | Every topic must have exactly the expected fields. | Adding a `confidence` field or using `quote` instead of `quotations`. | Contract / `validate_result` |
-| Topic `name` is not a string or is not in `TOPICS` | Topic names must match one of the 21 taxonomy strings exactly. | `Maintenance and repairs` instead of `Maintenance & repairs`; trailing whitespace. | Contract / `validate_result` |
-| Topic `name` already belongs to `seen` | A topic may occur only once, even with different sentiments or evidence. | Two individually sensible entries for praise and complaint about the same topic. | Contract / `validate_result` |
-| Topic sentiment is not a string or is not in `SENTIMENTS` | Per-topic sentiment uses the same exact vocabulary as overall sentiment. | `"Mixed"` instead of `"mixed"`. | Contract / `validate_result` |
-| `quotations` is not a list, or is empty | Every included topic requires at least one quotation. | A single string instead of a one-element array. | Contract / `validate_result` |
-| Any quotation is not a string, or `not q.strip()` | Quotations must contain non-whitespace text. | A whitespace-only placeholder alongside another valid quotation still fails. | Contract / `validate_result` |
-| Any quotation satisfies `q not in text` | Each quotation must be an exact contiguous substring of the original input. No case, spacing, punctuation or Unicode normalization occurs. | Collapsing two spaces to one; straight versus curly quotes; correcting a source typo; combining separated passages with an ellipsis. | Contract / `validate_result` |
+| An object key occurs twice with different decoded JSON values | Conflicting values remain ambiguous; identical duplicates are removed. The hook applies to every parsed object. | `positive` versus `positive ` in duplicate keys still conflicts before label cleanup. | Contract / `validate_result.pairs`, `_same_json` |
+| Parsed result is not a `dict`, or lacks `sentiment` or `topics` | Required outer information is missing. Extra fields are ignored. | An array wrapping one valid object still fails. | Contract / `validate_result` |
+| Overall sentiment is not a string or its trimmed, case-folded value is not in `SENTIMENTS` | Only positive, negative, mixed, neutral, unknown are accepted after label cleanup. | `mostly positive` remains unsupported; `Positive ` passes. | Contract / `validate_result.sentiment` |
+| `topics` is neither a list, a dictionary nor null | Topics must be a list after single-object/null conversion. | A string containing JSON is not reparsed. | Contract / `validate_result` |
+| Any topic is not a dictionary, lacks name/sentiment/evidence, or has conflicting `quotes` and `quotations` | Required topic fields must be recoverable without guessing. Extra fields are ignored; only `quotes` is an accepted field alias. | `quote` (singular) is not an approved alias. | Contract / `validate_result` |
+| Topic name is not a string or is absent from `TOPIC_NAMES` after whitespace/case normalization | Names must match the canonical list or explicit and/ampersand aliases. | `Maintenance` still fails; `Maintenance and repairs` passes. | Contract / `validate_result`, `_topic_key` |
+| A normalized topic name already belongs to `seen` with a different canonical topic object | Only identical duplicates are removed; no conflicting-topic merge. | Separate positive/negative entries or different evidence still fail. | Contract / `validate_result` |
+| Topic sentiment is not a string or its trimmed, case-folded value is not in `SENTIMENTS` | Per-topic sentiment uses the same allowed vocabulary. | `Mostly negative` remains unsupported; `Mixed ` passes. | Contract / `validate_result.sentiment` |
+| Quotations are neither a list nor a string, or no nonempty quotations remain after cleanup | Every included topic needs usable evidence. | Null or a list of only blanks still fails; a single valid string passes. | Contract / `validate_result` |
+| Any quotation is not a string | Malformed evidence is not silently discarded. Blank strings may be removed, non-strings may not. | A null entry alongside a valid quotation still fails. | Contract / `validate_result` |
+| A nonblank quotation cannot match a contiguous source span after the permitted whitespace/quote-mark comparison | Actual wording and other punctuation must still match. Accepted evidence is restored to the source's exact wording. | Correcting a typo, changing capitalization or joining passages with an ellipsis still fails. | Contract / `validate_result`, `_source_quotation` |
 | `not text.strip()` and either topics are nonempty or sentiment differs from `rating_sentiment(rating)` | Empty/whitespace-only reviews must have `topics=[]`; ratings 1–2 → negative, 3 → neutral, 4–5 → positive. | `unknown` for an empty four-star review is rejected despite being an allowed label generally. | Contract / `validate_result`, `rating_sentiment` |
 
 JSON key ordering and formatting whitespace **outside string values** do not
 cause rejection. Different JSON escapes that decode to the same string are fine.
-Repeated quotations within one topic are not rejected. A text-bearing review may
+Repeated quotations within one topic are deduplicated, not rejected. A text-bearing review may
 have an empty topic list. Validation does **not** prove topic completeness, correct
 sentiment, relevance of a quotation, or that a `mixed` topic's evidence really
 contains both praise and complaints. Those remain human-review questions.
@@ -188,7 +228,7 @@ Separate tools/tests must not be confused with runtime rejection:
   agreement and sentiment-column agreement. CLI checks also enforce the expected
   isolated organization and one result page. These checks do not alter saved
   analysis, trigger fallback or rerun AI. Structural export errors can stop export.
-- [`test_contract.py`](test_contract.py), [`test_worker.py`](test_worker.py),
+- [`test_contract.py`](test_contract.py), [`test_normalization.py`](test_normalization.py), [`test_worker.py`](test_worker.py),
   [`test_startup.py`](test_startup.py), and [`check_pipeline.py`](check_pipeline.py)
   are offline development checks with fictional data/mocked provider transport.
   They are not runtime filters and do not prove correctness on every possible input.

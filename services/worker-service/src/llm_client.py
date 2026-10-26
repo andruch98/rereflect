@@ -368,7 +368,7 @@ def categorize_apartment_feedback(text, rating, source_id, model):
     from src.llm.factory import LLMProviderFactory
     audit = {"method": "ai_model", "provider": "openai", "model": model,
              "raw_output": None, "parsed_result": None, "validation": None,
-             "failure_reason": None, "usage": None}
+             "failure_reason": None, "usage": None, "normalizations": []}
     request = LLMRequest(messages=messages(text, rating), temperature=0.1,
                          max_tokens=4096, json_mode=True, experiment_key=source_id)
     audit["request"] = {"messages": request.messages, "temperature": 0.1,
@@ -386,8 +386,9 @@ def categorize_apartment_feedback(text, rating, source_id, model):
                             "total_tokens": response.total_tokens})
         if response.finish_reason != "stop":
             raise ValueError("Incomplete model output: " + str(response.finish_reason))
-        audit["parsed_result"] = validate_result(response.content, text, rating)
-        audit["validation"] = {"passed": True, "reason": "Structure, vocabulary, uniqueness and exact quotations checked; interpretation requires human review."}
+        audit["parsed_result"] = validate_result(
+            response.content, text, rating, normalizations=audit["normalizations"])
+        audit["validation"] = {"passed": True, "reason": "Structure, vocabulary, uniqueness and source quotations checked after recorded formatting normalization; interpretation requires human review."}
     except Exception as exc:
         # Validation messages contain no credentials; SDK error messages may.
         reason = str(exc) if isinstance(exc, (ValueError, ExperimentBlocked)) else f"{type(exc).__name__} (HTTP {getattr(exc, 'status_code', None)})"

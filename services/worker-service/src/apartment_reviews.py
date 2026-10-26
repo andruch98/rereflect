@@ -470,33 +470,144 @@ def messages(text, rating):
     ]
 
 
-def validate_result(raw, text, rating):
+def _topic_key(value):
+    return " ".join(value.split()).casefold()
+
+
+# Only these explicit equivalent names are accepted; no fuzzy topic guessing.
+TOPIC_NAMES = {
+    _topic_key(alias): name
+    for name in TOPICS
+    for alias in (name, name.replace("&", "and"))
+}
+
+
+def _same_json(left, right):
+    # Unlike Python equality, this keeps false distinct from 0, including in lists.
+    return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
+
+
+def _source_quotation(quote, text):
+    """Return original source wording; only whitespace and curly quotes may vary."""
+    if quote in text:
+        return quote
+    pieces = []
+    for token in re.findall(r"\s+|[^\s]", quote.strip()):
+        if token.isspace():
+            pieces.append(r"\s+")
+        elif token in "'‘’":
+            pieces.append("['‘’]")
+        elif token in '\"“”':
+            pieces.append('[\"“”]')
+        else:
+            pieces.append(re.escape(token))
+    match = re.search("".join(pieces), text)
+    if match is None:
+        raise ValueError("Quotation does not match source after whitespace/quotation-mark normalization")
+    return match.group(0)
+
+
+def validate_result(raw, text, rating, *, normalizations=None):
+    """Clean predictable formatting, then validate the whole result.
+
+    Raw output and source text are never modified. Optional audit entries record
+    each cleanup, including cleanups attempted before a later validation failure.
+    Conflicting topics, missing information and unsupported evidence still fail.
+    """
     validate_input(text, rating)
+
+    def note(path, change):
+        if normalizations is not None:
+            normalizations.append({"path": path, "change": change})
+
     def pairs(items):
         obj = {}
         for key, value in items:
-            if key in obj: raise ValueError("Duplicate JSON key: " + key)
-            obj[key] = value
+            if key in obj:
+                if not _same_json(obj[key], value):
+                    raise ValueError("Conflicting duplicate JSON key: " + key)
+                note("json." + key, "identical_duplicate_key_removed")
+            else:
+                obj[key] = value
         return obj
+
+    def sentiment(value, path):
+        if not isinstance(value, str) or value.strip().casefold() not in SENTIMENTS:
+            raise ValueError("Invalid " + path)
+        normalized = value.strip().casefold()
+        if normalized != value:
+            note(path, "sentiment_case_or_whitespace_normalized")
+        return normalized
+
+    def ignore_extra(obj, allowed, path):
+        for key in sorted(set(obj) - allowed):
+            note(path + "." + key, "extra_field_ignored")
+
     result = json.loads(raw, object_pairs_hook=pairs)
-    if not isinstance(result, dict) or set(result) != {"sentiment", "topics"}:
-        raise ValueError("Expected exactly sentiment and topics")
-    if not isinstance(result["sentiment"], str) or result["sentiment"] not in SENTIMENTS:
-        raise ValueError("Invalid overall sentiment")
-    if not isinstance(result["topics"], list): raise ValueError("topics must be a list")
-    seen = set()
-    for topic in result["topics"]:
-        if not isinstance(topic, dict) or set(topic) != {"name", "sentiment", "quotations"}:
+    if not isinstance(result, dict) or not {"sentiment", "topics"} <= result.keys():
+        raise ValueError("Expected sentiment and topics")
+    ignore_extra(result, {"sentiment", "topics"}, "result")
+    overall = sentiment(result["sentiment"], "overall sentiment")
+    candidates = result["topics"]
+    if candidates is None:
+        candidates = []
+        note("topics", "null_topics_converted_to_empty_list")
+    elif isinstance(candidates, dict):
+        candidates = [candidates]
+        note("topics", "single_topic_wrapped_in_list")
+    if not isinstance(candidates, list):
+        raise ValueError("topics must be a list")
+
+    topics, seen = [], {}
+    for index, topic in enumerate(candidates):
+        path = f"topics[{index}]"
+        if not isinstance(topic, dict) or not {"name", "sentiment"} <= topic.keys():
             raise ValueError("Invalid topic structure")
-        name = topic["name"]
-        if not isinstance(name, str) or name not in TOPICS or name in seen:
-            raise ValueError("Unknown or duplicate topic")
-        seen.add(name)
-        if not isinstance(topic["sentiment"], str) or topic["sentiment"] not in SENTIMENTS:
-            raise ValueError("Invalid topic sentiment")
-        quotes = topic["quotations"]
-        if not isinstance(quotes, list) or not quotes or any(not isinstance(q, str) or not q.strip() or q not in text for q in quotes):
-            raise ValueError("Quotations must be nonempty exact source substrings")
-    if not text.strip() and (result["topics"] or result["sentiment"] != rating_sentiment(rating)):
+        if "quotes" in topic:
+            if "quotations" in topic and not _same_json(topic["quotations"], topic["quotes"]):
+                raise ValueError("Conflicting quotations and quotes fields")
+            note(path + ".quotes", "quotes_alias_normalized")
+        if "quotations" not in topic and "quotes" not in topic:
+            raise ValueError("Missing quotations")
+        ignore_extra(topic, {"name", "sentiment", "quotations", "quotes"}, path)
+        supplied_name = topic["name"]
+        name = TOPIC_NAMES.get(_topic_key(supplied_name)) if isinstance(supplied_name, str) else None
+        if name is None:
+            raise ValueError("Unknown topic")
+        if name != supplied_name:
+            note(path + ".name", "topic_name_normalized")
+        label = sentiment(topic["sentiment"], path + ".sentiment")
+        quotes = topic["quotations"] if "quotations" in topic else topic["quotes"]
+        if isinstance(quotes, str):
+            quotes = [quotes]
+            note(path + ".quotations", "single_quotation_wrapped_in_list")
+        if not isinstance(quotes, list):
+            raise ValueError("quotations must be a list")
+        evidence = []
+        for quote_index, quote in enumerate(quotes):
+            quote_path = path + f".quotations[{quote_index}]"
+            if not isinstance(quote, str):
+                raise ValueError("Quotations must be strings")
+            if not quote.strip():
+                note(quote_path, "blank_quotation_removed")
+                continue
+            source_quote = _source_quotation(quote, text)
+            if source_quote != quote:
+                note(quote_path, "original_source_quotation_restored")
+            if source_quote in evidence:
+                note(quote_path, "identical_duplicate_quotation_removed")
+            else:
+                evidence.append(source_quote)
+        if not evidence:
+            raise ValueError("At least one nonempty source quotation is required")
+        accepted = {"name": name, "sentiment": label, "quotations": evidence}
+        if name in seen:
+            if seen[name] != accepted:
+                raise ValueError("Conflicting duplicate topic: " + name)
+            note(path, "identical_duplicate_topic_removed")
+        else:
+            seen[name] = accepted
+            topics.append(accepted)
+    if not text.strip() and (topics or overall != rating_sentiment(rating)):
         raise ValueError("Invalid rating-only result")
-    return result
+    return {"sentiment": overall, "topics": topics}

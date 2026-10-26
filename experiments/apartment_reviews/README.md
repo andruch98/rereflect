@@ -77,9 +77,19 @@ Authentication/permission/bad-request/unavailable-model errors stop subsequent
 provider attempts. A stopped or duplicate attempt is reported explicitly. Never
 change/delete the ledger to get another attempt without separate authorization.
 
-The worker validates output keys, allowed labels/names, unique topics and exact
-nonempty source quotations. Raw output, validation errors, parsed output and
-final saved output remain separate. Validation cannot assess interpretation.
+The worker first cleans predictable formatting, then validates required fields,
+allowed labels/names, unique topics and nonempty source quotations. Label case and
+surrounding spaces, explicit `and`/`&` topic aliases, `quotes`/`quotations`, single
+topic/quotation list formatting, explicit null topics, extra fields, identical
+duplicates and blank quotation entries are handled without another model call.
+Whitespace and straight/curly quotation-mark differences are matched against the
+original review; the accepted quotation is the original contiguous source text.
+Every correction is recorded in `ai_attempt.normalizations`. Raw output and source
+input remain unchanged; `parsed_result` is the cleaned, validated result.
+Conflicting duplicate topics, missing required information, unsupported words,
+typo repair, joined passages and JSON extraction remain failures. There is no
+partial acceptance: a remaining failure still triggers whole-result fallback.
+Validation cannot assess interpretation. See the runtime guide for precise rules.
 A rating-only review has no topics/quotations; 1–2 stars → negative, 3 → neutral,
 4–5 → positive. Text-bearing fallback uses the existing VADER SentimentAnalyzer.
 Fallback topic sentiments are unknown; exact keyword spans are mechanical

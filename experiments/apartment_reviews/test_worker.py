@@ -87,6 +87,44 @@ def test_worker_preserves_mixed_and_topic_sentiments(context):
     assert client.chat.completions.create.call_count==1
 
 
+def test_worker_saves_cleaned_result_and_keeps_raw_output_and_audit(context):
+    text,client,response,output=context
+    messy=json.loads(json.dumps(output))
+    messy['sentiment']=' Mixed '
+    messy['confidence']=0.9
+    messy['topics'][0]['name']='Noise and neighbors'
+    messy['topics'][0]['quotations']=['', 'Quiet\tneighbors.']
+    raw=json.dumps(messy)
+    response.choices[0].message.content=raw
+    item=feedback(text)
+    analysis._analyze_feedback_item(item,session())
+    audit=item.apartment_analysis['ai_attempt']
+    assert audit['raw_output']==raw
+    assert audit['parsed_result']==output
+    assert audit['normalizations']
+    assert audit['validation']['passed'] is True
+    assert item.apartment_analysis['final_result']['method']=='ai_model'
+    assert item.apartment_analysis['final_result']['topics']==output['topics']
+    assert item.text==text and item.star_rating==3
+    assert item.llm_analyzed is True and item.llm_analysis_pending is False
+    assert client.chat.completions.create.call_count==1
+
+
+def test_conflicting_topics_still_save_fallback_without_paid_retry(context):
+    text,client,response,output=context
+    duplicate=dict(output['topics'][0],sentiment='negative')
+    raw=json.dumps(dict(output,topics=output['topics']+[duplicate]))
+    response.choices[0].message.content=raw
+    item=feedback(text)
+    analysis._analyze_feedback_item(item,session())
+    audit=item.apartment_analysis['ai_attempt']
+    assert audit['raw_output']==raw and audit['parsed_result'] is None
+    assert 'Conflicting duplicate topic' in audit['failure_reason']
+    assert item.apartment_analysis['final_result']['method']=='keyword_fallback'
+    assert item.llm_analyzed is False and item.llm_analysis_pending is False
+    assert client.chat.completions.create.call_count==1
+
+
 def test_failure_routes_to_actual_keyword_sentiment_without_second_call(context):
     text,client,_,_=context
     client.chat.completions.create.side_effect=RuntimeError('simulated provider failure')

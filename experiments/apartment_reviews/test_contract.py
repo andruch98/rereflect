@@ -80,7 +80,9 @@ def test_validation():
     text = 'Quiet neighbors. The pool is dirty.'
     data = {'sentiment':'mixed','topics':[{'name':'Noise & neighbors','sentiment':'positive','quotations':['Quiet neighbors.']}, {'name':'Amenities','sentiment':'negative','quotations':['The pool is dirty.']}]}
     assert validate_result(json.dumps(data),text,3)==data
-    for invalid in [dict(data, sentiment='other'), dict(data, topics=data['topics']*2), dict(data, summary='extra'), dict(data, topics=[{'name':'Amenities','sentiment':'negative','quotations':['The pool was dirty.']}]), dict(data, topics=[{'name':'system_crash','sentiment':'negative','quotations':['dirty']}])]:
+    assert validate_result(json.dumps(dict(data, topics=data['topics']*2)),text,3)==data
+    assert validate_result(json.dumps(dict(data, summary='extra')),text,3)==data
+    for invalid in [dict(data, sentiment='other'), dict(data, topics=[{'name':'Amenities','sentiment':'negative','quotations':['The pool was dirty.']}]), dict(data, topics=[{'name':'system_crash','sentiment':'negative','quotations':['dirty']}])]:
         with pytest.raises(ValueError): validate_result(json.dumps(invalid),text,3)
     with pytest.raises(ValueError): validate_result('{"sentiment":"neutral","sentiment":"mixed","topics":[]}',text,3)
 
