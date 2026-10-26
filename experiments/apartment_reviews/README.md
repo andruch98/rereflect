@@ -11,6 +11,10 @@ automations, outbound mail credentials, webhooks or production connections.
 Keep all real inputs, source IDs, ledgers and exports outside the checkout.
 Upstream LICENSE and NOTICE remain unchanged.
 
+See [Runtime rejection and fallback checks](RUNTIME_CHECKS.md) for the exact
+acceptance conditions, whole-result versus field-level effects, and distinctions
+between runtime gates, offline tests and informational warnings.
+
 ## Setup and input
 
 Use the repository's PostgreSQL/Redis setup and dependencies. Apply
