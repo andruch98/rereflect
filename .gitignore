@@ -401,3 +401,4 @@ services/analysis-engine/models/
 
 # Private apartment experiment inputs, ledgers and exports belong outside Git.
 experiments/apartment_reviews/private/
+review_analysis_test_runs*.txt

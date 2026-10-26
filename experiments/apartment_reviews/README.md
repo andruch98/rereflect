@@ -27,6 +27,8 @@ Set these variables on both API and worker processes:
 - `APARTMENT_EXPERIMENT_MODEL`: the one selected, compatible OpenAI model.
 - `APARTMENT_EXPERIMENT_MANIFEST`: absolute path to private `manifest.json`.
 - `APARTMENT_EXPERIMENT_LEDGER`: absolute path to a private persistent SQLite file.
+- `APARTMENT_ANALYSIS_TEST_RUNS_PATH`: absolute path to the private, shortened
+  `review_analysis_test_runs_v1.txt` on the worker's filesystem (see below).
 - `OPENAI_API_KEY`: securely injected credential; never pass it on the command line.
 - `JWT_SECRET` and `LLM_ENCRYPTION_KEY`: fresh isolated application secrets, as
   required by the ordinary app and migrations.
@@ -35,9 +37,47 @@ The experiment bypasses the normal retrying organization LLM resolver, but uses
 Rereflect's existing provider factory and OpenAI provider. This allows the injected
 environment key without copying another app's environment or storing that key in
 Git. There are no secondary providers, models or SDK retries. Non-OpenAI provider
-configurations fail explicitly. The prompt uses temperature 0.1, JSON mode and a
-4,096-token output allowance. Non-`stop` completions fail validation without
+configurations fail explicitly. The prompt uses temperature 0.1, OpenAI strict
+Structured Outputs (`json_schema`) and a 4,096-token output allowance. Use a model
+supporting that response format; the previous runs used `gpt-4.1-mini`. The schema
+allows only the 21 topic names and the agreed sentiment/quotation fields. Ordinary
+Rereflect requests retain their existing JSON-mode behavior. Non-`stop` completions fail validation without
 truncating or repairing raw output.
+
+### Private analysis reference
+
+Supply the shortened AI-facing file, not the full technical archive or unapproved
+draft corrections. Keep it outside Git, on a private persistent volume readable by
+the worker. In a container, use its mounted path. This repository intentionally
+does not contain real reviews or the private file; no public download or embedded
+copy is used. The filename is also ignored by Git as an extra safeguard.
+
+Before every apartment AI request, the client reads the complete UTF-8 file from
+`APARTMENT_ANALYSIS_TEST_RUNS_PATH`. It neither caches nor truncates it. A missing,
+relative, unreadable, invalid-UTF-8 or empty file produces an explicit failed audit
+and the existing keyword fallback **before** reserving or sending a model request;
+the file is never silently omitted. The AI-disabled comparison needs no reference.
+
+The request contains, in order:
+
+1. Current analysis instructions, including an introduction telling the model to
+   read the history, compare original reviews with analyses and reviewed comments,
+   and apply the approved lessons. Historical outputs can contain mistakes; a
+   passing code check does not approve their interpretation. Current instructions
+   and output format take precedence over historical material.
+2. A separate user message containing the full file under
+   `analysis_test_runs_reference`. It is reference material, not the current review.
+3. The unchanged current review text and star rating. This remains last so the
+   existing manifest integrity check still verifies exactly the intended input.
+
+The model must use the current review's evidence rather than copy historical
+names, facts, quotations or topics. A non-null `approved_corrected_analysis` is an
+approved complete example; null is not. `ai_attempt.reference_file` records the
+file's SHA-256 and byte count, while the existing private request audit/ledger
+retains its exact content. These records must stay private too. The file adds input
+tokens to every call; its effect on interpretation needs a separately authorized
+live test. Reusing reviews already in the reference tests known cases, not unseen
+review performance.
 
 First inspect the real CSV headers. Write the six authorized IDs, in order, to a
 private JSON array. Do not infer column names from previous workspaces. Then run:
@@ -51,7 +91,8 @@ python experiments/apartment_reviews/prepare_input.py \
 
 The destination must not exist. Selection requires exactly one occurrence of each
 ID and usable ratings. Original text, including whitespace and newlines, is
-preserved. Only text/rating reach the model; IDs remain internal metadata. The
+preserved. The current review contributes only text/rating to the model; the
+private reference is supplied separately. IDs remain internal metadata. The
 source is untouched. Generated files contain only the normalized fields needed
 for the experiment, with separate AI and fallback CSVs.
 
@@ -82,8 +123,9 @@ allowed labels/names, unique topics and nonempty source quotations. Label case a
 surrounding spaces, explicit `and`/`&` topic aliases, `quotes`/`quotations`, single
 topic/quotation list formatting, explicit null topics, extra fields, identical
 duplicates and blank quotation entries are handled without another model call.
-Whitespace and straight/curly quotation-mark differences are matched against the
-original review; the accepted quotation is the original contiguous source text.
+Whitespace, straight/curly quotation marks and a quotation's opening English
+letter case may differ (`She` versus `she`). Case changes later in a quotation
+still fail. The accepted quotation is the original contiguous source text.
 Every correction is recorded in `ai_attempt.normalizations`. Raw output and source
 input remain unchanged; `parsed_result` is the cleaned, validated result.
 Conflicting duplicate topics, missing required information, unsupported words,
@@ -104,8 +146,11 @@ or time periods receive different judgments. Genuine praise and complaints belon
 in a single mixed topic, with at least one positive and one negative quotation.
 The AI performs that interpretation; code does not merge conflicting topics.
 
-The live client requires labeled quotations. It checks that mixed topics have
-both labels and that a non-mixed topic does not contain both. The same exact
+The live client requires labeled quotations. When one topic has both positive and
+negative quotation labels, code sets that topic to `mixed` and records the change
+in `normalizations`, instead of rejecting the analysis. A topic already labeled
+mixed still needs both sides. Other labels are left as supplied; code does not
+invent missing evidence or merge conflicting duplicate topics. The same exact
 quotation cannot have conflicting labels within one topic. These checks cannot
 prove that the AI assigned the correct sentiment. Source matching and harmless
 format cleanup still apply to each quotation's text and label. A single quotation
@@ -114,28 +159,31 @@ Missing labels are not inferred from the topic. Historical output can still be
 replayed with the validator's default legacy mode, without rewriting or labeling
 it; this mode is not used for new live calls. Keyword evidence remains unchanged.
 
+Overall sentiment remains the model's interpretation of the review's main message
+and emphasis. It is not a vote across topic labels, and a mixed topic does not
+automatically make the entire review mixed. Code never changes overall sentiment
+as a side effect of deriving a mixed topic.
+
 The Markdown export groups labeled quotations under Positive, Negative, Neutral
 or Unknown beneath each topic. Historical strings and mechanical fallback spans
 are explicitly Unlabeled. The JSON export retains the full audit. This change
 covers the experiment report, not the upstream browser dashboard.
 
-### Authorized second test run: not executed yet
+### Further live testing
 
-The user authorized up to six new attempts on the same six selected reviews,
-with the existing model/settings and no retries. Preserve the first run's private
-results and ledger. Prepare a new isolated experiment organization and a new
-private ledger/output directory for this separately authorized run; never clear
-the old ledger or overwrite completed analyses. Reuse the original private
-manifest/CSV only after checking full text and rating integrity. Follow the API
-import, worker and export procedure above, including the no-cost keyword comparison.
-Compare results with the first run and leave interpretation approvals blank.
+The two earlier six-review runs are complete; their allowances are consumed.
+These schema/reference/normalization changes have only been tested offline.
+A new paid run needs its own explicit allowance, a new isolated experiment
+organization and private ledger/output directory. Preserve earlier results and
+ledgers; never clear them or overwrite completed analyses to obtain another call.
 
-This workspace has no injected `OPENAI_API_KEY` or original private manifest/CSV;
-only the earlier handoff's recorded text/outputs are available. Do not reconstruct
-an authoritative CSV silently from that report. No new paid request has been made.
-Run in the cloud task holding the securely configured key and original private
-inputs, after checking they exist. Never put credentials or real review results
-in Git or ordinary chat.
+Before a separately authorized run, verify the actual cloud task has the securely
+configured key, original private manifest/CSV, and the latest shortened reference
+file at `APARTMENT_ANALYSIS_TEST_RUNS_PATH`. This development workspace has no
+injected API key or original private CSV. Do not silently reconstruct authoritative
+input from a report. Follow the import/worker/export procedure above, including
+the no-cost keyword comparison. Keep private inputs, credentials and identifiable
+results out of Git, and leave new interpretation approvals blank until reviewed.
 
 ## Export and review
 

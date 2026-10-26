@@ -39,9 +39,19 @@ def test_mixed_requires_both_sides():
     data=copy.deepcopy(VALID);data['topics'][0]['quotations'].pop()
     with pytest.raises(ValueError,match='requires positive and negative'): check(data)
 
-def test_both_sides_require_mixed_topic():
-    data=copy.deepcopy(VALID);data['topics'][0]['sentiment']='positive'
-    with pytest.raises(ValueError,match='require a mixed'): check(data)
+@pytest.mark.parametrize('label', ['positive', 'negative', 'neutral', 'unknown'])
+def test_both_sides_derive_mixed_without_changing_overall_or_raw(label):
+    data=copy.deepcopy(VALID)
+    data['sentiment']='negative'
+    data['topics'][0]['sentiment']=label
+    raw=json.dumps(data)
+    changes=[]
+    found=validate_result(raw,TEXT,3,require_labeled_quotations=True,normalizations=changes)
+    assert found['sentiment']=='negative'
+    assert found['topics']==VALID['topics']
+    assert changes==[{'path':'topics[0].sentiment','change':'mixed_topic_derived_from_quotation_labels'}]
+    assert json.loads(raw)==data and data['topics'][0]['sentiment']==label
+    assert check(found)==found
 
 def test_same_quote_cannot_supply_both_sides():
     data=copy.deepcopy(VALID);data['topics'][0]['quotations'][1]['text']='Alex was helpful.'

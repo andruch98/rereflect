@@ -1,7 +1,7 @@
 """
 OpenAI LLM provider implementation.
 
-Uses chat.completions.create with json_object response format for JSON mode.
+Uses chat.completions.create with an optional strict schema or ordinary JSON mode.
 System messages are kept in the messages array (OpenAI's native format).
 """
 
@@ -35,7 +35,7 @@ class OpenAIProvider(LLMProvider):
         Call OpenAI chat.completions.create.
 
         Args:
-            request: LLMRequest with messages, temperature, max_tokens, json_mode
+            request: LLMRequest with messages, generation settings and optional response_schema
 
         Returns:
             LLMResponse with content, token counts, cost, latency.
@@ -50,7 +50,9 @@ class OpenAIProvider(LLMProvider):
             "max_tokens": request.max_tokens,
         }
 
-        if request.json_mode:
+        if request.response_schema is not None:
+            kwargs["response_format"] = {"type": "json_schema", "json_schema": request.response_schema}
+        elif request.json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
         start_time = time.monotonic()

@@ -15,6 +15,7 @@ class LLMRequest:
     json_mode: bool = True
     experiment_key: Optional[str] = None
     experiment_attempted: bool = False
+    response_schema: Optional[dict] = None  # OpenAI Structured Outputs; otherwise retain json_mode.
 
 
 @dataclass

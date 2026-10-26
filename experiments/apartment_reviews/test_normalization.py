@@ -66,6 +66,9 @@ def test_only_taxonomy_and_explicit_and_aliases_are_canonicalized(name):
     ('They said “we’re ready”.', 'They said "we\'re ready".'),
     ('They said "we\'re ready".', 'They said “we’re ready”.'),
     ('Price: $100.00 (paid).', 'Price:  $100.00 (paid).'),
+    ('she became rude.', 'She became rude.'),
+    ('She became rude.', 'she became rude.'),
+    ('“she became rude.”', '"She  became rude."'),
 ])
 def test_quotes_are_replaced_with_contiguous_original_source(source, quote):
     data = {'sentiment': 'neutral', 'topics': [
@@ -102,7 +105,8 @@ def test_identical_json_keys_are_removed_but_conflicts_still_fail():
     'The maintenance team was not helpful.',  # Added negation.
     'The maintenence team was helpful.',  # Typo correction/matching is deferred.
     'The maintenance team was helpful...The pool is dirty.',  # Joined passages.
-    'The Pool is dirty.',  # Quotation case changes are not label normalization.
+    'The Pool is dirty.',  # Only an opening letter's case may change.
+    'THE pool is dirty.',  # Not a case-insensitive search of the whole passage.
     'The pool was dirty.',  # Changed wording.
 ])
 def test_unsupported_evidence_still_rejects_the_whole_result(quote):
@@ -171,6 +175,14 @@ def test_json_extraction_remains_deferred(prefix, suffix):
 def test_rating_only_mapping_is_not_relaxed():
     with pytest.raises(ValueError, match='rating-only'):
         check({'sentiment': 'unknown', 'topics': None}, '', 4)
+
+
+def test_normalized_case_match_prefers_existing_case_before_opening_cleanup():
+    source='she  was rude. She  was rude.'
+    data={'sentiment':'negative','topics':[{'name':'Staff & customer service',
+          'sentiment':'negative','quotations':['She was rude.']}]}
+    accepted,_=check(data,source)
+    assert accepted['topics'][0]['quotations']==['She  was rude.']
 
 
 def test_unrelated_inputs_are_still_validated_before_output_cleanup():

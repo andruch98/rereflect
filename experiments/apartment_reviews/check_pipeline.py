@@ -31,6 +31,8 @@ private=Path(tempfile.mkdtemp(prefix='apartment-offline-',dir=os.environ['APARTM
 text='  Quiet neighbors.\n'+('Full fictional text. '*200)+'The pool is dirty.\n'
 records=[{'source_id':'fiction-'+str(i),'text':text if i else '', 'star_rating':4 if i==0 else 3} for i in range(6)]
 manifest=private/'manifest.json';manifest.write_text(json.dumps({'records':records}))
+reference=private/'review_analysis_test_runs_v1.txt'
+reference.write_text('Fictional reviewed history. Keep the original review quotations.\n')
 with SessionLocal() as db:
     org=Organization(name='Offline apartment workflow fixture',ai_analysis_enabled=True)
     db.add(org);db.commit();db.refresh(org)
@@ -52,6 +54,7 @@ app.dependency_overrides[get_current_usage]=usage_override
 # The importer, queue, worker, ORM and response schema are real.
 child_env=dict(os.environ, PYTHONPATH=str(ROOT/'services/worker-service')+':'+str(ROOT/'services/analysis-engine/src'),
                APARTMENT_EXPERIMENT_MANIFEST=str(manifest),APARTMENT_EXPERIMENT_LEDGER=str(private/'ledger.sqlite'),
+               APARTMENT_ANALYSIS_TEST_RUNS_PATH=str(reference),
                APARTMENT_EXPERIMENT_MODEL='gpt-4.1-mini',OPENAI_API_KEY='offline-fictional-key')
 log=(private/'worker.log').open('w')
 worker=subprocess.Popen([sys.executable,str(Path(__file__).with_name('mock_worker.py'))],env=child_env,stdout=log,stderr=log)

@@ -15,6 +15,9 @@ class OfflineClient:
         return self
 
     def create(self, **kwargs):
+        assert kwargs['response_format']['type']=='json_schema'
+        assert kwargs['response_format']['json_schema']['strict'] is True
+        assert json.loads(kwargs['messages'][1]['content'])['analysis_test_runs_reference']
         record=json.loads(kwargs['messages'][-1]['content'])
         text=record['text']
         sentiment='positive' if record['star_rating'] >= 4 else 'negative' if record['star_rating'] <= 2 else 'neutral'

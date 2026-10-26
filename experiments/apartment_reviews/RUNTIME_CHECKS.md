@@ -1,8 +1,9 @@
 # Apartment experiment: runtime rejection and fallback checks
 
 This describes the implementation originally published at
-`6ea798cce29fef15c86f533679b90b380733cc97`, including the subsequent straightforward
-formatting cleanup on this branch. Examples below are fictional.
+`6ea798cce29fef15c86f533679b90b380733cc97`, including subsequent formatting cleanup,
+labeled quotations, strict topic schema and private test-history guidance on this
+branch. Examples below are fictional.
 The scope is the opt-in apartment CSV → worker → OpenAI → persistence path, including
 its input and call-budget gates. Ordinary software-feedback analysis is a different
 path: `_analyze_feedback_item` returns immediately after the apartment path when
@@ -64,12 +65,18 @@ Permitted corrections, performed without model calls:
   fail; an empty final quotation list still fails.
 - Remove identical topic entries after cleanup. Entries with the same topic but
   different sentiment or different evidence (including evidence order) still fail.
-- Match quotations exactly first. Otherwise permit only whitespace runs and
-  straight/curly single/double quotation-mark differences. Return the matching
-  contiguous **original** source passage, never rewritten evidence. Quotation
-  capitalization, other punctuation, words, numbers, typos and joined passages
-  are not repaired. If several passages match, the first matching source passage
-  is used; this does not establish contextual relevance.
+- Match quotations exactly first, then allow whitespace runs and straight/curly
+  single/double quotation marks. If still unmatched, allow only the opening
+  English letter's case to differ, including after leading quotation marks.
+  Return the matching contiguous **original** source passage, never rewritten
+  evidence. Later capitalization, other punctuation, words, numbers, typos and
+  joined passages are not repaired. Use the first match at each comparison stage;
+  this does not establish contextual relevance.
+- For new labeled output, a topic with both positive and negative quotation labels
+  becomes `mixed`, recorded as `mixed_topic_derived_from_quotation_labels` at its
+  sentiment path. Raw output, quotation labels and overall sentiment stay intact.
+  This rule uses the model's evidence labels; it does not judge whether they are
+  correct, infer missing labels, or merge separate conflicting topic entries.
 
 JSON extraction from prose/code fences, conflicting-topic merging, semantic
 repair, technical-error reclassification and partial results remain deferred.
@@ -97,8 +104,8 @@ collect every possible error in an invalid response.
 | A quotation object lacks text/sentiment, text is not a string, or its label is invalid or mixed | Quotation objects require their own positive, negative, neutral or unknown label. | `Positive ` passes; missing labels are not guessed. | Contract / `validate_result` |
 | New live output contains a nonblank quotation string without a sentiment | The live client sets `require_labeled_quotations=True`. Legacy replay defaults to false and preserves old strings. | Blank strings can still be removed when usable evidence remains. | Client / Contract |
 | The same normalized source quotation has different labels within a topic | Identical evidence cannot supply conflicting sides. | Whitespace variants cannot bypass this check. | Contract / `validate_result` |
-| In new live output, a mixed topic lacks positive or negative quotations, or a non-mixed topic has both | Topic and evidence labels must be structurally consistent. | A single positive quotation does not establish mixed sentiment. No automatic relabeling or merging. | Contract / `validate_result` |
-| A nonblank quotation cannot match a contiguous source span after the permitted whitespace/quote-mark comparison | Actual wording and other punctuation must still match. Accepted evidence is restored to the source's exact wording. | Correcting a typo, changing capitalization or joining passages with an ellipsis still fails. | Contract / `validate_result`, `_source_quotation` |
+| In new live output, a mixed topic lacks positive or negative quotations | A declared mixed topic needs both sides. A non-mixed topic with both labels is now corrected to mixed instead of failing. | A single positive quotation does not establish mixed sentiment; missing evidence is not invented. | Contract / `validate_result` |
+| A nonblank quotation cannot match a contiguous source span after whitespace/quote-mark/opening-letter comparison | Actual wording and other punctuation must still match. Accepted evidence is restored to the source's exact wording. | `She` versus `she` at the opening passes; a later case change, corrected typo or joined passages still fails. | Contract / `validate_result`, `_source_quotation` |
 | `not text.strip()` and either topics are nonempty or sentiment differs from `rating_sentiment(rating)` | Empty/whitespace-only reviews must have `topics=[]`; ratings 1–2 → negative, 3 → neutral, 4–5 → positive. | `unknown` for an empty four-star review is rejected despite being an allowed label generally. | Contract / `validate_result`, `rating_sentiment` |
 
 JSON key ordering and formatting whitespace **outside string values** do not
@@ -133,6 +140,20 @@ these protections: API and worker must both start with experiment mode configure
 
 ## Provider and durable request-budget gates
 
+Apartment requests now use OpenAI `response_format.type=json_schema`, with
+`strict=true`, all object fields required and `additionalProperties=false`.
+Topic names are an enum of the 21 canonical names; topic/overall sentiment allows
+five labels, quotation sentiment excludes mixed. This constrains generation, not
+semantic correctness: all source, uniqueness and remaining consistency checks
+above still run. Unsupported schema/model requests do not downgrade silently to
+JSON mode. Ordinary non-experiment calls keep their previous format.
+
+The complete private reference file is introduced by current system instructions
+and included in its own user message before the current review. The ledger's
+last-message manifest comparison is unchanged. The request audit and ledger
+contain private reference content; `ai_attempt.reference_file` identifies its hash
+and byte count. No reference reading occurs in the AI-disabled comparison path.
+
 Failures below occur inside the client's `try` unless stated otherwise. They yield
 **whole-analysis Fallback**, even if no HTTP request was made. `provider_attempted`
 only becomes true after a durable reservation; a crash after reservation is
@@ -140,6 +161,7 @@ conservatively counted. Do not equate a fallback record with a paid attempt.
 
 | Exact failing condition | Plain-English meaning / consequence | Harmless-looking example | Source / function |
 | --- | --- | --- | --- |
+| Reference path missing/relative, file unreadable, invalid UTF-8 or empty | Clear failed audit and whole-analysis fallback before provider reservation/HTTP; `provider_attempted=False`. No silent reference omission. | An empty file or a host path unavailable inside the worker container. | Contract / `load_test_runs_reference`; Client |
 | `not os.environ.get("OPENAI_API_KEY")` | Missing/empty key: no provider request; failed audit and fallback. Does not globally stop other records. | None. | Client / `categorize_apartment_feedback` |
 | Experiment active and provider name is not `"openai"` | Factory blocks secondary providers. In the apartment client, this would be caught and cause fallback; other callers receive the exception. | Provider capitalization differs. | Factory / `LLMProviderFactory.create` |
 | Experiment active and `not request.experiment_key` | Block unrelated paid OpenAI calls before SDK invocation. Other callers receive `ExperimentBlocked`; the apartment client would record fallback. | Missing internal source metadata. | Provider / `OpenAIProvider.complete` |
