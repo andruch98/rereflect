@@ -387,7 +387,7 @@ def categorize_apartment_feedback(text, rating, source_id, model):
         if response.finish_reason != "stop":
             raise ValueError("Incomplete model output: " + str(response.finish_reason))
         audit["parsed_result"] = validate_result(
-            response.content, text, rating, normalizations=audit["normalizations"])
+            response.content, text, rating, normalizations=audit["normalizations"], require_labeled_quotations=True)
         audit["validation"] = {"passed": True, "reason": "Structure, vocabulary, uniqueness and source quotations checked after recorded formatting normalization; interpretation requires human review."}
     except Exception as exc:
         # Validation messages contain no credentials; SDK error messages may.

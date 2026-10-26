@@ -95,6 +95,48 @@ A rating-only review has no topics/quotations; 1–2 stars → negative, 3 → n
 Fallback topic sentiments are unknown; exact keyword spans are mechanical
 evidence, not AI-selected quotations. No fallback model calls occur.
 
+## Labeled quotation format
+
+New AI calls return each quotation as `{"text": "exact source passage", "sentiment": "positive"}`
+inside the topic's `quotations` list. Quotation labels are positive, negative,
+neutral or unknown. Each topic appears once, including when different employees
+or time periods receive different judgments. Genuine praise and complaints belong
+in a single mixed topic, with at least one positive and one negative quotation.
+The AI performs that interpretation; code does not merge conflicting topics.
+
+The live client requires labeled quotations. It checks that mixed topics have
+both labels and that a non-mixed topic does not contain both. The same exact
+quotation cannot have conflicting labels within one topic. These checks cannot
+prove that the AI assigned the correct sentiment. Source matching and harmless
+format cleanup still apply to each quotation's text and label. A single quotation
+object is wrapped in a list; extra object fields are ignored with an audit entry.
+Missing labels are not inferred from the topic. Historical output can still be
+replayed with the validator's default legacy mode, without rewriting or labeling
+it; this mode is not used for new live calls. Keyword evidence remains unchanged.
+
+The Markdown export groups labeled quotations under Positive, Negative, Neutral
+or Unknown beneath each topic. Historical strings and mechanical fallback spans
+are explicitly Unlabeled. The JSON export retains the full audit. This change
+covers the experiment report, not the upstream browser dashboard.
+
+### Authorized second test run: not executed yet
+
+The user authorized up to six new attempts on the same six selected reviews,
+with the existing model/settings and no retries. Preserve the first run's private
+results and ledger. Prepare a new isolated experiment organization and a new
+private ledger/output directory for this separately authorized run; never clear
+the old ledger or overwrite completed analyses. Reuse the original private
+manifest/CSV only after checking full text and rating integrity. Follow the API
+import, worker and export procedure above, including the no-cost keyword comparison.
+Compare results with the first run and leave interpretation approvals blank.
+
+This workspace has no injected `OPENAI_API_KEY` or original private manifest/CSV;
+only the earlier handoff's recorded text/outputs are available. Do not reconstruct
+an authoritative CSV silently from that report. No new paid request has been made.
+Run in the cloud task holding the securely configured key and original private
+inputs, after checking they exist. Never put credentials or real review results
+in Git or ordinary chat.
+
 ## Export and review
 
 After both runs, read back with the existing feedback API. To export:

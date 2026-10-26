@@ -19,7 +19,7 @@ from src.tasks import analysis
 
 @pytest.fixture
 def context(tmp_path,monkeypatch):
-    text='Quiet neighbors. '+'full text '*300+'The pool is dirty.'
+    text='Quiet neighbors. The pool was lovely last year. '+'full text '*300+'The pool is dirty.'
     records=[{'source_id':'fiction-'+str(i),'text':text,'star_rating':3} for i in range(6)]
     path=tmp_path/'manifest.json';path.write_text(json.dumps({'records':records}))
     monkeypatch.setenv('APARTMENT_EXPERIMENT_MANIFEST',str(path))
@@ -28,6 +28,8 @@ def context(tmp_path,monkeypatch):
     monkeypatch.setenv('OPENAI_API_KEY','offline-fictional-key')
     monkeypatch.setattr(analysis,'_EXPERIMENT_ACTIVE',True)
     output={'sentiment':'mixed','topics':[{'name':'Noise & neighbors','sentiment':'positive','quotations':['Quiet neighbors.']},{'name':'Amenities','sentiment':'negative','quotations':['The pool is dirty.']}]}
+    for topic in output['topics']:
+        topic['quotations']=[{'text':q,'sentiment':topic['sentiment']} for q in topic['quotations']]
     client=MagicMock()
     client.with_options.return_value=client
     raw=json.dumps(output)
@@ -93,7 +95,7 @@ def test_worker_saves_cleaned_result_and_keeps_raw_output_and_audit(context):
     messy['sentiment']=' Mixed '
     messy['confidence']=0.9
     messy['topics'][0]['name']='Noise and neighbors'
-    messy['topics'][0]['quotations']=['', 'Quiet\tneighbors.']
+    messy['topics'][0]['quotations']=['', {'text':'Quiet\tneighbors.','sentiment':' Positive '}]
     raw=json.dumps(messy)
     response.choices[0].message.content=raw
     item=feedback(text)
@@ -154,4 +156,18 @@ def test_authentication_failure_stops_later_provider_calls(context):
     second=categorize_apartment_feedback(text,3,'fiction-1','gpt-4.1-mini')
     assert first['failure_reason']=='AuthenticationError (HTTP 401)'
     assert 'stopped' in second['failure_reason']
+    assert client.chat.completions.create.call_count==1
+
+
+def test_worker_saves_both_sides_of_one_mixed_topic(context):
+    text,client,response,_=context
+    output={'sentiment':'mixed','topics':[{'name':'Amenities','sentiment':'mixed','quotations':[
+        {'text':'The pool was lovely last year.','sentiment':'positive'},
+        {'text':'The pool is dirty.','sentiment':'negative'}]}]}
+    response.choices[0].message.content=json.dumps(output)
+    item=feedback(text)
+    analysis._analyze_feedback_item(item,session())
+    assert item.apartment_analysis['final_result']['topics']==output['topics']
+    assert item.apartment_analysis['final_result']['method']=='ai_model'
+    assert item.apartment_analysis['ai_attempt']['raw_output']==json.dumps(output)
     assert client.chat.completions.create.call_count==1

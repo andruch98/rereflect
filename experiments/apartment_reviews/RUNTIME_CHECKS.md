@@ -51,16 +51,16 @@ Permitted corrections, performed without model calls:
   back to canonical topic names. No fuzzy matching or new semantic synonyms.
 - Accept `quotes` as an alias for `quotations`. If both are present, their JSON
   values must be identical; otherwise fail instead of choosing one.
-- Ignore extra top-level/topic fields in the canonical result, while retaining
+- Ignore extra top-level/topic/quotation fields in the canonical result, while retaining
   them in raw output. Required fields must still be present.
 - Convert explicit `topics: null` to `[]`, a single topic object to a one-item
-  list, and a quotation string to a one-item list. Missing topics are not empty
+  list, and a quotation object (or legacy string) to a one-item list. Missing topics are not empty
   topics; other malformed types still fail.
 - Remove identical duplicate JSON keys. Equality compares serialized decoded
   values, preserving distinctions such as `false` versus `0`, even when nested.
   Conflicting duplicate keys still fail, including within extra fields.
 - Remove blank string quotations when usable evidence remains and deduplicate
-  repeated source quotations. Non-string or unsupported nonblank quotations still
+  repeated source quotations. Malformed objects or unsupported nonblank quotation text still
   fail; an empty final quotation list still fails.
 - Remove identical topic entries after cleanup. Entries with the same topic but
   different sentiment or different evidence (including evidence order) still fail.
@@ -93,8 +93,11 @@ collect every possible error in an invalid response.
 | Topic name is not a string or is absent from `TOPIC_NAMES` after whitespace/case normalization | Names must match the canonical list or explicit and/ampersand aliases. | `Maintenance` still fails; `Maintenance and repairs` passes. | Contract / `validate_result`, `_topic_key` |
 | A normalized topic name already belongs to `seen` with a different canonical topic object | Only identical duplicates are removed; no conflicting-topic merge. | Separate positive/negative entries or different evidence still fail. | Contract / `validate_result` |
 | Topic sentiment is not a string or its trimmed, case-folded value is not in `SENTIMENTS` | Per-topic sentiment uses the same allowed vocabulary. | `Mostly negative` remains unsupported; `Mixed ` passes. | Contract / `validate_result.sentiment` |
-| Quotations are neither a list nor a string, or no nonempty quotations remain after cleanup | Every included topic needs usable evidence. | Null or a list of only blanks still fails; a single valid string passes. | Contract / `validate_result` |
-| Any quotation is not a string | Malformed evidence is not silently discarded. Blank strings may be removed, non-strings may not. | A null entry alongside a valid quotation still fails. | Contract / `validate_result` |
+| Quotations are neither a list, object nor string, or no nonempty quotations remain after cleanup | Every included topic needs usable evidence. | A single labeled object passes after wrapping. A nonblank legacy string fails in new live calls. | Contract / `validate_result` |
+| A quotation object lacks text/sentiment, text is not a string, or its label is invalid or mixed | Quotation objects require their own positive, negative, neutral or unknown label. | `Positive ` passes; missing labels are not guessed. | Contract / `validate_result` |
+| New live output contains a nonblank quotation string without a sentiment | The live client sets `require_labeled_quotations=True`. Legacy replay defaults to false and preserves old strings. | Blank strings can still be removed when usable evidence remains. | Client / Contract |
+| The same normalized source quotation has different labels within a topic | Identical evidence cannot supply conflicting sides. | Whitespace variants cannot bypass this check. | Contract / `validate_result` |
+| In new live output, a mixed topic lacks positive or negative quotations, or a non-mixed topic has both | Topic and evidence labels must be structurally consistent. | A single positive quotation does not establish mixed sentiment. No automatic relabeling or merging. | Contract / `validate_result` |
 | A nonblank quotation cannot match a contiguous source span after the permitted whitespace/quote-mark comparison | Actual wording and other punctuation must still match. Accepted evidence is restored to the source's exact wording. | Correcting a typo, changing capitalization or joining passages with an ellipsis still fails. | Contract / `validate_result`, `_source_quotation` |
 | `not text.strip()` and either topics are nonempty or sentiment differs from `rating_sentiment(rating)` | Empty/whitespace-only reviews must have `topics=[]`; ratings 1–2 → negative, 3 → neutral, 4–5 → positive. | `unknown` for an empty four-star review is rejected despite being an allowed label generally. | Contract / `validate_result`, `rating_sentiment` |
 

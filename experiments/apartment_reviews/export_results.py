@@ -10,6 +10,26 @@ from pathlib import Path
 import httpx
 
 
+def grouped_analysis(result):
+    """Readable grouping; never infer labels for legacy or keyword evidence."""
+    def safe(value):
+        # Encode punctuation too: review text cannot create Markdown or HTML.
+        return ''.join(c if c.isalnum() or c == ' ' else f'&#{ord(c)};' for c in str(value))
+    sections = ['**Overall sentiment:** ' + safe(result['sentiment'])]
+    for index, topic in enumerate(result['topics'], 1):
+        sections.append(f"**{index}. {safe(topic['name'])} — {safe(topic['sentiment'])}**")
+        groups = {}
+        for quotation in topic['quotations']:
+            label = quotation['sentiment'] if isinstance(quotation, dict) else 'unlabeled'
+            text = quotation['text'] if isinstance(quotation, dict) else quotation
+            groups.setdefault(label, []).append(text)
+        for label in ('positive', 'negative', 'neutral', 'unknown', 'unlabeled'):
+            if label in groups:
+                sections.append('**' + label.capitalize() + '**')
+                sections.append('\n'.join('- ' + safe(q) for q in groups[label]))
+    return '\n\n'.join(sections)
+
+
 def export(manifest, items, ledger_path, destination, commit):
     records=manifest['records']
     if len(records)!=6 or len({r['source_id'] for r in records})!=6:
@@ -57,7 +77,10 @@ def export(manifest, items, ledger_path, destination, commit):
         encoded=json.dumps(review,ensure_ascii=False,indent=2)
         # Make even adversarial review Markdown inert inside the export.
         fence='`'*(max([len(x) for x in __import__('re').findall(r'`+',encoded)]+[2])+1)
-        sections += [f'## Review {index}',fence+'json\n'+encoded+'\n'+fence,'Approval: \n\nComments: \n\nCorrections: ']
+        item=review['outputs']['ai']
+        analysis=item.get('apartment_analysis') if item else None
+        readable=grouped_analysis(analysis['final_result']) if analysis else 'No saved result.'
+        sections += [f'## Review {index}',readable,'### Complete audit record',fence+'json\n'+encoded+'\n'+fence,'Approval: \n\nComments: \n\nCorrections: ']
     (out/'results.md').write_text('\n\n'.join(sections)+'\n')
     for p in out.iterdir():p.chmod(0o600)
     return document

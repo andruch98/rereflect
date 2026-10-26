@@ -23,6 +23,8 @@ class OfflineClient:
             sentiment='mixed'
             topics=[{'name':'Noise & neighbors','sentiment':'positive','quotations':['Quiet neighbors.']},
                     {'name':'Amenities','sentiment':'negative','quotations':['The pool is dirty.']}]
+        for topic in topics:
+            topic['quotations']=[{'text':q,'sentiment':topic['sentiment']} for q in topic['quotations']]
         content=json.dumps({'sentiment':sentiment,'topics':topics})
         raw={'choices':[{'message':{'content':content},'finish_reason':'stop'}], 'model':kwargs['model'], 'usage':{'prompt_tokens':0,'completion_tokens':0,'total_tokens':0}, 'offline_mock':True}
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content),finish_reason='stop')],usage=SimpleNamespace(prompt_tokens=0,completion_tokens=0,total_tokens=0),model_dump=lambda **kw:raw)
