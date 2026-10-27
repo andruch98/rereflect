@@ -48,9 +48,10 @@ historical course API details were used as current SDK documentation.
 ## Live verification boundary
 
 The user selected OpenAI GPT-4.1 mini and approved publication on 27 October
-2026. The Mac preview still requires local credential entry and connection setup.
-Simulated responses test software plumbing only; they do not establish factual
-quality of live answers. No actual model request has yet been made.
+2026. The user subsequently reported trying the Mac chat and finding its answers
+shallow. Actual answer text and provider usage were not supplied for evaluation.
+Our tests use simulated responses; they do not establish factual quality of live
+answers. This agent has made no actual model request.
 
 Before live validation, configure the selected model's credentials and API-only
 egress in the isolated preview. Preserve the blocked review-analysis
@@ -140,3 +141,9 @@ Screens were visually inspected. The run used mocked API responses and fallback
 fonts, not the live database/provider. Earlier browser attempts found the landing
 redirect issue, then required test-harness viewport correction and a fresh dev
 cache after interrupted compilation. These attempts are disclosed in the bundle.
+
+The subsequent workspace expansion passed 46 existing frontend tests and browser
+layout checks at 1440px, 1920px and 390px. Long simulated history and answers scroll
+inside their panels while the composer stays visible. ESLint reported no errors
+and three existing warnings. Fallback fonts were used. These changes are layout
+only; the question starters, model and answer instructions remain unchanged.

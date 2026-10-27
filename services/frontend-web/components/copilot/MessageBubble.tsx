@@ -340,7 +340,7 @@ export function MessageBubble({ message, conversationId, answerOnly = false }: M
       data-role={message.role}
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
     >
-      <div className={`max-w-[75%] ${
+      <div className={`${answerOnly ? 'max-w-[min(90%,75ch)]' : 'max-w-[75%]'} ${
         isUser
           ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3'
           : 'bg-muted/50 text-foreground rounded-2xl rounded-tl-sm px-4 py-3 w-full'
