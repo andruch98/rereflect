@@ -15,7 +15,7 @@ from src.services.event_emitter import emit_event
 from src.services.review_preview import require_preview_organization
 from src.services.ai_correction_service import create_ai_correction, urgency_label
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import date, datetime
 import sys
 import os
 import csv
@@ -207,6 +207,7 @@ class FeedbackResponse(BaseModel):
     organization_id: int
     text: str
     source: Optional[str]
+    review_date: Optional[date] = None
     star_rating: Optional[int] = None
     source_external_id: Optional[str] = None
     apartment_analysis: Optional[dict] = None
@@ -362,7 +363,7 @@ def list_feedback(
     customer_email: Optional[str] = Query(None, description="Filter by customer email"),
     workflow_status: Optional[str] = Query(None, description="Filter by workflow status: new, in_review, resolved, closed"),
     assigned_to: Optional[int] = Query(None, description="Filter by assigned user ID"),
-    sort_by: Optional[str] = Query(None, description="Sort by field: id, created_at, star_rating, sentiment_label, sentiment_score, text, source, churn_risk_score, workflow_status"),
+    sort_by: Optional[str] = Query(None, description="Sort by field: id, created_at, review_date, star_rating, sentiment_label, sentiment_score, text, source, churn_risk_score, workflow_status"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     current_org: Organization = Depends(get_current_org),
     db: Session = Depends(get_db)
@@ -444,6 +445,7 @@ def list_feedback(
     # Apply sorting
     sort_column_map = {
         'created_at': FeedbackItem.created_at,
+        'review_date': FeedbackItem.review_date,
         'star_rating': FeedbackItem.star_rating,
         'sentiment_label': FeedbackItem.sentiment_label,
         'sentiment_score': FeedbackItem.sentiment_score,
@@ -464,7 +466,10 @@ def list_feedback(
 
     # Get items
     # Stable ordering keeps equal ratings/labels from moving between pages.
-    items = query.order_by(order_func(sort_column), order_func(FeedbackItem.id)).offset(offset).limit(page_size).all()
+    primary_order = order_func(sort_column)
+    if sort_by == "review_date":
+        primary_order = primary_order.nullslast()
+    items = query.order_by(primary_order, order_func(FeedbackItem.id)).offset(offset).limit(page_size).all()
 
     # Build response using eager-loaded relationships (with fallback to batch queries)
     source_map = {}
@@ -503,6 +508,7 @@ def list_feedback(
             "id": item.id,
             "organization_id": item.organization_id,
             "text": item.text,
+            "review_date": item.review_date,
             "star_rating": item.star_rating,
             "source_external_id": item.source_external_id,
             "apartment_analysis": item.apartment_analysis,
@@ -582,6 +588,7 @@ def get_feedback(
         id=feedback.id,
         organization_id=feedback.organization_id,
         text=feedback.text,
+        review_date=feedback.review_date,
         star_rating=feedback.star_rating,
         source_external_id=feedback.source_external_id,
         apartment_analysis=feedback.apartment_analysis,

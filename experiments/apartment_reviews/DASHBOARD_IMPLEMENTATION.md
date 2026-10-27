@@ -102,3 +102,33 @@ The normal backend test file is `services/backend-api/tests/test_apartment_revie
 the isolated verification harness used this test file unchanged.
 
 No paid model calls, new interpretations, production changes, merges or deployments.
+
+## Review-list refinement — 2026-10-27
+
+Approved changes: sortable original review date; remove the inbox Analysis column;
+retain the AI analysis tag in details. `review_date` is a nullable date separate
+from `created_at`. Both sort directions put unavailable dates last and retain
+organization filtering and pagination. The new migration adds only this field;
+no import dates are copied, existing records and analysis are unchanged.
+The six private saved records have no reliable posting dates and display
+Unavailable. Source-date ingestion/backfill is not implemented in this change.
+
+Validation for this refinement: 23 focused frontend tests (including the six
+private saved records) and 20 backend checks passed. Backend checks used the
+existing isolated SQLite harness with real API/auth/models, including date
+ordering across pages and missing dates. Browser replay confirmed the new
+column, missing dates, removed Analysis column and retained detail tag.
+No model requests were made. These are software/display checks, not new human
+assessments of analysis accuracy. Full Docker/PostgreSQL execution remains
+pending on the Mac. An initial frontend invocation selected the broader suite
+unintentionally: 1863 passed, 1 failed (unchanged ConfirmSuggestionDialog date
+expectation), 1 skipped. That failure was not investigated or claimed fixed.
+Its output is not treated as the scoped acceptance result.
+Initial backend attempts failed because the old Python runtime/dependencies
+were unavailable; the existing dedicated harness dependencies then ran cleanly.
+
+Next action: apply the preview update, review the list, then define Ask Genius.
+PR #2 remains a draft; no merge or production deployment is authorized here.
+
+GitHub push of this refinement was blocked by automatic approval review;
+explicit user approval to push is pending. The existing PR does not yet contain it.

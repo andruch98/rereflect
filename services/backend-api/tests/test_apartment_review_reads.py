@@ -1,6 +1,7 @@
 """Saved apartment review reads and sorting, without analysis or provider calls."""
 
 import pytest
+from datetime import date
 
 
 @pytest.mark.parametrize('setting,expected', [(None, 503), ('invalid', 503), ('0', 503), ('999999', 403)])
@@ -49,10 +50,10 @@ def saved_reviews(db, test_organization):
     reviews = [
         FeedbackItem(organization_id=test_organization.id, text="Helpful staff. Later rude staff.",
                      source="apartment_review_ai", star_rating=2, sentiment_label="mixed",
-                     source_external_id="synthetic-review-a", apartment_analysis=result),
+                     review_date=date(2026, 10, 20), source_external_id="synthetic-review-a", apartment_analysis=result),
         FeedbackItem(organization_id=test_organization.id, text="",
                      source="apartment_review_ai", star_rating=4, sentiment_label="positive",
-                     source_external_id="synthetic-review-b",
+                     review_date=date(2026, 9, 1), source_external_id="synthetic-review-b",
                      apartment_analysis={"final_result": {
                          "method": "ai_model", "sentiment": "positive", "topics": [],
                      }}),
@@ -76,6 +77,8 @@ def saved_reviews(db, test_organization):
     ("star_rating", "desc", [1, 2, 0]),
     ("sentiment_label", "asc", [0, 2, 1]),
     ("sentiment_label", "desc", [1, 2, 0]),
+    ("review_date", "asc", [1, 0, 2]),
+    ("review_date", "desc", [0, 1, 2]),
     ("id", "asc", [0, 1, 2]),
     ("id", "desc", [2, 1, 0]),
 ])
@@ -107,6 +110,7 @@ def test_saved_fields_and_rating_only_text_survive_list_and_detail(
         detail = client.get(f"/api/v1/feedback/{review.id}", headers=auth_headers)
         assert detail.status_code == 200
         for item in (listed[review.id], detail.json()):
+            assert item["review_date"] == (review.review_date.isoformat() if review.review_date else None)
             assert item["text"] == review.text
             assert item["star_rating"] == review.star_rating
             assert item["source_external_id"] == review.source_external_id

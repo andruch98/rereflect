@@ -26,6 +26,9 @@ describe('review inbox and detail', () => {
     expect(screen.getByLabelText('4 out of 5 stars')).toBeInTheDocument();
     expect(screen.getByText('Imported review')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review #6' })).toHaveAttribute('href', '/feedbacks/6');
+    expect(screen.getByText('Unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Analysis' })).not.toBeInTheDocument();
+    expect(screen.queryByText('AI analysis')).not.toBeInTheDocument();
     expect(screen.queryByText(/Churn|Normal|Urgency/)).not.toBeInTheDocument();
   });
 
@@ -41,6 +44,17 @@ describe('review inbox and detail', () => {
     await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ sort_by: 'star_rating' })));
     fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
     await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(2, 20, expect.objectContaining({ sort_by: 'star_rating' })));
+  });
+
+  it('displays the posting date and requests both date sort directions', async () => {
+    mocks.list.mockResolvedValue({ items: [{ ...ratingOnly, review_date: '2026-10-01', created_at: '2026-10-27T12:00:00Z' }], total: 1, total_pages: 1 });
+    mount(<ReviewsInbox />);
+    expect(await screen.findByText('Oct 1, 2026')).toBeInTheDocument();
+    expect(screen.queryByText('Oct 27, 2026')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Review date' }));
+    await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ sort_by: 'review_date', sort_order: 'asc' })));
+    fireEvent.click(screen.getByRole('button', { name: 'Review date' }));
+    await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ sort_by: 'review_date', sort_order: 'desc' })));
   });
 
   it('reports a request failure without claiming there are no reviews', async () => {
@@ -65,6 +79,7 @@ describe('review inbox and detail', () => {
     expect(await screen.findByRole('heading', { name: 'Review #6' })).toBeInTheDocument();
     expect(screen.getByLabelText('4 out of 5 stars')).toBeInTheDocument();
     expect(screen.getByText(/No written review was provided/)).toBeInTheDocument();
+    expect(screen.getByText('AI analysis')).toBeInTheDocument();
     expect(mocks.get).toHaveBeenCalledWith(6);
   });
 });

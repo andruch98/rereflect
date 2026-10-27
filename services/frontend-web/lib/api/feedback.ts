@@ -15,6 +15,7 @@ export interface FeedbackItem {
   organization_id: number;
   text: string;
   source: string | null;
+  review_date?: string | null; // Original posting date (YYYY-MM-DD), not import time
   star_rating?: number | null;
   source_external_id?: string | null;
   apartment_analysis?: unknown;

@@ -10,18 +10,19 @@ import { feedbackAPI, type FeedbackItem, type FeedbackFilters } from '@/lib/api/
 import { DataTable } from '@/components/shared/data-table';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ReviewRating, ReviewSentiment, ReviewAnalysisStatus, reviewSourceLabel } from './ReviewFields';
+import { ReviewRating, ReviewSentiment, reviewSourceLabel } from './ReviewFields';
 
 const columns: ColumnDef<FeedbackItem>[] = [
   { accessorKey: 'id', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Review <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
     cell: ({ row }) => <Link className="font-medium underline underline-offset-4" href={`/feedbacks/${row.original.id}`}>Review #{row.original.id}</Link> },
+  { accessorKey: 'review_date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Review date <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
+    cell: ({ row }) => row.original.review_date ? <time dateTime={row.original.review_date}>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${row.original.review_date}T00:00:00Z`))}</time> : <span className="text-muted-foreground">Unavailable</span> },
   { accessorKey: 'star_rating', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Stars <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
     cell: ({ row }) => <ReviewRating rating={row.original.star_rating} /> },
   { accessorKey: 'text', header: 'Review text', cell: ({ row }) => <p className="max-w-xl whitespace-pre-wrap break-words line-clamp-3">{row.original.text.trim() ? row.original.text : row.original.star_rating != null ? 'Rating only — no written review' : 'No written review'}</p> },
   { accessorKey: 'source', header: 'Source', cell: ({ row }) => reviewSourceLabel(row.original.source) },
   { accessorKey: 'sentiment_label', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Overall sentiment <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
     cell: ({ row }) => <ReviewSentiment sentiment={row.original.sentiment_label} /> },
-  { id: 'analysis', header: 'Analysis', cell: ({ row }) => <ReviewAnalysisStatus analysis={row.original.apartment_analysis} /> },
 ];
 
 export function ReviewsInbox() {
