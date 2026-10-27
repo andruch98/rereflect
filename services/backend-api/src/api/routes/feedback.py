@@ -12,6 +12,7 @@ from src.models.user import User
 from src.api.dependencies import get_current_user, get_current_org, require_admin_or_owner, check_feedback_limit, track_feedback_usage, get_current_usage
 from src.models.usage import UsageRecord
 from src.services.event_emitter import emit_event
+from src.services.review_preview import require_preview_organization
 from src.services.ai_correction_service import create_ai_correction, urgency_label
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -333,12 +334,20 @@ async def create_feedback(
     return feedback
 
 
+@router.get("/preview-community")
+def preview_community(current_org: Organization = Depends(get_current_org)):
+    if os.getenv("BOOMSAY_REVIEW_PREVIEW", "").lower() != "true":
+        raise HTTPException(404, "Review preview is not enabled")
+    require_preview_organization(current_org.id)
+    return {"organization_id": current_org.id, "name": "Lake House Apartments"}
+
+
 @router.get("/", response_model=FeedbackListResponse)
 def list_feedback(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=1000),
     search: Optional[str] = Query(None, description="Search in feedback text and extracted issue"),
-    sentiment: Optional[str] = Query(None, description="Filter by sentiment: positive, neutral, negative"),
+    sentiment: Optional[str] = Query(None, description="Filter by sentiment: positive, negative, mixed, neutral, unknown"),
     source: Optional[str] = Query(None, description="Filter by source"),
     is_urgent: Optional[bool] = Query(None, description="Filter by urgent status"),
     tag: Optional[str] = Query(None, description="Filter by tag"),
@@ -353,12 +362,13 @@ def list_feedback(
     customer_email: Optional[str] = Query(None, description="Filter by customer email"),
     workflow_status: Optional[str] = Query(None, description="Filter by workflow status: new, in_review, resolved, closed"),
     assigned_to: Optional[int] = Query(None, description="Filter by assigned user ID"),
-    sort_by: Optional[str] = Query(None, description="Sort by field: created_at, sentiment_score, text, churn_risk_score, workflow_status"),
+    sort_by: Optional[str] = Query(None, description="Sort by field: id, created_at, star_rating, sentiment_label, sentiment_score, text, source, churn_risk_score, workflow_status"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     current_org: Organization = Depends(get_current_org),
     db: Session = Depends(get_db)
 ):
     """List feedback items with pagination and filters."""
+    require_preview_organization(current_org.id)
 
     # Base query
     query = db.query(FeedbackItem).filter(
@@ -434,6 +444,8 @@ def list_feedback(
     # Apply sorting
     sort_column_map = {
         'created_at': FeedbackItem.created_at,
+        'star_rating': FeedbackItem.star_rating,
+        'sentiment_label': FeedbackItem.sentiment_label,
         'sentiment_score': FeedbackItem.sentiment_score,
         'text': FeedbackItem.text,
         'source': FeedbackItem.source,
@@ -451,7 +463,8 @@ def list_feedback(
     )
 
     # Get items
-    items = query.order_by(order_func(sort_column)).offset(offset).limit(page_size).all()
+    # Stable ordering keeps equal ratings/labels from moving between pages.
+    items = query.order_by(order_func(sort_column), order_func(FeedbackItem.id)).offset(offset).limit(page_size).all()
 
     # Build response using eager-loaded relationships (with fallback to batch queries)
     source_map = {}
@@ -538,6 +551,7 @@ def get_feedback(
     db: Session = Depends(get_db)
 ):
     """Get a single feedback item by ID."""
+    require_preview_organization(current_org.id)
 
     feedback = db.query(FeedbackItem).filter(
         FeedbackItem.id == feedback_id,

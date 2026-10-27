@@ -15,6 +15,9 @@ export interface FeedbackItem {
   organization_id: number;
   text: string;
   source: string | null;
+  star_rating?: number | null;
+  source_external_id?: string | null;
+  apartment_analysis?: unknown;
   // Source tracking
   source_id: number | null;
   source_name: string | null;  // From FeedbackSource.name

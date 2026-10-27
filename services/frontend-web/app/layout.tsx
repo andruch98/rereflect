@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat, Merriweather, Ubuntu_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { REVIEW_PREVIEW_ENABLED } from '@/lib/review-preview';
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -23,7 +24,11 @@ const ubuntuMono = Ubuntu_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
+export const metadata: Metadata = REVIEW_PREVIEW_ENABLED ? {
+  title: 'BoomSay — Reviews',
+  description: 'Apartment community reviews and saved analyses.',
+  icons: { icon: '/brand/boomsay-app-icon-blue.svg', apple: '/brand/boomsay-app-icon-blue.svg' },
+} : {
   title: "Rereflect - Customer Feedback Analyzer",
   description: "Analyze and understand customer feedback with AI using Rereflect",
 };
