@@ -73,6 +73,7 @@ class BuildTests(unittest.TestCase):
             self.assertEqual(meta['commit'], self.commit)
             self.assertEqual(meta['sha256'], updater.digest(archive_bytes))
             self.assertIn('5b39b14ff540b2d2de57f90fe8390b7040d2d16f', meta['bases'])
+            self.assertIn('bf6236c84291d633435a1b73719d7b645942a715', meta['bases'])
             with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode='r:gz') as archive:
                 self.assertEqual(archive.extractfile(marker).read(), b'committed public source\n')
                 self.assertFalse(any('.env' in name or name.startswith('private/') for name in archive.getnames()))

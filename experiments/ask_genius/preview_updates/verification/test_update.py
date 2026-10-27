@@ -107,6 +107,16 @@ class UpdateTests(unittest.TestCase):
         self.assertFalse(self.install())
         self.assertEqual(self.snapshot(), before)
 
+    def test_local_layout_commit_requires_verified_archive(self):
+        (self.root / 'SOURCE.txt').write_text((self.root / 'SOURCE.txt').read_text().replace(BASES[0], updater.LOCAL_LAYOUT_COMMIT))
+        meta = json.loads((self.bundle / 'update.json').read_text())
+        meta['bases'].append(updater.LOCAL_LAYOUT_COMMIT)
+        (self.bundle / 'update.json').write_text(json.dumps(meta))
+        with self.assertRaisesRegex(updater.UpdateError, 'does not match its verified release'):
+            self.install()
+        with patch.object(updater, 'LOCAL_LAYOUT_ARCHIVE_HASH', updater.digest((self.root / 'rereflect-app-source.tar.gz').read_bytes())):
+            self.assertTrue(self.install())
+
     def test_source_substring_or_duplicate_commit_is_not_accepted(self):
         original = (self.root / 'SOURCE.txt').read_text()
         for source in (original.replace('Commit: ', 'Comment: '), original + '\nCommit: ' + BASES[0] + '\n'):

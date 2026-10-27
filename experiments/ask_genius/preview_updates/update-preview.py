@@ -30,6 +30,8 @@ STARTUP_HASHES = {
     '63cd57fe7b41cf9b4ca6d951313db60a6d28e485a3b8e4dfbcc0b9bd65c4b9ba',
     '5a2745e71ede215fa5cfdf8b081829b5c7ae65e0a423a1f078c0d754d491ec10',
 }
+LOCAL_LAYOUT_COMMIT = 'bf6236c84291d633435a1b73719d7b645942a715'
+LOCAL_LAYOUT_ARCHIVE_HASH = 'aedf86696d06521dfe89a9aec55c49940596f933bf0d23dcb17f02ab81007300'
 APP_MARKERS = (
     'services/frontend-web/components/reviews/AskGenius.tsx',
     'services/backend-api/src/services/ask_genius.py',
@@ -107,6 +109,8 @@ def update(root: Path, bundle: Path) -> bool:
             or commits[0][8:] not in [*meta['bases'], meta['commit']]
             or 'boomsay-dashboard-preview-local' not in (root / 'configure.py').read_text()):
         raise UpdateError('This is not a supported BoomSay preview version. Nothing changed.')
+    if commits[0][8:] == LOCAL_LAYOUT_COMMIT and digest((root / 'rereflect-app-source.tar.gz').read_bytes()) != LOCAL_LAYOUT_ARCHIVE_HASH:
+        raise UpdateError('The local layout application archive does not match its verified release. Nothing changed.')
     checksums = json.loads((root / 'checksums.json').read_text())
     if (not isinstance(checksums, dict) or not MANIFEST_REQUIRED <= set(checksums)
             or not set(checksums) <= MANIFEST_ALLOWED):
