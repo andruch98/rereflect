@@ -195,7 +195,7 @@ function StructuredChart({ messageId, chartType, data, title }: {
 }
 
 // Markdown link + code components
-function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: string) => void) {
+function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: string) => void, answerOnly = false) {
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     code({ inline, className, children, ...props }: any) {
@@ -219,6 +219,7 @@ function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: 
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     a({ href, children, ...props }: any) {
+      if (answerOnly) return <span>{children}</span>;
       const isInternal = href && !href.startsWith('http');
       if (isInternal) {
         return (
@@ -235,12 +236,16 @@ function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: 
         </a>
       );
     },
+    // Ask Genius does not load model-supplied external images or show source links.
+    ...(answerOnly ? { img: () => null } : {}),
   };
 }
 
 // Main component
 interface MessageBubbleProps {
   message: ChatMessage;
+  /** Reuse the answer presentation without actions, feedback writes or source links. */
+  answerOnly?: boolean;
   /** Persisted conversation id for suggested-action execution (numeric DB id,
    *  not the WS turn message id). Absent → action buttons render disabled. */
   conversationId?: number;
@@ -262,7 +267,7 @@ interface ActionsItem {
   actions: SuggestedAction[];
 }
 
-export function MessageBubble({ message, conversationId }: MessageBubbleProps) {
+export function MessageBubble({ message, conversationId, answerOnly = false }: MessageBubbleProps) {
   const router = useRouter();
   const isUser = message.role === 'user';
 
@@ -345,7 +350,7 @@ export function MessageBubble({ message, conversationId }: MessageBubbleProps) {
         ) : (
           <div className="space-y-4">
             <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={makeMarkdownComponents(message.id, handleLinkClick)}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={makeMarkdownComponents(message.id, handleLinkClick, answerOnly)}>
                 {message.content}
               </ReactMarkdown>
             </div>
@@ -364,7 +369,7 @@ export function MessageBubble({ message, conversationId }: MessageBubbleProps) {
                 title={chartItem.title}
               />
             )}
-            {actionsItems.length > 0 && (
+            {!answerOnly && actionsItems.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {actionsItems.map((item) =>
                   item.actions.map((a) => (
@@ -379,7 +384,7 @@ export function MessageBubble({ message, conversationId }: MessageBubbleProps) {
                 )}
               </div>
             )}
-            <MessageActions messageId={message.id} content={message.content} />
+            {!answerOnly && <MessageActions messageId={message.id} content={message.content} />}
           </div>
         )}
       </div>

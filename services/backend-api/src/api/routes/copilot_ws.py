@@ -998,6 +998,7 @@ async def copilot_ws(
                 conversation = db.query(Conversation).filter(
                     Conversation.public_id == conversation_id,
                     Conversation.organization_id == org.id,
+                    Conversation.context_scope != "boomsay_reviews",
                     Conversation.is_active == True,
                 ).first()
 

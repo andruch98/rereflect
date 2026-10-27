@@ -20,7 +20,7 @@ export function ReviewPreviewLogin() {
     event.preventDefault(); setBusy(true); setError('');
     try {
       const result = await authAPI.login({ email, password });
-      login(result.access_token); router.push('/feedbacks');
+      login(result.access_token); router.push('/ask-genius');
     } catch { setError('Sign-in failed. Check your credentials and try again.'); }
     finally { setBusy(false); }
   }

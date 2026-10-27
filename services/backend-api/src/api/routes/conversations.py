@@ -155,6 +155,7 @@ def _get_conversation_or_404(
         .filter(
             Conversation.public_id == conversation_id,
             Conversation.organization_id == org_id,
+            Conversation.context_scope != "boomsay_reviews",
             Conversation.is_active == True,
         )
         .first()
@@ -199,6 +200,7 @@ def list_conversations(
     """List conversations for the org (paginated, optionally filtered by folder)."""
     query = db.query(Conversation).filter(
         Conversation.organization_id == current_org.id,
+        Conversation.context_scope != "boomsay_reviews",
         Conversation.is_active == True,
     )
 
