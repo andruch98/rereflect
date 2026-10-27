@@ -54,7 +54,7 @@ export function ReviewsInbox() {
         ? previous : undefined,
   });
 
-  return <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+  return <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8 [&_th]:text-center [&_td]:text-center [&_td_p]:mx-auto">
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div><h1 className="text-3xl font-semibold">Reviews</h1><p className="mt-1 text-muted-foreground">Original reviews and their saved analyses.</p></div>
       <Button variant="outline" onClick={() => query.refetch()} disabled={!user || query.isFetching}>Refresh</Button>
