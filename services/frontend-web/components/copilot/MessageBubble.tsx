@@ -194,8 +194,25 @@ function StructuredChart({ messageId, chartType, data, title }: {
   );
 }
 
+// The server supplies this list after checking that each cited review belongs to
+// the authorized evidence. Markdown alone never grants a link permission.
+function geniusSourceLinks(raw: unknown): ReadonlySet<string> {
+  const allowed = new Set<string>();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return allowed;
+  const data = raw as Record<string, unknown>;
+  if (data.kind !== 'ask_genius' || !Array.isArray(data.sources)) return allowed;
+  for (const source of data.sources) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+    const { review_id: id, href } = source as Record<string, unknown>;
+    if (typeof id === 'number' && Number.isSafeInteger(id) && id > 0 && typeof href === 'string' && href === `/feedbacks/${id}`) {
+      allowed.add(href);
+    }
+  }
+  return allowed;
+}
+
 // Markdown link + code components
-function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: string) => void, answerOnly = false) {
+function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: string) => void, answerOnly = false, allowedSourceLinks: ReadonlySet<string> = new Set()) {
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     code({ inline, className, children, ...props }: any) {
@@ -219,7 +236,7 @@ function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: 
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     a({ href, children, ...props }: any) {
-      if (answerOnly) return <span>{children}</span>;
+      if (answerOnly && !allowedSourceLinks.has(href)) return <span>{children}</span>;
       const isInternal = href && !href.startsWith('http');
       if (isInternal) {
         return (
@@ -236,7 +253,7 @@ function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: 
         </a>
       );
     },
-    // Ask Genius does not load model-supplied external images or show source links.
+    // Ask Genius never loads model-supplied images.
     ...(answerOnly ? { img: () => null } : {}),
   };
 }
@@ -244,7 +261,7 @@ function makeMarkdownComponents(messageId: number | string, onLinkClick: (href: 
 // Main component
 interface MessageBubbleProps {
   message: ChatMessage;
-  /** Reuse the answer presentation without actions, feedback writes or source links. */
+  /** Reuse the answer presentation with verified review links, but no actions or feedback writes. */
   answerOnly?: boolean;
   /** Persisted conversation id for suggested-action execution (numeric DB id,
    *  not the WS turn message id). Absent → action buttons render disabled. */
@@ -277,6 +294,7 @@ export function MessageBubble({ message, conversationId, answerOnly = false }: M
   // New format: { text, structured_data: [{data_type: "table", data: {...}}, {data_type: "chart", ...}] }
   // Legacy format: { kind: "table", columns: [...], rows: [...] }
   const raw = message.structured_data as Record<string, unknown> | Record<string, unknown>[] | null;
+  const allowedSourceLinks = answerOnly ? geniusSourceLinks(raw) : undefined;
 
   let tableItem: { columns: string[]; rows: (string | number)[][] } | null = null;
   let chartItem: { chartType: string; data: Record<string, unknown>[]; title?: string } | null = null;
@@ -349,8 +367,8 @@ export function MessageBubble({ message, conversationId, answerOnly = false }: M
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         ) : (
           <div className="space-y-4">
-            <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={makeMarkdownComponents(message.id, handleLinkClick, answerOnly)}>
+            <div className={`prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed ${answerOnly ? 'break-words [&>*+*]:mt-3 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li+li]:mt-1 [&_strong]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground' : ''}`}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={makeMarkdownComponents(message.id, handleLinkClick, answerOnly, allowedSourceLinks)}>
                 {message.content}
               </ReactMarkdown>
             </div>

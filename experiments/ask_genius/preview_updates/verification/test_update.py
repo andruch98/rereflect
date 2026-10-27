@@ -22,6 +22,7 @@ BASES = [
     'e19eb96cf0a19802d9bcc569c643845e36417032',
     '66e7ec4c61a147eced6eed05be45207725253ba6',
     '4c117094a132b3f395140026336b25ee220ca862',
+    '5b39b14ff540b2d2de57f90fe8390b7040d2d16f',
 ]
 TARGET = 'f' * 40  # Synthetic target; never distributed as a real application commit.
 
@@ -55,9 +56,11 @@ class UpdateTests(unittest.TestCase):
         (self.root / 'checksums.json').write_text(json.dumps(checksums))
         self.make_archive()
 
-    def make_archive(self, extra=None):
+    def make_archive(self, extra=None, omit=None):
         with tarfile.open(self.bundle / 'rereflect-app-source.tar.gz', 'w:gz') as archive:
             for name in updater.APP_MARKERS:
+                if name == omit:
+                    continue
                 data = b'synthetic new application source\n'
                 member = tarfile.TarInfo(name)
                 member.size = len(data)
@@ -163,6 +166,43 @@ class UpdateTests(unittest.TestCase):
         (backup / 'keep').write_text('preserve')
         before = self.snapshot()
         with self.assertRaises(updater.UpdateError): self.install()
+        self.assertEqual(self.snapshot(), before)
+
+    def test_existing_layout_backup_is_preserved_and_does_not_block_update(self):
+        backup = self.root / 'backup-before-genius-layout'
+        backup.mkdir()
+        (backup / 'keep').write_text('previous layout source backup')
+        self.assertTrue(self.install())
+        self.assertEqual((backup / 'keep').read_text(), 'previous layout source backup')
+        self.assertTrue((self.root / updater.BACKUP / 'app/old-source.txt').is_file())
+
+    def test_unrecognized_startup_cannot_skip_schema_migration(self):
+        startup = self.root / 'start-local.sh'
+        startup.write_text(startup.read_text().replace('python -m alembic upgrade head', 'true'))
+        before = self.snapshot()
+        with self.assertRaisesRegex(updater.UpdateError, 'startup script'):
+            self.install()
+        self.assertEqual(self.snapshot(), before)
+
+    def test_configured_openai_startup_preserved(self):
+        startup = self.root / 'start-local.sh'
+        changed = startup.read_bytes().replace(b'No AI keys or workers are needed.', b'No analysis workers are started.')
+        changed = changed.replace(b'docker compose -f compose.json', b'docker compose -p boomsay-dashboard-preview-local -f compose.json')
+        self.assertIn(updater.digest(changed), updater.STARTUP_HASHES)
+        startup.write_bytes(changed)
+        checksums = json.loads((self.root / 'checksums.json').read_text())
+        checksums['start-local.sh'] = updater.digest(changed)
+        (self.root / 'checksums.json').write_text(json.dumps(checksums))
+        self.assertTrue(self.install())
+        self.assertEqual(startup.read_bytes(), changed)
+        self.assertIn(b'python -m alembic upgrade head', startup.read_bytes())
+
+    def test_incomplete_source_missing_preference_migration_is_rejected(self):
+        migration = 'services/backend-api/alembic/versions/d0c6241e9f32_add_ask_genius_default_period.py'
+        self.make_archive(omit=migration)
+        before = self.snapshot()
+        with self.assertRaisesRegex(updater.UpdateError, 'missing application files'):
+            self.install()
         self.assertEqual(self.snapshot(), before)
 
     def test_write_failure_restores_app_metadata_and_private_files(self):

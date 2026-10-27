@@ -14,7 +14,7 @@ import tarfile
 import tempfile
 
 
-BACKUP = 'backup-before-genius-layout'
+BACKUP = 'backup-before-genius-improvements'
 MUTATED_FILES = ('rereflect-app-source.tar.gz', 'checksums.json', 'SOURCE.txt')
 MANIFEST_REQUIRED = {
     'rereflect-app-source.tar.gz', 'private/saved-ai-records.json', 'restore.py',
@@ -24,9 +24,18 @@ MANIFEST_REQUIRED = {
 MANIFEST_ALLOWED = MANIFEST_REQUIRED | {'start-local.sh', 'stop-local.sh', '.dockerignore'}
 HASH = re.compile(r'[a-f0-9]{64}')
 COMMIT = re.compile(r'[a-f0-9]{40}')
+# Both shipped starters run the normal Alembic migration before starting the
+# updated API. Keep startup and credentials untouched; reject unknown starters.
+STARTUP_HASHES = {
+    '63cd57fe7b41cf9b4ca6d951313db60a6d28e485a3b8e4dfbcc0b9bd65c4b9ba',
+    '5a2745e71ede215fa5cfdf8b081829b5c7ae65e0a423a1f078c0d754d491ec10',
+}
 APP_MARKERS = (
     'services/frontend-web/components/reviews/AskGenius.tsx',
     'services/backend-api/src/services/ask_genius.py',
+    'services/backend-api/src/services/ask_genius_instructions.txt',
+    'services/backend-api/src/services/ask_genius_periods.py',
+    'services/backend-api/alembic/versions/d0c6241e9f32_add_ask_genius_default_period.py',
 )
 
 
@@ -48,7 +57,7 @@ def regular(root: Path, name: str) -> Path:
 
 
 def atomic_write(path: Path, data: bytes, mode: int) -> None:
-    fd, temporary_name = tempfile.mkstemp(prefix='.layout-update-', dir=path.parent)
+    fd, temporary_name = tempfile.mkstemp(prefix='.genius-update-', dir=path.parent)
     temporary = Path(temporary_name)
     try:
         os.fchmod(fd, mode)
@@ -84,6 +93,8 @@ def update(root: Path, bundle: Path) -> bool:
         raise UpdateError('The update archive failed verification. Nothing changed.')
     for name in (*MUTATED_FILES, 'start-local.sh', 'configure.py'):
         regular(root, name)
+    if digest((root / 'start-local.sh').read_bytes()) not in STARTUP_HASHES:
+        raise UpdateError('The preview startup script is not recognized. Its database-upgrade step must be checked before updating. Nothing changed.')
     app = root / 'app'
     if app.is_symlink() or (app.exists() and not app.is_dir()):
         raise UpdateError('The preview application path is not a regular directory. Nothing changed.')
@@ -112,10 +123,10 @@ def update(root: Path, bundle: Path) -> bool:
         return False
     backup = root / BACKUP
     if backup.exists() or backup.is_symlink():
-        raise UpdateError('A layout-update backup already exists. Keep it and ask for help before retrying.')
+        raise UpdateError('An Ask Genius improvement backup already exists. Keep it and ask for help before retrying.')
     originals = {name: (root / name).read_bytes() for name in MUTATED_FILES}
     modes = {name: stat.S_IMODE((root / name).stat().st_mode) for name in MUTATED_FILES}
-    with tempfile.TemporaryDirectory(prefix='.genius-layout-', dir=root) as staging:
+    with tempfile.TemporaryDirectory(prefix='.genius-improvements-', dir=root) as staging:
         unpacked = Path(staging) / 'app'
         unpacked.mkdir()
         with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode='r:gz') as archive:
@@ -131,7 +142,7 @@ def update(root: Path, bundle: Path) -> bool:
             'rereflect-app-source.tar.gz': archive_bytes,
             'checksums.json': (json.dumps(updated_checksums, indent=2) + '\n').encode(),
             'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: feat/boomsay-ask-genius\n'
-                           f"Commit: {meta['commit']}\nApplication layout updated; private data and AI setup unchanged.\n").encode(),
+                           f"Commit: {meta['commit']}\nAsk Genius updated; private data and AI setup unchanged. Startup applies the additive preference migration.\n").encode(),
         }
         moved_old = installed_new = created_backup = False
         written: list[str] = []
@@ -174,8 +185,9 @@ def main() -> int:
     except (OSError, ValueError, KeyError, TypeError, tarfile.TarError):
         print('The update could not complete. Keep your preview and any backup; no AI request was made.', file=sys.stderr)
         return 1
-    print('Application updated; existing data, login and AI setup were preserved.' if changed else 'This layout update is already installed.')
+    print('Application updated; existing data, login and AI setup were preserved.' if changed else 'This Ask Genius update is already installed.')
     print('Now run: bash start-local.sh')
+    print('Startup rebuilds the app and adds the saved-period preference field through its existing database migration step.')
     print('Then open http://127.0.0.1:53004/ask-genius with your existing login.')
     return 0
 

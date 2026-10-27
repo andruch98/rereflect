@@ -1,149 +1,122 @@
-# Ask Genius — Lake House pilot
+# Ask Genius — Lake House MVP
 
-Approved scope: answer questions about the selected Lake House community's saved
-reviews and saved apartment analyses. Reuse the existing chat presentation and
-history. Ask Genius is the landing experience; Reviews remains available.
-Replies, surveys, tasks, citations and portfolio comparisons are deferred.
+Ask Genius answers questions about the selected community's saved reviews and
+saved apartment analysis. It is the preview landing page, with personal history
+and a workspace that fills the available screen. Reviews remains available.
+Surveys, management responses, tasks, and portfolio comparisons are not connected.
 
-## Implementation decisions
+The approved product behavior is in APPROVED_MVP.md. The executable instructions
+are in services/backend-api/src/services/ask_genius_instructions.txt; the service
+adds a small runtime data/output contract.
 
-A fixed authenticated read/calculation/answer flow is used. The six saved review
-records are not reanalyzed. The model receives original statements separately
-from saved interpretations and code-calculated counts. Review records are not
-unique-resident counts, nor proof of the community's entire history. Missing
-posting dates cannot support trends. Mixed topics preserve quotation sentiment;
-a rating-only review provides no written reasons.
+## Conversation, periods, and questions
 
-Source records cannot be changed through this path. The only writes are the
-user's conversation, answers and internal request/usage history. No SQL generator,
-action executor, web search, response publisher, or analysis worker is used.
-Standard counts are calculated in code; unsupported filtered calculations must
-be acknowledged, not improvised. This is deliberately a small bounded pilot,
-not an arbitrary analytics engine.
+A manager chooses a period before starting unless they explicitly saved a
+default. Choices include rolling 7/14/30 days, last calendar month/quarter,
+last six months, year to date, custom dates, and all available history.
+Calendar boundaries use America/New_York. The resolved dates are sent with the
+evidence; review import timestamps are never substituted for posting dates.
 
-## Course basis and judgment
+The period is stored with each conversation and restored with its history.
+A temporary period override does not change the account preference. The picker
+and supported explicit chat commands can save or clear only the signed-in
+manager's default. A nullable users.ask_genius_default_period field is added by
+migration d0c6241e9f32. Existing users have no automatic default.
 
-The team read all three original course sources in full before establishing
-this implementation approach (Deep Agents was divided across three readers).
-Relevant original passages were also inspected directly by the lead reviewer.
+Four approved starters cover topics, complaints, praise, and star-rating counts.
+Selecting a starter fills the editable composer; sending starts the request.
+Browse more questions separates Reviews and Analysis. Future source categories
+remain hidden until the server reports that they are connected.
 
-- LangGraph M1 L1 (source lines 92–98): fixed chains execute the same steps;
-  increased model control has reliability trade-offs. Our judgment: use a fixed
-  sequence rather than a new autonomous agent framework for this increment.
-- LangChain 2.2 Custom state/context (source lines 441–455): give the model only
-  needed information; runtime context is immutable. Our judgment: authenticated
-  community and user identity belong in server code, not model-selected fields.
-- Deep Agents M2.2 (line 5927): permissions are enforced in code, not prompts.
-  The actual API must enforce access even if user/review instructions disagree.
-- Deep Agents M2.4 (line 7402): code is more reliable for grouping/counting than
-  model arithmetic in prose. No interpreter or shell is needed for these counts.
-- LangGraph M2 L3 (lines 500–504): internal state can be broader than returned
-  answers. Evidence is retained internally while visible citations stay deferred.
-- Deep Agents M4.1 (10155–10157): simple single-step tasks do not justify subagent
-  overhead. Our product does not acquire a multi-agent design from this work.
+## Evidence and answers
 
-These are course principles and our implementation judgments, not a claim that
-historical course API details were used as current SDK documentation.
+The fixed authenticated read/calculate/answer flow does not reanalyze reviews.
+SQL selects the authorized community and original review dates before evidence
+is sent to the model. Finite periods exclude undated records and disclose missing
+date coverage. All available history includes them only by explicit selection.
+No-data answers are produced locally without a model request; they distinguish
+dated absence from an inability to place undated reviews.
 
-## Live verification boundary
+Original statements are separate from saved interpretations and code-calculated
+counts. Mixed quotation sentiment is preserved. A rating-only review supplies no
+written explanation. Reviews are not unique residents or proof of complete
+community history. Unsupported calculations and comparisons require clarification.
 
-The user selected OpenAI GPT-4.1 mini and approved publication on 27 October
-2026. The user subsequently reported trying the Mac chat and finding its answers
-shallow. Actual answer text and provider usage were not supplied for evaluation.
-Our tests use simulated responses; they do not establish factual quality of live
-answers. This agent has made no actual model request.
+Answers lead with the finding, use short paragraphs/bullets, and avoid repetition.
+Normal answers and explanations are capped at 1,000 characters including spaces.
+Only requested evidence may expand the complete answer to 3,000 characters; the
+explanation itself remains within 1,000. A headline count or citation alone does
+not qualify. Oversized output is rejected without truncating meaning or retrying
+the provider automatically.
 
-Before live validation, configure the selected model's credentials and API-only
-egress in the isolated preview. Preserve the blocked review-analysis
-ledger, stopped workers and private database. Never ask the user to paste keys
-into chat. Do not modify production services to enable a test preview.
+The model returns a short explanation and structured references. Server code
+validates review IDs against the selected cohort, checks exact excerpts and saved
+topics, and renders links to the original reviews. The client permits only those
+authorized internal links. It does not render model-supplied external links,
+images, or raw HTML. Relevant contrasting evidence should be retained.
 
-Bounded live acceptance set: praise, complaints, Mixed staff feedback, rating-only,
-counts, follow-up, missing dates, another-community request, requested action and
-instructions embedded in review text. Record every request/output/failure plus
-human factual assessment and available usage. This live evaluation is pending.
+## Access and configuration
 
-## Configuration and implementation limits
+Source records cannot be changed through this path. Writes are limited to the
+manager's conversation, internal request/usage history, and explicit personal
+default-period updates. No response publisher, task executor, arbitrary SQL
+generator, web search, analysis worker, embeddings, or new agent framework was
+added. Authorization is enforced in code rather than delegated to the model.
 
-The feature is off unless ASK_GENIUS_ENABLED=true. Explicit ASK_GENIUS_PROVIDER
-and ASK_GENIUS_MODEL are required; no default model or production key is inherited.
-The existing SDK adapter supports openai, openai_compatible and ollama. OpenAI
-requires a separate ASK_GENIUS_API_KEY and uses its explicit official endpoint.
-Compatible/local endpoints require ASK_GENIUS_BASE_URL. This is an implemented
-adapter boundary, not a recommendation to choose one vendor over another.
+The feature requires ASK_GENIUS_ENABLED=true plus explicit provider/model
+configuration. Existing adapters support openai, openai_compatible, and ollama.
+OpenAI uses a separate ASK_GENIUS_API_KEY and its official endpoint. Compatible
+or local providers require ASK_GENIUS_BASE_URL. The update preserves the
+previously selected model and connection; it does not change provider settings.
 
-The accompanying Mac installer in `preview_setup/` prepares the selected
-`openai` / `gpt-4.1-mini` configuration using a hidden local key prompt. It updates
-an existing recognized preview and preserves its login, saved records, database
-volume and analysis-blocking settings. Only the API service gains an outbound
-Docker network; this is ordinary outbound access, not a domain firewall. The
-database, Redis and web services retain their internal network. Private files
-are excluded from the Docker build context. Saving the key and checking local
-configuration do not call the provider.
+Evidence is bounded at 100 selected reviews and 80,000 evidence characters,
+without silent sampling. At most 10 prior messages are included. Generation
+has a 45-second timeout, 1,200 completion tokens, and no automatic retry.
+This is a bounded MVP rather than an arbitrary analytics engine.
 
-The downloadable package supplies the generated source archive and its checksum
-manifest beside these scripts. Scripts and tests contain no API credentials.
-An API key must be entered on the user's Mac before live evaluation can proceed.
-OpenAI's [deprecation notice](https://developers.openai.com/api/docs/deprecations)
-lists GPT-4.1 mini shutdown on 14 January 2027. The pilot keeps the selected model
-without automatic substitution.
+History reuses Conversation/Message tables with a dedicated scope and creator/
+organization checks. Legacy chat paths exclude that scope. Request IDs prevent
+duplicate generation after uncertain failures. PostgreSQL uses a session advisory
+lock; isolated SQLite tests exercise the process lock.
 
-The dataset is bounded at 100 saved imported review records and 80,000 evidence
-characters, with no silent sampling. The model receives at most 10 prior messages.
-One request has a 45-second timeout, 1,200 completion tokens and no automatic
-retry. Only supplied code aggregates may be used as exact counts; arbitrary
-subset calculations are not implemented in this increment. No embeddings,
-vector database, autonomous tools or new agent framework were added.
+## Mac update
 
-History reuses existing Conversation/Message tables with a dedicated scope,
-creator and organization checks. Legacy chat/list/detail/action paths exclude
-this scope. Request IDs prevent duplicate generation after uncertain failures.
-Known failed attempts require a new explicit attempt; automatic retries are off.
-PostgreSQL uses a session advisory lock to reject concurrent submissions; the
-SQLite test harness exercises the process lock instead.
+The source-only updater in preview_updates preserves the existing connection,
+credentials, login, database, and blocked review-analysis configuration. The
+recognized preview startup already runs Alembic before the API, so it applies the
+new nullable preference field on restart. Packaging pins an exact source commit.
 
-## Verification status
+Updater file-copy failures can restore the prior source before startup. Once the
+new database migration has run, restoring old source alone is not a supported
+rollback because that source cannot resolve the new Alembic revision. Keep the
+backup and use the recovery guidance in the package. No production deployment
+or merge is part of this change.
 
-- 51 distinct focused frontend checks passed (46 chat/layout/answer regressions
-  plus 5 middleware landing checks). Full TypeScript retained the same 87 existing
-  diagnostics; none added. ESLint had no errors.
-- 17 backend checks passed against an isolated SQLite database using real
-  auth/routes/models and simulated model responses. Includes exact prepared
-  evidence from all six original saved reviews. No source records reanalyzed.
-- 15 Mac setup checks passed in disposable local folders with synthetic keys.
-  They cover existing-file preservation, repeated updates, canceled/invalid key
-  entry, rollback, source integrity and Docker project/network boundaries.
-  Shell commands were intercepted; no actual Docker containers or model calls
-  were involved. Python sources also parsed using the Python 3.9 grammar;
-  actual execution was on Python 3.12/Linux. Two independent setup reviews
-  found no remaining blockers. This does not establish Mac runtime behavior.
-- Actual saved-data aggregates: 6 records, 5 written, 1 rating-only, all 6 original
-  posting dates unavailable; 3 positive and 3 negative overall; average 3.1667
-  stars, 3/6 high-star reviews (50%). Staff occurs in 4 records, with praise in
-  3 and criticism in 2 when mixed quotations are counted by record.
-- Live model response accuracy, provider connectivity, PostgreSQL advisory locks
-  and full Docker startup remain unverified. Actual model requests: zero; no
-  actual model tokens or charges incurred. Mock token fields are synthetic.
-- Initial frontend checks failed before an empty-state fix; the full first log
-  was overwritten. The run-history record discloses that missing capture and
-  preserves the available excerpt. Browser inspection also found a remaining
-  middleware redirect to Reviews; the preview redirect was corrected and five
-  focused entry-path checks added.
+## Verification of this increment
 
-Software checks are not a human approval of factual model outputs. Complete
-mocked inputs/outputs and simulated failures are in the private downloadable
-verification record, outside Git. Human/live answer assessment remains pending.
+- 83 focused frontend tests passed. ESLint has no errors and three existing
+  warnings. Full TypeScript output matches the baseline: 87 existing diagnostics,
+  with none added.
+- 29 isolated backend integration/migration tests and 71 period/parser tests
+  passed. A further 14 existing Ask Genius regressions passed through the lean
+  harness; one private-fixture test was skipped and two full-app legacy/WebSocket
+  route tests were excluded because the harness does not load those routers.
+- The migration test preserves an existing user, adds a nullable preference with
+  no default, and verifies downgrade. Alembic has one head.
+- 16 real localhost HTTP checks passed using real JWT/auth/routes/SQLite and a
+  simulated provider. They cover period enforcement, replay, evidence links,
+  persistence, temporary overrides, missing dates, clarification, and isolation.
+- 14 source-updater and four archive-builder tests passed. These use disposable
+  files and synthetic configuration. They do not establish actual Mac/Docker
+  behavior.
 
-Final browser replay passed: default Ask Genius landing, honest unconfigured
-state, no automatic question requests, starter selection, one simulated answer,
-history reopening without regeneration, mobile layout and centered review cells.
-Screens were visually inspected. The run used mocked API responses and fallback
-fonts, not the live database/provider. Earlier browser attempts found the landing
-redirect issue, then required test-harness viewport correction and a fresh dev
-cache after interrupted compilation. These attempts are disclosed in the bundle.
+Actual provider calls: zero. Tests do not establish the factual quality of live
+model answers. PostgreSQL advisory locks, actual Mac/Docker startup, and live
+provider behavior remain unverified in this environment. Current visual browser
+validation was blocked: the connected browser was unavailable and the cloud
+browser could not reach the local test server. UI tests passed, but they are not
+a substitute for checking the updated Mac preview.
 
-The subsequent workspace expansion passed 46 existing frontend tests and browser
-layout checks at 1440px, 1920px and 390px. Long simulated history and answers scroll
-inside their panels while the composer stays visible. ESLint reported no errors
-and three existing warnings. Fallback fonts were used. These changes are layout
-only; the question starters, model and answer instructions remain unchanged.
+The earlier layout increment had browser checks; those do not validate these new
+controls. The next human check is to apply the update, review the period controls
+and evidence links, and assess real answers against the saved community records.

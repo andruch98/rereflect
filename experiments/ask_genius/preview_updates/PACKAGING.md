@@ -1,26 +1,50 @@
-# Layout updater packaging
+# Ask Genius improvement updater packaging
 
-Copy `update-preview.py` and `README.txt` beside a final source archive named
-`rereflect-app-source.tar.gz`. Do not package credentials or an existing preview.
-After the application commit is final, generate `update.json` with its exact
-40-character `commit`, the archive's SHA-256 `sha256`, and these supported `bases`:
+The updater replaces application source and its archive/metadata only. It never
+reads AI credentials or login files, changes Compose/network configuration,
+starts Docker, or makes a model request. A new backup directory avoids colliding
+with a previously installed layout update.
 
-- `7519b93674d40f87e9915ae458ac503cd69e1d2d`
-- `e19eb96cf0a19802d9bcc569c643845e36417032`
-- `66e7ec4c61a147eced6eed05be45207725253ba6`
-- `4c117094a132b3f395140026336b25ee220ca862`
+Both recognized `start-local.sh` versions run `python -m alembic upgrade head`
+before restore/API startup. The updater pins their known hashes and requires the
+new runtime and migration files in the source archive. On the user's next normal
+startup, the new migration adds the nullable `users.ask_genius_default_period`
+field. No installer-side SQL or restamping is needed. Automatic updater rollback
+covers file-update failures before startup, so it never changes the database.
+After migration, restoring old source alone is not a supported rollback: its
+Alembic tree lacks the new revision recorded by the database. Preserve backups
+and the migration chain for recovery rather than dropping the preference field.
 
-The source archive and manifest are intentionally absent from this directory:
-they must reflect the final reviewed application commit. The updater changes
-only `app/`, its source archive, `SOURCE.txt` and the archive checksum. It never
-reads `runtime.env` or login files, and does not run Docker or model requests.
-
-Run offline tests against the original delivered public preview skeleton:
+After the final application commit exists locally, run:
 
 ```bash
-BOOMSAY_LAYOUT_BASELINE=/path/to/known-original-preview python3 verification/test_update.py
+python3 experiments/ask_genius/preview_updates/build-update.py \
+  --commit FULL_FINAL_COMMIT_SHA \
+  --output /absolute/path/boomsay-genius-improvements-update.zip \
+  --verification-log /absolute/path/offline-checks.txt
 ```
 
-Tests replace private content with synthetic records and credentials. Include
-their final log in the distributable `verification/` folder; do not include
-temporary fixtures, Python caches, or the baseline's private records.
+The builder archives the exact commit's allowlisted application paths, verifies
+archive entries, writes `update.json` with the commit and SHA-256, and includes
+only the updater, README and optional offline verification log. It does not
+package an existing preview, uncommitted source, keys, environment files or
+private records. It refuses to overwrite an existing output.
+
+Supported bases are listed in `build-update.py`: the four earlier preview/Ask
+Genius versions and `5b39b14ff540b2d2de57f90fe8390b7040d2d16f` (the layout update).
+The generated ZIP, source archive and update manifest remain outside Git.
+
+Run offline tests against the delivered public BoomSay preview skeleton:
+
+```bash
+BOOMSAY_LAYOUT_BASELINE=/path/to/known-public-preview \
+  python3 experiments/ask_genius/preview_updates/verification/test_update.py
+python3 experiments/ask_genius/preview_updates/verification/test_build.py
+```
+
+Tests use copies of public skeleton files plus synthetic private records and
+credentials. They check preservation, both startup variants, migration-file
+presence, previous backup coexistence, idempotence and rollback. Include the
+final test log, not temporary fixtures or private files, in the ZIP. These tests
+do not establish real Docker/Mac startup, PostgreSQL migration execution or model
+answer quality.
