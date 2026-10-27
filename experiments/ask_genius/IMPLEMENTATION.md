@@ -47,13 +47,13 @@ historical course API details were used as current SDK documentation.
 
 ## Live verification boundary
 
-The isolated Mac preview has no configured chat model/credentials and no API
-internet egress. The model-selection question returned no selection. No provider
-or model choice is inferred from a past experiment. Simulated responses test
-software plumbing only; they do not establish factual quality of live answers.
+The user selected OpenAI GPT-4.1 mini and approved publication on 27 October
+2026. The Mac preview still requires local credential entry and connection setup.
+Simulated responses test software plumbing only; they do not establish factual
+quality of live answers. No actual model request has yet been made.
 
-Before live validation, select a provider/model and configure its credentials and
-API-only egress in the isolated preview. Preserve the blocked review-analysis
+Before live validation, configure the selected model's credentials and API-only
+egress in the isolated preview. Preserve the blocked review-analysis
 ledger, stopped workers and private database. Never ask the user to paste keys
 into chat. Do not modify production services to enable a test preview.
 
@@ -70,6 +70,22 @@ The existing SDK adapter supports openai, openai_compatible and ollama. OpenAI
 requires a separate ASK_GENIUS_API_KEY and uses its explicit official endpoint.
 Compatible/local endpoints require ASK_GENIUS_BASE_URL. This is an implemented
 adapter boundary, not a recommendation to choose one vendor over another.
+
+The accompanying Mac installer in `preview_setup/` prepares the selected
+`openai` / `gpt-4.1-mini` configuration using a hidden local key prompt. It updates
+an existing recognized preview and preserves its login, saved records, database
+volume and analysis-blocking settings. Only the API service gains an outbound
+Docker network; this is ordinary outbound access, not a domain firewall. The
+database, Redis and web services retain their internal network. Private files
+are excluded from the Docker build context. Saving the key and checking local
+configuration do not call the provider.
+
+The downloadable package supplies the generated source archive and its checksum
+manifest beside these scripts. Scripts and tests contain no API credentials.
+An API key must be entered on the user's Mac before live evaluation can proceed.
+OpenAI's [deprecation notice](https://developers.openai.com/api/docs/deprecations)
+lists GPT-4.1 mini shutdown on 14 January 2027. The pilot keeps the selected model
+without automatic substitution.
 
 The dataset is bounded at 100 saved imported review records and 80,000 evidence
 characters, with no silent sampling. The model receives at most 10 prior messages.
@@ -93,6 +109,13 @@ SQLite test harness exercises the process lock instead.
 - 17 backend checks passed against an isolated SQLite database using real
   auth/routes/models and simulated model responses. Includes exact prepared
   evidence from all six original saved reviews. No source records reanalyzed.
+- 15 Mac setup checks passed in disposable local folders with synthetic keys.
+  They cover existing-file preservation, repeated updates, canceled/invalid key
+  entry, rollback, source integrity and Docker project/network boundaries.
+  Shell commands were intercepted; no actual Docker containers or model calls
+  were involved. Python sources also parsed using the Python 3.9 grammar;
+  actual execution was on Python 3.12/Linux. Two independent setup reviews
+  found no remaining blockers. This does not establish Mac runtime behavior.
 - Actual saved-data aggregates: 6 records, 5 written, 1 rating-only, all 6 original
   posting dates unavailable; 3 positive and 3 negative overall; average 3.1667
   stars, 3/6 high-star reviews (50%). Staff occurs in 4 records, with praise in
