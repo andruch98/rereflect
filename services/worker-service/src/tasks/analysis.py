@@ -5,6 +5,9 @@ Supports LLM-powered categorization (OpenAI) with keyword fallback.
 """
 
 import logging
+import os
+
+_EXPERIMENT_ACTIVE = bool(os.environ.get("APARTMENT_EXPERIMENT_ORG_ID"))
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional
 
@@ -137,9 +140,9 @@ def is_feature_request(text: str) -> bool:
 
 @shared_task(
     bind=True,
-    max_retries=3,
+    max_retries=0 if _EXPERIMENT_ACTIVE else 3,
     default_retry_delay=60,
-    autoretry_for=(Exception,),
+    autoretry_for=() if _EXPERIMENT_ACTIVE else (Exception,),
     retry_backoff=True,
 )
 def analyze_single_feedback(self, feedback_id: int) -> dict:
@@ -173,6 +176,10 @@ def analyze_single_feedback(self, feedback_id: int) -> dict:
 
             # Invalidate dashboard/analytics cache after analysis
             _invalidate_org_cache(feedback.organization_id)
+
+            if _EXPERIMENT_ACTIVE:
+                return {"status": "success", "feedback_id": feedback_id,
+                        "method": feedback.apartment_analysis["final_result"]["method"]}
 
             # Auto-assign after analysis (so category-based rules can match)
             org_id = feedback.organization_id
@@ -219,7 +226,7 @@ def analyze_single_feedback(self, feedback_id: int) -> dict:
 
 @shared_task(
     bind=True,
-    max_retries=3,
+    max_retries=0 if _EXPERIMENT_ACTIVE else 3,
     default_retry_delay=60,
 )
 def analyze_feedback_batch(self, org_id: int, feedback_ids: List[int]) -> dict:
@@ -250,6 +257,10 @@ def analyze_feedback_batch(self, org_id: int, feedback_ids: List[int]) -> dict:
         success_count = 0
         failed_count = 0
 
+        if _EXPERIMENT_ACTIVE:
+            positions = {identifier: index for index, identifier in enumerate(feedback_ids)}
+            feedback_items.sort(key=lambda item: positions[item.id])
+
         for feedback in feedback_items:
             try:
                 _analyze_feedback_item(feedback, db)
@@ -265,7 +276,7 @@ def analyze_feedback_batch(self, org_id: int, feedback_ids: List[int]) -> dict:
             _invalidate_org_cache(org_id)
 
         # Auto-assign after analysis (so category-based rules can match)
-        if success_count > 0:
+        if success_count > 0 and not _EXPERIMENT_ACTIVE:
             from src.tasks.workflow import auto_assign_feedback_batch
             auto_assign_feedback_batch.delay(org_id, feedback_ids)
 
@@ -343,6 +354,9 @@ def process_unanalyzed_feedback() -> dict:
         dict with processing results
     """
     from src.models import FeedbackItem
+
+    if _EXPERIMENT_ACTIVE:
+        return {"status": "disabled_for_experiment", "processed": 0}
 
     r = _get_redis()
     lock = r.lock("lock:process_unanalyzed_feedback", timeout=600, blocking=False)
@@ -430,6 +444,10 @@ def _analyze_feedback_item(feedback, db=None) -> None:
         feedback: FeedbackItem ORM object to analyze
         db: SQLAlchemy session (needed for org lookup and custom categories)
     """
+    if _EXPERIMENT_ACTIVE:
+        _analyze_apartment_item(feedback, db)
+        return
+
     from src.models import Organization, CustomCategory
 
     # Check if org has AI analysis enabled
@@ -1064,3 +1082,47 @@ def retry_llm_analysis() -> dict:
             lock.release()
         except redis.exceptions.LockNotOwnedError:
             pass
+
+
+def _analyze_apartment_item(feedback, db):
+    from src.apartment_reviews import keyword_result, validate_input
+    from src.llm_client import categorize_apartment_feedback
+    from src.models import Organization, OrgAIConfig
+    if str(feedback.organization_id) != os.environ["APARTMENT_EXPERIMENT_ORG_ID"]:
+        raise ValueError("Feedback is outside the isolated experiment organization")
+    if feedback.source not in ("apartment_review_ai", "apartment_review_fallback"):
+        raise ValueError("Unexpected source for apartment experiment")
+    if feedback.apartment_analysis is not None:
+        return  # Never overwrite completed AI or comparison records.
+    validate_input(feedback.text, feedback.star_rating)
+    if not feedback.source_external_id:
+        raise ValueError("Exact source ID is required")
+    org = db.query(Organization).filter(Organization.id == feedback.organization_id).first()
+    if not org:
+        raise ValueError("Experiment organization is missing")
+    audit = None
+    if feedback.source == "apartment_review_ai":
+        if not org.ai_analysis_enabled:
+            raise ValueError("AI analysis must be enabled for the intended AI run")
+        config = db.query(OrgAIConfig).filter_by(organization_id=feedback.organization_id).first()
+        if config and config.default_provider != "openai":
+            raise ValueError("Configured provider is unsupported for this OpenAI experiment")
+        model = os.environ.get("APARTMENT_EXPERIMENT_MODEL") or (config.model_categorization if config else None) or "gpt-4o-mini"
+        audit = categorize_apartment_feedback(feedback.text, feedback.star_rating, feedback.source_external_id, model)
+    if audit and audit["parsed_result"] is not None:
+        result = dict(audit["parsed_result"], method="ai_model", evidence_kind="ai_selected_quotations",
+                      provider=audit["provider"], model=audit["model"])
+    else:
+        result = keyword_result(feedback.text, feedback.star_rating,
+                                lambda text: get_sentiment_analyzer("vader").analyze(text))
+        if audit:
+            result["fallback_reason"] = audit["failure_reason"]
+    feedback.apartment_analysis = {"ai_attempt": audit, "final_result": result}
+    feedback.sentiment_label = result["sentiment"]
+    feedback.sentiment_score = None  # Do not fabricate a numeric score from the label.
+    feedback.llm_analyzed = result["method"] == "ai_model"
+    feedback.llm_analysis_pending = False  # Never queue paid retries after fallback.
+    feedback.llm_provider = result.get("provider")
+    feedback.llm_model = result.get("model")
+    # Legacy problem, urgency, risk and suggested-action fields are not inferred
+    # from apartment topics. Classifier overrides and secondary jobs are skipped.

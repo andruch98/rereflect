@@ -13,7 +13,7 @@ from src.api.dependencies import get_current_user, get_current_org, require_admi
 from src.models.usage import UsageRecord
 from src.services.event_emitter import emit_event
 from src.services.ai_correction_service import create_ai_correction, urgency_label
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 import sys
 import os
@@ -193,6 +193,8 @@ def analyze_single_feedback(feedback: FeedbackItem, db: Session) -> None:
 class FeedbackCreateRequest(BaseModel):
     text: str
     source: Optional[str] = "manual"
+    star_rating: Optional[int] = Field(default=None, ge=1, le=5, strict=True)
+    source_external_id: Optional[str] = Field(default=None, max_length=255)
 
 
 class UrgentUpdateRequest(BaseModel):
@@ -204,6 +206,9 @@ class FeedbackResponse(BaseModel):
     organization_id: int
     text: str
     source: Optional[str]
+    star_rating: Optional[int] = None
+    source_external_id: Optional[str] = None
+    apartment_analysis: Optional[dict] = None
     # Source tracking
     source_id: Optional[int] = None
     source_name: Optional[str] = None  # From FeedbackSource.name
@@ -274,7 +279,9 @@ async def create_feedback(
     feedback = FeedbackItem(
         organization_id=current_org.id,
         text=data.text,
-        source=data.source
+        source=data.source,
+        star_rating=data.star_rating,
+        source_external_id=data.source_external_id,
     )
 
     db.add(feedback)
@@ -483,6 +490,9 @@ def list_feedback(
             "id": item.id,
             "organization_id": item.organization_id,
             "text": item.text,
+            "star_rating": item.star_rating,
+            "source_external_id": item.source_external_id,
+            "apartment_analysis": item.apartment_analysis,
             "source": item.source,
             "source_id": item.source_id,
             "source_name": source_name,
@@ -558,6 +568,9 @@ def get_feedback(
         id=feedback.id,
         organization_id=feedback.organization_id,
         text=feedback.text,
+        star_rating=feedback.star_rating,
+        source_external_id=feedback.source_external_id,
+        apartment_analysis=feedback.apartment_analysis,
         source=feedback.source,
         source_id=feedback.source_id,
         source_name=source_name,
@@ -676,6 +689,9 @@ async def update_feedback(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Feedback not found"
         )
+
+    if feedback.source in ("apartment_review_ai", "apartment_review_fallback"):
+        raise HTTPException(status_code=409, detail="Experiment records are immutable; use a separately authorized run")
 
     feedback.text = data.text
     if data.source is not None:
@@ -850,20 +866,40 @@ async def import_csv(
             email_column = fieldnames_lower[col]
             break
 
+    # Apartment input is normalized privately before upload. Validate the entire
+    # batch before writing so malformed/missing rating-only rows cannot disappear.
+    experiment_rows = None
+    if os.environ.get("APARTMENT_EXPERIMENT_ORG_ID"):
+        from src.services.apartment_import import validate_rows
+        if str(current_org.id) != os.environ["APARTMENT_EXPERIMENT_ORG_ID"]:
+            raise HTTPException(status_code=400, detail="Wrong experiment organization")
+        try:
+            experiment_rows = validate_rows(list(csv_reader))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if not current_org.ai_analysis_enabled and experiment_rows[0]["source"] == "apartment_review_ai":
+            raise HTTPException(status_code=400, detail="AI analysis is disabled")
+        # Reject duplicate imports before any writes or queue submission.
+        for row in experiment_rows:
+            if db.query(FeedbackItem).filter_by(organization_id=current_org.id,
+                    source=row["source"], source_external_id=row["source_external_id"]).first():
+                raise HTTPException(status_code=409, detail="An experiment record was already imported")
+
     # Import feedback items
+    imported_ids = []
     total_rows = 0
     imported_count = 0
     failed_count = 0
     errors = []
 
-    for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 (header is row 1)
+    for row_num, row in enumerate(experiment_rows if experiment_rows is not None else csv_reader, start=2):  # Start at 2 (header is row 1)
         total_rows += 1
 
         try:
             # Get feedback text
-            feedback_text = row.get(text_column, '').strip()
+            feedback_text = row['text'] if experiment_rows is not None else row.get(text_column, '').strip()
 
-            if not feedback_text:
+            if not feedback_text and experiment_rows is None:
                 errors.append(f"Row {row_num}: Empty feedback text")
                 failed_count += 1
                 continue
@@ -893,6 +929,8 @@ async def import_csv(
                 text=feedback_text,
                 source=source,
                 customer_email=customer_email_val,
+                star_rating=row["star_rating"] if experiment_rows is not None else None,
+                source_external_id=row["source_external_id"] if experiment_rows is not None else None,
             )
 
             db.add(feedback)
@@ -901,6 +939,8 @@ async def import_csv(
 
             # Track usage — Stripe-free: feedback_count is the sole counter
             usage.feedback_count += 1
+
+            imported_ids.append(feedback.id)
 
             # Note: Analysis will be done by background scheduler
             imported_count += 1
@@ -918,16 +958,8 @@ async def import_csv(
     from src.background import queue_analyze_batch
 
     if imported_count > 0:
-        # Get IDs of newly imported feedback items
-        recent_feedback = db.query(FeedbackItem.id).filter(
-            FeedbackItem.organization_id == current_org.id,
-            FeedbackItem.sentiment_label == None,
-            FeedbackItem.source == 'csv_import'
-        ).order_by(FeedbackItem.created_at.desc()).limit(imported_count).all()
-
-        feedback_ids = [f.id for f in recent_feedback]
-        if feedback_ids:
-            queue_analyze_batch(current_org.id, feedback_ids)
+        # Queue only IDs actually created by this import (including custom sources).
+        queue_analyze_batch(current_org.id, imported_ids)
 
     if imported_count > 0:
         from src.services.cache_service import cache_invalidate

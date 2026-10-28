@@ -215,6 +215,13 @@ async def lifespan(app: FastAPI):
     """Application lifespan - runs on startup and shutdown."""
     # Startup: run migrations, seed admin user, sync changelog
     run_migrations()
+    if os.getenv("APARTMENT_EXPERIMENT_ORG_ID"):
+        # The isolated experiment is provisioned explicitly. Normal startup can
+        # embed Copilot templates and seed provider keys; neither belongs in its
+        # six-request budget. Keep ordinary startup unchanged outside this mode.
+        logger.info("Apartment experiment: skipping unrelated startup seed jobs")
+        yield
+        return
     try:
         seed_admin_user()
     except Exception as e:

@@ -10,6 +10,8 @@ class FeedbackItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     text = Column(Text, nullable=False)
+    star_rating = Column(Integer, nullable=True)
+    apartment_analysis = Column(JSON, nullable=True)
     source = Column(String, nullable=True)  # intercom, zendesk, manual, slack, webhook, etc
 
     # Source tracking for inbound integrations
