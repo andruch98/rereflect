@@ -33,6 +33,7 @@ from .llm_model_price import LLMModelPrice
 from .conversation_folder import ConversationFolder
 from .conversation import Conversation
 from .conversation_message import ConversationMessage
+from .ask_genius_share import AskGeniusShare
 from .query_template import QueryTemplate
 from .query_template_mapping import QueryTemplateMapping
 from .copilot_schema_whitelist import CopilotSchemaWhitelist
@@ -106,6 +107,7 @@ __all__ = [
     "ConversationFolder",
     "Conversation",
     "ConversationMessage",
+    "AskGeniusShare",
     "QueryTemplate",
     "QueryTemplateMapping",
     "CopilotSchemaWhitelist",

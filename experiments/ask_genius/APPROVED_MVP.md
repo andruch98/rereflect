@@ -1,6 +1,7 @@
 # Ask Genius: approved MVP behavior
 
-Approved with the product owner on 27 October 2026. This increment improves the
+Approved with the product owner on 27-28 October 2026, including the reviewed
+four-page visual sketch and public-sharing decision. This increment improves the
 existing chatbot; it does not re-run review analysis or add a new agent framework.
 The executable assistant instructions live in
 `services/backend-api/src/services/ask_genius_instructions.txt`.
@@ -23,18 +24,21 @@ The executable assistant instructions live in
 
 ## Opening questions
 
-Show these four starters after the period control. Selecting any question fills
-the editable composer; only sending starts an answer request.
+Show these four starters after the period control. They remain readable and
+clickable before a period is selected. Selecting any question fills the editable
+composer; only sending starts an answer request. If a period is missing, clearly
+direct the manager to the selector rather than making the question cards inert.
 
 1. Which topics came up most often in reviews during this period?
 2. What were the main complaints in reviews during this period?
 3. What did residents praise in reviews during this period?
 4. How many reviews did we receive at each star rating during this period?
 
-"Browse more questions" opens a curated menu. Reviews covers original records
+"Browse more questions" opens a compact tabbed panel. Reviews covers original records
 and basic counts; Analysis covers saved subjects, sentiment, and patterns.
-Browsing does not call a model. Categories reflect connected sources only.
-Surveys and Management responses remain hidden until their data is connected.
+Browsing does not call a model. Reviews, Analysis, Surveys and Management
+responses are all visible. Disconnected categories say "Not connected yet";
+their questions cannot be submitted. This increment does not connect new sources.
 
 The sole approved future Management responses question is:
 "What follow-ups did we promise residents in management responses during this
@@ -43,10 +47,24 @@ Do not include the rejected question about concerns left unanswered in replies.
 
 ## Answering and evidence
 
-- Lead with the finding. Use verified counts where useful and a short supported
-  interpretation when it helps. Avoid repetition and unnecessary introductions.
-- Separate short paragraphs with blank lines. Use bullets and sparse emphasis
-  when they improve scanning. Avoid a fixed report template.
+- Across conversations, lead with relevant complaints, negative feedback and
+  concerns, giving them greater emphasis. Include positives afterward only when
+  the question calls for them or they are necessary for an accurate answer that
+  avoids a misleading impression. Respect positive-only requests; never invent
+  or exaggerate concerns or expand beyond the question's scope.
+- Lead with the finding. Include verified counts when relevant, including in
+  initial complaint summaries. Explain overlap when reviews address several
+  concerns. Reviews are not unique residents; ratings and sentiment are distinct.
+- Use bullets for two or more distinct findings, short paragraphs for a single
+  explanation, and blank lines between paragraphs and lists. Use numbered lists
+  for ranked priorities and explain the ranking with supported seriousness,
+  frequency and reliable recency. Avoid repetition, filler conclusions and
+  unnecessary staff or reviewer names. Avoid a fixed report template.
+- Follow-ups retain the same topics, source scope and established timeframe.
+  Attribute claims to residents instead of presenting them as proven facts.
+  Missing dates or resolution records do not establish a current/unresolved
+  problem. For undated all-history data, say "across the saved reviews" rather
+  than implying a complete community history or dated intake count.
 - Maximum 1,000 characters, including spaces, for summaries and explanations.
   Requested supporting evidence may expand the whole answer to 3,000 characters;
   the explanation itself stays concise. A citation or headline count alone does
@@ -54,15 +72,49 @@ Do not include the rejected question about concerns left unanswered in replies.
   to make an oversized answer appear compliant.
 - Show evidence when requested or after the manager accepts an offer. Select by
   relevance, then reliable recency, including contrasting evidence when material.
-  No fixed number of excerpts. Use verified references and offer remaining
-  relevant information without inventing a remaining count.
+  No fixed number of excerpts. Use actual review wording as clickable excerpts,
+  not internal labels such as "Review 3". Open the full review and expandable
+  saved analysis in a popup without leaving the chat. Full popup contents are
+  separate from the displayed chat-answer character budget. Offer remaining
+  relevant information without inventing a remaining count. Provide author
+  information only if requested and actually available.
 - Read community information only. No publishing, contacting residents, tasks,
-  source-record changes, or implied actions. The limited preference operation
-  writes only the requesting manager's default period.
+  source-record changes, or implied actions. Personal chat management, explicit
+  sharing and the requesting manager's default preference are application
+  controls, not model-granted permissions.
+
+## Visual design and chat controls
+
+- Preserve BoomSay's warm theme, make the period selector prominent, keep saving
+  a default secondary, and condense the missing-date notice.
+- Larger, darker text and a shared central column for messages and composer.
+  History stays visible; no collapsible history sidebar in this increment.
+- Use "New chat" and "Your chats". Keep automatic names or allow a saved custom
+  name. A three-dot menu provides Rename, Pin/Unpin, Share and Delete. A pin icon
+  also toggles pinning; pinned chats appear first. Confirm deletion.
+- Show Answering while awaiting a response; attach Retry to a failed question
+  and keep its text visible. Copy appears beneath a completed answer. Diagnose
+  repeated failures, not just their generic error text. No automatic paid retry.
+
+## Public sharing
+
+Share creates and copies an unguessable public link to a read-only snapshot.
+Anyone with the link can view it without a BoomSay account. Confirmation:
+"Link copied. Anyone with the link can view this chat."
+
+Only that conversation and its selected supporting review/analysis content are
+shared, including the evidence popups. Other chats, the dashboard, raw provider
+payloads, credentials and unrelated community data are excluded. Later messages
+do not automatically change an existing snapshot. Manage link and link
+deactivation are explicitly deferred. Share does not send messages to recipients.
+The current loopback-only Mac preview can demonstrate this in a signed-out
+browser on the same Mac; remote recipients require a reachable hosted instance.
 
 ## Verification and release
 
-Test date boundaries and missing dates, calculated cohorts, preference persistence
+Test full multi-turn conversations and source popups, private chat ownership and
+pin/rename/delete persistence, anonymous snapshot isolation and immutability,
+date boundaries and missing dates, calculated cohorts, preference persistence
 and ownership, explicit versus temporary changes, request replay, source links,
 answer limits, responsive rendering, and the browser-to-API flow. Automated model
 responses are simulated and must be labeled as such. No paid model tests are

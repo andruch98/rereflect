@@ -27,7 +27,10 @@ SUPPORTED_BASES = (
     '4c117094a132b3f395140026336b25ee220ca862',
     '5b39b14ff540b2d2de57f90fe8390b7040d2d16f',
     'bf6236c84291d633435a1b73719d7b645942a715',
+    '724ca86b0de00c59ade1c8c54fac17ec9bacbc71',
+    '5bba1ce0c502c074d481a4b2228091ec5873c72d',
 )
+BUNDLE_NAME = 'boomsay-genius-chat-update'
 
 
 def build(commit: str, output: Path, verification_log: Path | None = None) -> None:
@@ -36,7 +39,7 @@ def build(commit: str, output: Path, verification_log: Path | None = None) -> No
     subprocess.run(['git', 'cat-file', '-e', commit + '^{commit}'], cwd=REPOSITORY, check=True)
     if output.exists():
         raise ValueError('The output already exists; choose a new path to preserve it.')
-    for name in ('update-preview.py', 'README.txt'):
+    for name in ('build-update.py', 'update-preview.py', 'README.txt'):
         committed = subprocess.check_output(
             ['git', 'show', commit + ':experiments/ask_genius/preview_updates/' + name], cwd=REPOSITORY)
         if committed != (HERE / name).read_bytes():
@@ -45,7 +48,7 @@ def build(commit: str, output: Path, verification_log: Path | None = None) -> No
     updater = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(updater)
     with tempfile.TemporaryDirectory(prefix='boomsay-genius-package-') as staging:
-        root = Path(staging) / 'boomsay-genius-improvements-update'
+        root = Path(staging) / BUNDLE_NAME
         root.mkdir()
         archive = root / 'rereflect-app-source.tar.gz'
         subprocess.run(['git', 'archive', '--format=tar.gz', '--output', str(archive),

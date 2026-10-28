@@ -1,4 +1,4 @@
-import apiClient from '../api-client';
+import apiClient, { publicApiClient } from '../api-client';
 import type { ChatMessage } from '@/components/copilot/ChatArea';
 
 export type GeniusPeriodPreset = 'last_7_days' | 'last_14_days' | 'last_30_days' | 'last_month' | 'last_quarter' | 'last_6_months' | 'year_to_date' | 'all_time' | 'custom';
@@ -23,6 +23,15 @@ export interface GeniusConversation {
   title: string;
   updated_at?: string;
   period?: GeniusPeriod | null;
+  is_pinned?: boolean;
+}
+
+export type GeniusChatMessage = ChatMessage & { status?: 'attempted' | 'failed' | 'completed' };
+
+export interface SharedGeniusConversation {
+  title: string;
+  created_at: string;
+  messages: ChatMessage[];
 }
 
 export interface GeniusAnswer {
@@ -37,6 +46,18 @@ export interface GeniusAnswer {
 }
 
 export const askGeniusAPI = {
+  async updateConversation(id: string, changes: { title?: string; is_pinned?: boolean }) {
+    return (await apiClient.patch<GeniusConversation>(`/api/v1/ask-genius/conversations/${encodeURIComponent(id)}`, changes)).data;
+  },
+  async deleteConversation(id: string) {
+    await apiClient.delete(`/api/v1/ask-genius/conversations/${encodeURIComponent(id)}`);
+  },
+  async shareConversation(id: string) {
+    return (await apiClient.post<{ token: string; path: string }>(`/api/v1/ask-genius/conversations/${encodeURIComponent(id)}/share`)).data;
+  },
+  async shared(token: string) {
+    return (await publicApiClient.get<SharedGeniusConversation>(`/api/v1/ask-genius/shared/${encodeURIComponent(token)}`)).data;
+  },
   async status() {
     return (await apiClient.get<GeniusStatus>('/api/v1/ask-genius/status')).data;
   },
@@ -47,7 +68,7 @@ export const askGeniusAPI = {
     return (await apiClient.get<{ conversations: GeniusConversation[]; total: number }>('/api/v1/ask-genius/conversations')).data;
   },
   async conversation(id: string) {
-    return (await apiClient.get<GeniusConversation & { messages: ChatMessage[] }>(`/api/v1/ask-genius/conversations/${encodeURIComponent(id)}`)).data;
+    return (await apiClient.get<GeniusConversation & { messages: GeniusChatMessage[] }>(`/api/v1/ask-genius/conversations/${encodeURIComponent(id)}`)).data;
   },
   async ask(question: string, requestId: string, conversationId?: string, period?: GeniusPeriod | null) {
     return (await apiClient.post<GeniusAnswer>('/api/v1/ask-genius/questions', {

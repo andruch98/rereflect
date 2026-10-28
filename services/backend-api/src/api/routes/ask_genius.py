@@ -10,17 +10,19 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import text
+from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.database.session import get_db
 from src.models.conversation import Conversation
 from src.models.conversation_message import ConversationMessage
+from src.models.ask_genius_share import AskGeniusShare
 from src.models.user import User
 from src.services import ask_genius as service
+from src.services import ask_genius_sharing as sharing
 from src.services.ask_genius_periods import Period, parse_question_period, preference_command, resolve_period
 from src.services.review_preview import require_preview_organization
 
@@ -40,6 +42,44 @@ class Question(BaseModel):
 class Preferences(BaseModel):
     model_config = ConfigDict(extra='forbid')
     default_period: Optional[Period]
+
+
+class ConversationUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    is_pinned: bool | None = Field(default=None, strict=True)
+
+    @field_validator('title')
+    @classmethod
+    def title_not_blank(cls, value):
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError('Enter a chat name.')
+        return value
+
+    @model_validator(mode='after')
+    def has_update(self):
+        if not self.model_fields_set or any(getattr(self, key) is None for key in self.model_fields_set):
+            raise ValueError('Supply a chat name or pin setting.')
+        return self
+
+
+class ConversationSummary(BaseModel):
+    public_id: str
+    title: str | None
+    is_pinned: bool
+    updated_at: datetime
+
+
+class ShareResult(BaseModel):
+    token: str
+    path: str
+
+
+def conversation_summary(conversation):
+    return {'public_id': conversation.public_id, 'title': conversation.title,
+            'is_pinned': conversation.is_pinned, 'updated_at': conversation.updated_at}
 
 
 def authorize(user: User) -> None:
@@ -148,8 +188,8 @@ def update_preferences(body: Preferences, user: User = Depends(get_current_user)
 @router.get('/conversations')
 def list_conversations(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     authorize(user)
-    rows = conversations_for(user, db).order_by(Conversation.updated_at.desc(), Conversation.id.desc()).all()
-    return {'conversations': [{'public_id': c.public_id, 'title': c.title, 'updated_at': c.updated_at} for c in rows], 'total': len(rows)}
+    rows = conversations_for(user, db).order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc(), Conversation.id.desc()).all()
+    return {'conversations': [conversation_summary(c) for c in rows], 'total': len(rows)}
 
 
 @router.get('/conversations/{public_id}')
@@ -158,10 +198,68 @@ def get_conversation(public_id: UUID, user: User = Depends(get_current_user), db
     conversation = owned_conversation(public_id, user, db)
     messages = db.query(ConversationMessage).filter_by(conversation_id=conversation.id).order_by(ConversationMessage.id).all()
     # Audit context/provider payloads are deliberately not part of the client API.
-    return {'public_id': conversation.public_id, 'title': conversation.title,
+    return {**conversation_summary(conversation),
             'period': period_dict(conversation_period(conversation, db)),
             'messages': [{'id': m.id, 'role': m.role, 'content': m.content,
-                          'structured_data': m.structured_data, 'created_at': m.created_at} for m in messages]}
+                          'structured_data': m.structured_data, 'created_at': m.created_at,
+                          'status': (m.raw_request or {}).get('status') if m.role == 'user' else 'completed'} for m in messages]}
+
+
+@router.patch('/conversations/{public_id}', response_model=ConversationSummary)
+def update_conversation(public_id: UUID, body: ConversationUpdate,
+                        user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    authorize(user)
+    with single_question(user, db):
+        conversation = owned_conversation(public_id, user, db)
+        if 'title' in body.model_fields_set:
+            conversation.title = body.title
+        if 'is_pinned' in body.model_fields_set:
+            conversation.is_pinned = body.is_pinned
+        conversation.updated_at = datetime.utcnow()
+        db.commit()
+        return conversation_summary(conversation)
+
+
+@router.delete('/conversations/{public_id}', status_code=204)
+def delete_conversation(public_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    authorize(user)
+    with single_question(user, db):
+        conversation = owned_conversation(public_id, user, db)
+        conversation.is_active = False
+        db.commit()
+    # Previously published snapshots remain independent. Link management is outside this MVP.
+    return Response(status_code=204)
+
+
+@router.post('/conversations/{public_id}/share', response_model=ShareResult, status_code=201)
+def share_conversation(public_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    authorize(user)
+    with single_question(user, db):
+        conversation = owned_conversation(public_id, user, db)
+        try:
+            snapshot = sharing.build_snapshot(conversation, db)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        token = sharing.new_token()
+        db.add(AskGeniusShare(organization_id=user.organization_id, created_by_user_id=user.id,
+                             conversation_id=conversation.id, token_hash=sharing.token_hash(token), snapshot=snapshot))
+        db.commit()
+    return {'token': token, 'path': f'/share/ask-genius/{token}'}
+
+
+@router.get('/shared/{token}', response_model=sharing.PublicSnapshot, response_model_exclude_none=True)
+def shared_conversation(token: str, response: Response, db: Session = Depends(get_db)):
+    """Bearer-link read: only the frozen, explicitly published snapshot is available."""
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['X-Robots-Tag'] = 'noindex, nofollow'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    if os.getenv('BOOMSAY_REVIEW_PREVIEW', '').lower() != 'true' or not sharing.TOKEN_PATTERN.fullmatch(token):
+        raise HTTPException(404, 'Shared chat not found')
+    shared = db.query(AskGeniusShare).filter_by(token_hash=sharing.token_hash(token)).first()
+    if shared is None:
+        raise HTTPException(404, 'Shared chat not found')
+    require_preview_organization(shared.organization_id)
+    return shared.snapshot
 
 
 @router.post('/questions')
@@ -170,11 +268,12 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
     question = body.question.strip()
     if not question:
         raise HTTPException(422, 'Enter a question first')
-    conversation = owned_conversation(body.conversation_id, user, db) if body.conversation_id else None
     requested_period = period_dict(body.period)
     request_binding = {'question': question, 'conversation_id': str(body.conversation_id) if body.conversation_id else None,
                        'period': requested_period}
     with single_question(user, db):
+        # Revalidate after taking the same lock used by rename/pin/delete/share.
+        conversation = owned_conversation(body.conversation_id, user, db) if body.conversation_id else None
         previous = db.query(ConversationMessage).join(Conversation).filter(
             Conversation.organization_id == user.organization_id,
             Conversation.created_by_user_id == user.id,
@@ -192,13 +291,21 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 prior_conversation = owned_conversation(db.get(Conversation, previous.conversation_id).public_id, user, db)
                 return answer_payload(prior_conversation, response)
             if previous_state.get('status') == 'failed':
-                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': 'This answer could not be completed. Ask again to start a new request.'})
+                prior = owned_conversation(db.get(Conversation, previous.conversation_id).public_id, user, db)
+                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': 'This answer could not be completed. Retry to start a new attempt.',
+                                          'conversation_id': prior.public_id, 'request_id': str(body.request_id),
+                                          'period': previous_state.get('period'),
+                                          'reason': previous_state.get('error', 'ProviderRequestFailed')})
             raise HTTPException(409, 'This question was already attempted. Check its conversation before asking again.')
 
         history = []
         if conversation:
-            recent = db.query(ConversationMessage).filter_by(conversation_id=conversation.id).order_by(ConversationMessage.id.desc()).limit(10).all()
-            history = [{'role': m.role, 'content': m.content} for m in reversed(recent)]
+            request_status = ConversationMessage.raw_request['status'].as_string()
+            recent = db.query(ConversationMessage).filter(
+                ConversationMessage.conversation_id == conversation.id,
+                or_(ConversationMessage.role == 'assistant', request_status == 'completed', request_status.is_(None)),
+            ).order_by(ConversationMessage.id.desc()).limit(10).all()
+            history = [service.history_message(m) for m in reversed(recent)]
         prior_period = conversation_period(conversation, db)
         saved_default = default_period_for(user)
         try:
@@ -280,6 +387,9 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                               'ProviderTimeout' if isinstance(exc, openai.APITimeoutError) else
                               'ProviderHTTPError' if isinstance(exc, openai.APIStatusError) else 'ProviderRequestFailed')
                 user_message.raw_request = {**audit, 'status': 'failed', 'error': safe_error,
+                                            'validation_reason': ('incomplete_output' if result and result.finish_reason != 'stop' else 'invalid_output')
+                                                if safe_error == 'InvalidModelAnswer' else None,
+                                            'finish_reason': result.finish_reason if result else None,
                                             'http_status': exc.status_code if isinstance(exc, openai.APIStatusError) else None}
                 user_message.latency_ms = int((time.monotonic() - started) * 1000)
                 db.commit()
@@ -288,7 +398,10 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                            'The AI connection timed out. Please try your question again.'
                            if safe_error == 'ProviderTimeout' else
                            'Ask Genius could not reach its AI connection. Please try your question again.')
-                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': message}) from None
+                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': message,
+                                          'conversation_id': conversation.public_id, 'request_id': str(body.request_id),
+                                          'period': period_dict(selected),
+                                          'reason': safe_error}) from None
         else:
             answer_text = local_answer
         metadata = {'kind': 'ask_genius', 'period': period_dict(selected),

@@ -42,7 +42,8 @@ apiClient.interceptors.response.use(
                              pathname === '/login/callback' ||
                              pathname === '/signup' ||
                              pathname.startsWith('/invite') ||
-                             pathname.startsWith('/shared');
+                             pathname.startsWith('/shared') ||
+                             pathname.startsWith('/share/ask-genius/');
         if (!isPublicPage) {
           window.location.href = '/login';
         }

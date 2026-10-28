@@ -9,7 +9,11 @@ import * as Sentry from "@sentry/nextjs";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
-if (dsn) {
+// Public chat links are capabilities; never record preview sessions or their URLs.
+const telemetryAllowed = process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW !== 'true' &&
+  !(typeof window !== 'undefined' && window.location.pathname.startsWith('/share/ask-genius/'));
+
+if (dsn && telemetryAllowed) {
   Sentry.init({
     dsn,
     environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? "development",

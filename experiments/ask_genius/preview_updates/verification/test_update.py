@@ -23,6 +23,8 @@ BASES = [
     '66e7ec4c61a147eced6eed05be45207725253ba6',
     '4c117094a132b3f395140026336b25ee220ca862',
     '5b39b14ff540b2d2de57f90fe8390b7040d2d16f',
+    '724ca86b0de00c59ade1c8c54fac17ec9bacbc71',
+    '5bba1ce0c502c074d481a4b2228091ec5873c72d',
 ]
 TARGET = 'f' * 40  # Synthetic target; never distributed as a real application commit.
 
@@ -186,6 +188,24 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((backup / 'keep').read_text(), 'previous layout source backup')
         self.assertTrue((self.root / updater.BACKUP / 'app/old-source.txt').is_file())
 
+    def test_installed_improvements_update_preserves_all_previous_backups(self):
+        source_path = self.root / 'SOURCE.txt'
+        original_source = source_path.read_text()
+        source_path.write_text(original_source.replace(BASES[0], '5bba1ce0c502c074d481a4b2228091ec5873c72d'))
+        for name in ('backup-before-genius-layout', 'backup-before-genius-improvements'):
+            backup = self.root / name
+            backup.mkdir()
+            (backup / 'keep').write_text('earlier source backup: ' + name)
+        before = self.snapshot()
+        self.assertTrue(self.install())
+        for name, data in before.items():
+            if name.startswith(('backup-before-genius-layout/', 'backup-before-genius-improvements/', 'private/')):
+                self.assertEqual((self.root / name).read_bytes(), data)
+        self.assertEqual((self.root / updater.BACKUP / 'SOURCE.txt').read_bytes(), before['SOURCE.txt'])
+        installed = self.snapshot()
+        self.assertFalse(self.install())
+        self.assertEqual(self.snapshot(), installed)
+
     def test_unrecognized_startup_cannot_skip_schema_migration(self):
         startup = self.root / 'start-local.sh'
         startup.write_text(startup.read_text().replace('python -m alembic upgrade head', 'true'))
@@ -214,6 +234,19 @@ class UpdateTests(unittest.TestCase):
         with self.assertRaisesRegex(updater.UpdateError, 'missing application files'):
             self.install()
         self.assertEqual(self.snapshot(), before)
+
+    def test_incomplete_chat_update_is_rejected_before_mutation(self):
+        for marker in (
+            'services/backend-api/alembic/versions/e1d7352fa043_add_ask_genius_chat_controls.py',
+            'services/backend-api/src/models/ask_genius_share.py',
+            'services/backend-api/src/services/ask_genius_sharing.py',
+        ):
+            with self.subTest(marker=marker):
+                self.make_archive(omit=marker)
+                before = self.snapshot()
+                with self.assertRaisesRegex(updater.UpdateError, 'missing application files'):
+                    self.install()
+                self.assertEqual(self.snapshot(), before)
 
     def test_write_failure_restores_app_metadata_and_private_files(self):
         before = self.snapshot()

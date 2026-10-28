@@ -61,7 +61,9 @@ import subprocess
 import sentry_sdk
 
 _sentry_dsn = os.getenv("SENTRY_DSN", "").strip()
-_sentry_initialized = bool(_sentry_dsn)
+# Shared Ask Genius URLs are bearer capabilities. The isolated preview must not
+# send their paths or resident chat content to configured telemetry exporters.
+_sentry_initialized = bool(_sentry_dsn) and os.getenv('BOOMSAY_REVIEW_PREVIEW', '').lower() != 'true'
 
 if _sentry_initialized:
     sentry_sdk.init(

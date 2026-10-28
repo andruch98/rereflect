@@ -42,7 +42,7 @@ class BuildTests(unittest.TestCase):
             path.write_text('committed public source\n')
         scripts = self.root / 'experiments/ask_genius/preview_updates'
         scripts.mkdir(parents=True)
-        for name in ('update-preview.py', 'README.txt'):
+        for name in ('build-update.py', 'update-preview.py', 'README.txt'):
             (scripts / name).write_bytes((HERE / name).read_bytes())
         self.git('init', '-q')
         self.git('add', '.')
@@ -67,13 +67,15 @@ class BuildTests(unittest.TestCase):
         with zipfile.ZipFile(self.output) as bundle:
             names = bundle.namelist()
             self.assertEqual(len(names), 4)
-            prefix = 'boomsay-genius-improvements-update/'
+            prefix = 'boomsay-genius-chat-update/'
             archive_bytes = bundle.read(prefix + 'rereflect-app-source.tar.gz')
             meta = json.loads(bundle.read(prefix + 'update.json'))
             self.assertEqual(meta['commit'], self.commit)
             self.assertEqual(meta['sha256'], updater.digest(archive_bytes))
             self.assertIn('5b39b14ff540b2d2de57f90fe8390b7040d2d16f', meta['bases'])
             self.assertIn('bf6236c84291d633435a1b73719d7b645942a715', meta['bases'])
+            self.assertIn('724ca86b0de00c59ade1c8c54fac17ec9bacbc71', meta['bases'])
+            self.assertIn('5bba1ce0c502c074d481a4b2228091ec5873c72d', meta['bases'])
             with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode='r:gz') as archive:
                 self.assertEqual(archive.extractfile(marker).read(), b'committed public source\n')
                 self.assertFalse(any('.env' in name or name.startswith('private/') for name in archive.getnames()))
@@ -102,6 +104,21 @@ class BuildTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'lacks required'):
             builder.build(changed_commit, self.output)
         self.assertFalse(self.output.exists())
+
+    def test_missing_chat_migration_or_share_runtime_is_rejected(self):
+        for marker in (
+            'services/backend-api/alembic/versions/e1d7352fa043_add_ask_genius_chat_controls.py',
+            'services/backend-api/src/models/ask_genius_share.py',
+            'services/backend-api/src/services/ask_genius_sharing.py',
+        ):
+            with self.subTest(marker=marker):
+                self.git('rm', '-q', marker)
+                changed_commit = self.commit_fixture()
+                with self.assertRaisesRegex(ValueError, 'lacks required'):
+                    builder.build(changed_commit, self.output)
+                self.assertFalse(self.output.exists())
+                self.git('checkout', self.commit, '--', marker)
+                self.commit_fixture()
 
 
 if __name__ == '__main__':

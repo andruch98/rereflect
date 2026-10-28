@@ -166,17 +166,24 @@ def test_requested_evidence_is_verified_and_links_built_from_authorized_records(
     result=flow['ask']('Show me the supporting reviews',period=LAST7)
     assert result.status_code==200
     body=result.json()
-    assert f'/feedbacks/{flow["rows"][0].id}' in body['answer']
-    assert body['structured_data']['sources']==[{'review_id':flow['rows'][0].id,'label':f'Review #{flow["rows"][0].id}','href':f'/feedbacks/{flow["rows"][0].id}'}]
-    assert len(body['answer'])<=3000
+    assert body['answer'] == 'This review describes repair delays.'
+    source = body['structured_data']['sources'][0]
+    assert source['review_id'] == flow['rows'][0].id
+    assert source['label'] == source['excerpt'] == 'Repairs took two weeks.'
+    assert source['href'] == f'/feedbacks/{flow["rows"][0].id}'
+    assert source['review']['original_review'] == flow['rows'][0].text
+    assert service.displayed_answer_length(body['answer'], body['structured_data']['sources']) <= 3000
 
 
 def test_saved_analysis_evidence_uses_stored_topic_and_quote(flow):
     flow['model'].update(answer='The saved analysis identifies maintenance as negative.',evidence=[{'review_id':flow['rows'][0].id,'kind':'analysis','topic':'Maintenance','excerpt':'Repairs took two weeks.'}])
     result=flow['ask']('Show saved analysis',period=LAST7)
     assert result.status_code==200
-    assert 'Saved analysis' in result.json()['answer']
-    assert 'Maintenance — Negative' in result.json()['answer']
+    source = result.json()['structured_data']['sources'][0]
+    assert source['kind'] == 'analysis'
+    assert source['topic'] == 'Maintenance'
+    assert source['excerpt'] == 'Repairs took two weeks.'
+    assert source['review']['saved_analysis']['topics'][0]['sentiment'] == 'negative'
 
 
 @pytest.mark.parametrize('item',[
@@ -213,14 +220,14 @@ def test_evidence_continuation_accepts_yes_or_show_more_with_pronoun_offer():
 
 
 def test_oversized_evidence_is_rejected_without_dropping_records_or_changing_claims(flow):
-    record=flow['rows'][0]
-    record.text='First complete quote. '+('a'*1100)+'. Second complete quote. '+('b'*1100)+'. Third complete quote. '+('c'*1100)+'.'
+    # Seven distinct card previews exceed the visible 3,000-character budget even
+    # though full originals now live in popups rather than the assistant text.
+    record = flow['rows'][0]
+    quotes = [str(i) + ' ' + ('source words ' * 39) for i in range(7)]
+    record.text = '\n'.join(quotes)
     flow['db'].commit()
-    flow['model'].update(answer='These excerpts show the reported experiences.',evidence=[
-        {'review_id':record.id,'kind':'review','excerpt':record.text[:1123]},
-        {'review_id':record.id,'kind':'review','excerpt':record.text[1123:2249]},
-        {'review_id':record.id,'kind':'review','excerpt':record.text[2249:]},
-    ])
+    flow['model'].update(answer='These excerpts show the reported experiences.', evidence=[
+        {'review_id':record.id,'kind':'review','excerpt':quote} for quote in quotes])
     result=flow['ask']('Show supporting reviews',period=ALL)
     assert result.status_code==502
     assert flow['db'].query(ConversationMessage).filter_by(role='assistant').count()==0

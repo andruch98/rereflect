@@ -14,7 +14,7 @@ import tarfile
 import tempfile
 
 
-BACKUP = 'backup-before-genius-improvements'
+BACKUP = 'backup-before-genius-chat-update'
 MUTATED_FILES = ('rereflect-app-source.tar.gz', 'checksums.json', 'SOURCE.txt')
 MANIFEST_REQUIRED = {
     'rereflect-app-source.tar.gz', 'private/saved-ai-records.json', 'restore.py',
@@ -38,6 +38,9 @@ APP_MARKERS = (
     'services/backend-api/src/services/ask_genius_instructions.txt',
     'services/backend-api/src/services/ask_genius_periods.py',
     'services/backend-api/alembic/versions/d0c6241e9f32_add_ask_genius_default_period.py',
+    'services/backend-api/alembic/versions/e1d7352fa043_add_ask_genius_chat_controls.py',
+    'services/backend-api/src/models/ask_genius_share.py',
+    'services/backend-api/src/services/ask_genius_sharing.py',
 )
 
 
@@ -127,10 +130,10 @@ def update(root: Path, bundle: Path) -> bool:
         return False
     backup = root / BACKUP
     if backup.exists() or backup.is_symlink():
-        raise UpdateError('An Ask Genius improvement backup already exists. Keep it and ask for help before retrying.')
+        raise UpdateError('An Ask Genius chat-update backup already exists. Keep it and ask for help before retrying.')
     originals = {name: (root / name).read_bytes() for name in MUTATED_FILES}
     modes = {name: stat.S_IMODE((root / name).stat().st_mode) for name in MUTATED_FILES}
-    with tempfile.TemporaryDirectory(prefix='.genius-improvements-', dir=root) as staging:
+    with tempfile.TemporaryDirectory(prefix='.genius-chat-update-', dir=root) as staging:
         unpacked = Path(staging) / 'app'
         unpacked.mkdir()
         with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode='r:gz') as archive:
@@ -146,7 +149,7 @@ def update(root: Path, bundle: Path) -> bool:
             'rereflect-app-source.tar.gz': archive_bytes,
             'checksums.json': (json.dumps(updated_checksums, indent=2) + '\n').encode(),
             'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: feat/boomsay-ask-genius\n'
-                           f"Commit: {meta['commit']}\nAsk Genius updated; private data and AI setup unchanged. Startup applies the additive preference migration.\n").encode(),
+                           f"Commit: {meta['commit']}\nAsk Genius chat updated; private data and AI setup unchanged. Startup applies pending additive migrations.\n").encode(),
         }
         moved_old = installed_new = created_backup = False
         written: list[str] = []
@@ -191,7 +194,7 @@ def main() -> int:
         return 1
     print('Application updated; existing data, login and AI setup were preserved.' if changed else 'This Ask Genius update is already installed.')
     print('Now run: bash start-local.sh')
-    print('Startup rebuilds the app and adds the saved-period preference field through its existing database migration step.')
+    print('Startup rebuilds the app and applies pending saved-period, chat-pinning and sharing migrations through its existing database migration step.')
     print('Then open http://127.0.0.1:53004/ask-genius with your existing login.')
     return 0
 
