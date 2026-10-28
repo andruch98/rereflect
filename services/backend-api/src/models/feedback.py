@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey, Index, JSON
+from sqlalchemy import Column, Integer, String, Text, Float, Boolean, Date, DateTime, ForeignKey, Index, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .base import Base
@@ -10,6 +10,7 @@ class FeedbackItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     text = Column(Text, nullable=False)
+    review_date = Column(Date, nullable=True)  # Original posting date; never import time
     star_rating = Column(Integer, nullable=True)
     apartment_analysis = Column(JSON, nullable=True)
     source = Column(String, nullable=True)  # intercom, zendesk, manual, slack, webhook, etc

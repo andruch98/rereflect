@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
-import LoginPage, { resolveSsoErrorMessage } from '../page';
+import LoginPage, { resolveSsoErrorMessage } from '../LegacyLoginPage';
 
 // Mock next/navigation — the page calls router.push('/dashboard') on success.
 vi.mock('next/navigation', () => ({

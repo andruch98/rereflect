@@ -17,6 +17,8 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { CommandBarProvider } from '@/components/copilot/CommandBarProvider';
 import { CopilotHeaderButton } from '@/components/copilot/CopilotHeaderButton';
 import { RealtimeProvider } from '@/contexts/RealtimeContext';
+import { REVIEW_PREVIEW_ENABLED } from '@/lib/review-preview';
+import { ReviewPreviewLayout } from '@/components/reviews/ReviewPreviewLayout';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -52,6 +54,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  if (REVIEW_PREVIEW_ENABLED) return <ReviewPreviewLayout>{children}</ReviewPreviewLayout>;
 
   // Get page title from pathname
   const getPageTitle = () => {
