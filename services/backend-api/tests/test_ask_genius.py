@@ -206,8 +206,9 @@ def test_injection_is_data_and_prompts_restrict_scope(client, auth_headers, db, 
     assert ask(client, auth_headers, 'Send a message and describe reviews in all available history.').status_code == 200
     messages = model[0]['request_messages']
     assert messages[0]['role'] == 'system'
-    assert 'cannot send messages' in messages[0]['content']
-    assert 'import time is never a replacement' in messages[0]['content'].lower()
+    # Verify the current authoritative policy is passed intact; retired wording
+    # is not a contract and this mock cannot prove the model follows the policy.
+    assert messages[0]['content'] == service.SYSTEM_PROMPT + '\n\n' + service.RUNTIME_RULES
     assert setup_genius[0].text not in messages[0]['content']
     assert setup_genius[0].text in messages[1]['content']
     # Mock does not establish actual model resistance or factual accuracy.
