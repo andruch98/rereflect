@@ -8,7 +8,7 @@ from src.api.routes import source_webhooks, feedback_sources, pending_feedback, 
 from src.api.routes import categories, ai_settings, anomalies, insights, changelog, notifications, analytics, saved_views, shared_links, workflow, email_webhooks
 from src.api.routes import customer_health, activity_feed, dashboard_layout, admin_users, admin_orgs
 from src.api.routes import customers, admin_backtest, admin_ai_models
-from src.api.routes import conversation_folders, conversations, copilot_ws, copilot
+from src.api.routes import conversation_folders, conversations, copilot_ws, copilot, ask_genius
 from src.api.routes import copilot_actions  # noqa: E402 — copilot-suggested-actions: action-registry
 from src.api.routes import events_ws
 from src.api.routes import linear_integration, linear_webhook
@@ -61,7 +61,9 @@ import subprocess
 import sentry_sdk
 
 _sentry_dsn = os.getenv("SENTRY_DSN", "").strip()
-_sentry_initialized = bool(_sentry_dsn)
+# Shared Ask Genius URLs are bearer capabilities. The isolated preview must not
+# send their paths or resident chat content to configured telemetry exporters.
+_sentry_initialized = bool(_sentry_dsn) and os.getenv('BOOMSAY_REVIEW_PREVIEW', '').lower() != 'true'
 
 if _sentry_initialized:
     sentry_sdk.init(
@@ -396,6 +398,7 @@ app.include_router(outreach_router.router)
 # AI Copilot (M2.2) — folder router MUST come before conversations to avoid route conflicts
 app.include_router(conversation_folders.router)
 app.include_router(conversations.router)
+app.include_router(ask_genius.router)
 app.include_router(copilot_ws.router)
 app.include_router(copilot.router)
 app.include_router(copilot_actions.router)

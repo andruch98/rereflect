@@ -1,0 +1,50 @@
+{
+  "files": {
+    "configure.py": [
+      "f50abf7d51d654ef7d86a7826883195cea5fe32b2b22dccd41d7812606d62b01"
+    ],
+    "start-local.sh": [
+      "63cd57fe7b41cf9b4ca6d951313db60a6d28e485a3b8e4dfbcc0b9bd65c4b9ba",
+      "5a2745e71ede215fa5cfdf8b081829b5c7ae65e0a423a1f078c0d754d491ec10"
+    ],
+    "stop-local.sh": [
+      "6bb9a0ea91b87393f97f528b3f3c0fb21cdbe5ec2e32d48202ebdd23502cef03",
+      "278fbaf57b9ac9df4bab3ff4a5794c42b084cea18a21ade57dcea54e321e9b7a"
+    ],
+    "restore.py": [
+      "06fd5d625fbf5b6b27b773ebc56d5da0900ae2a18e0fcbf6819b35e0e74088ef"
+    ],
+    "verify-local.py": [
+      "80dc8336b09194badca1ca2288c35667335ed506bc61937c4483b71a894e2e38"
+    ],
+    "Dockerfile.api": [
+      "6299f817c605006aad4aad1a719dad2c3fc8a417063e54b611e215cf12996bc7"
+    ],
+    "Dockerfile.web": [
+      "c8d771b1338bb1a259de69a47ebd308a08c9277eb18494643fccbe94123bec3c"
+    ],
+    "preview-nginx.conf": [
+      "50c361fef60343a5d96e01c2368b9a98cd2b2236c4f81547ca3c8b304fb9ef2f"
+    ],
+    "preview-requirements.txt": [
+      "718fe9babe0568265f75003ca20637cb34558d7b10d804deae0116c4e44d2718"
+    ],
+    "private/saved-ai-records.json": [
+      "41f2dd3e09a2f761c3d79d94af8c400752f2f512465d3c4ed6dc22275419362e"
+    ]
+  },
+  "manifest_names": [
+    "rereflect-app-source.tar.gz",
+    "private/saved-ai-records.json",
+    "restore.py",
+    "preview-requirements.txt",
+    "Dockerfile.api",
+    "Dockerfile.web",
+    "preview-nginx.conf",
+    "verify-local.py"
+  ],
+  "dockerignore_hashes": [
+    "228d751af9971ca998d17524da1cd8447ac6e56d0a6b2936f707e837b8867b5c",
+    "2d76b0d99749929387629649a3e948e9fb3fd9c481c358e5b582f73932bd3eca"
+  ]
+}

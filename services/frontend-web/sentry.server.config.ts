@@ -10,7 +10,8 @@ import * as Sentry from "@sentry/nextjs";
 
 const dsn = process.env.SENTRY_DSN;
 
-if (dsn) {
+// Ask Genius public snapshots must not send capability URLs to telemetry.
+if (dsn && process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW !== 'true') {
   Sentry.init({
     dsn,
     environment: process.env.SENTRY_ENVIRONMENT ?? "development",

@@ -269,6 +269,11 @@ EXCLUDED_HANDLERS = {
 
 # Authenticated mutation routes that are deliberately open to every member.
 ALLOWLIST = {
+    ("ask_genius", "ask_question"): "Personal: scoped read-only answers and the calling user\'s own chat/preferences",
+    ("ask_genius", "update_preferences"): "Personal: only the calling user\'s explicitly selected default period",
+    ("ask_genius", "update_conversation"): "Personal: rename or pin only the calling user's own scoped chat",
+    ("ask_genius", "delete_conversation"): "Personal: remove only the calling user's own scoped chat",
+    ("ask_genius", "share_conversation"): "Personal: explicitly publish only the calling user's own scoped chat snapshot",
     ("account", "request_deletion"): "Personal: a user requests deletion of their own account",
     ("account", "cancel_deletion"): "Personal: a user cancels their own pending account deletion",
     ("ai_corrections", "submit_correction"): "Member-open per PRD: any member can submit a correction on AI labels",

@@ -135,6 +135,7 @@ def execute_copilot_action(
         .filter(
             Conversation.id == body.conversation_id,
             Conversation.organization_id == current_org.id,
+            Conversation.context_scope != "boomsay_reviews",
         )
         .first()
     )

@@ -1,0 +1,15 @@
+**
+!Dockerfile.api
+!Dockerfile.web
+!preview-requirements.txt
+!restore.py
+!app/
+!app/**
+**/.env
+**/.env.*
+**/.git
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/.DS_Store

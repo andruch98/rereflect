@@ -1,0 +1,105 @@
+{
+  "name": "boomsay-dashboard-preview-local",
+  "services": {
+    "postgres": {
+      "image": "postgres:16-alpine",
+      "environment": {
+        "POSTGRES_USER": "apartment_preview",
+        "POSTGRES_PASSWORD": "__PREVIEW_PASSWORD__",
+        "POSTGRES_DB": "rereflect_dashboard_preview"
+      },
+      "volumes": [
+        "preview_pg:/var/lib/postgresql/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U apartment_preview -d rereflect_dashboard_preview"
+        ],
+        "interval": "2s",
+        "timeout": "3s",
+        "retries": 30
+      },
+      "networks": [
+        "private"
+      ]
+    },
+    "redis": {
+      "image": "redis:7-alpine",
+      "networks": [
+        "private"
+      ]
+    },
+    "api": {
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile.api"
+      },
+      "image": "boomsay-dashboard-preview-api:7519b93",
+      "platform": "linux/amd64",
+      "env_file": [
+        "private/runtime.env"
+      ],
+      "volumes": [
+        "./private:/private"
+      ],
+      "depends_on": {
+        "postgres": {
+          "condition": "service_healthy"
+        },
+        "redis": {
+          "condition": "service_started"
+        }
+      },
+      "networks": [
+        "private"
+      ]
+    },
+    "web": {
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile.web"
+      },
+      "image": "boomsay-dashboard-preview-web:7519b93",
+      "platform": "linux/amd64",
+      "environment": {
+        "NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW": "true",
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:58004",
+        "NEXT_PUBLIC_SENTRY_DSN": "",
+        "NEXT_PUBLIC_MIXPANEL_TOKEN": "",
+        "NEXT_PUBLIC_GOOGLE_CLIENT_ID": ""
+      },
+      "networks": [
+        "private"
+      ]
+    },
+    "gateway": {
+      "image": "nginx:1.28-alpine",
+      "volumes": [
+        "./preview-nginx.conf:/etc/nginx/nginx.conf:ro"
+      ],
+      "ports": [
+        "127.0.0.1:53004:3000",
+        "127.0.0.1:58004:8000"
+      ],
+      "depends_on": [
+        "api",
+        "web"
+      ],
+      "networks": [
+        "private",
+        "entry"
+      ]
+    }
+  },
+  "volumes": {
+    "preview_pg": {}
+  },
+  "networks": {
+    "private": {
+      "internal": true
+    },
+    "entry": {}
+  }
+}

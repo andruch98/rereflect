@@ -17,6 +17,7 @@ it('shows the authorized community and only the current milestone navigation', a
   await screen.findByText('Lake House Apartments');
   expect(screen.getByText('Authorized review content')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Reviews' })).toHaveAttribute('href', '/feedbacks');
+  expect(screen.getByRole('link', { name: 'Ask Genius' })).toHaveAttribute('href', '/ask-genius');
   expect(screen.queryByText('AI Copilot')).not.toBeInTheDocument();
   expect(screen.queryByText('Churn Risks')).not.toBeInTheDocument();
 });
@@ -31,6 +32,6 @@ it('redirects unsupported dashboard sections without mounting their contents', a
   mocks.get.mockResolvedValue({ data: { organization_id: 11, name: 'Lake House Apartments' } });
   mount();
   await screen.findByText('Lake House Apartments');
-  expect(mocks.replace).toHaveBeenCalledWith('/feedbacks');
+  expect(mocks.replace).toHaveBeenCalledWith('/ask-genius');
   expect(screen.queryByText('Authorized review content')).not.toBeInTheDocument();
 });

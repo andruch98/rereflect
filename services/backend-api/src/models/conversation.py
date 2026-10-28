@@ -1,6 +1,6 @@
 import uuid as _uuid
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Index, false
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .base import Base
@@ -17,6 +17,7 @@ class Conversation(Base):
     folder_id = Column(Integer, ForeignKey("conversation_folders.id", ondelete="SET NULL"), nullable=True)
     context_scope = Column(String(50), nullable=False, default="all_data")
     is_active = Column(Boolean, default=True, nullable=False)
+    is_pinned = Column(Boolean, default=False, server_default=false(), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

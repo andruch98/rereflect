@@ -8,7 +8,7 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW === 'true' &&
       (pathname === '/' || pathname === '/dashboard' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/feedbacks', request.url));
+    return NextResponse.redirect(new URL('/ask-genius', request.url));
   }
 
   // Skip middleware for static files and API routes

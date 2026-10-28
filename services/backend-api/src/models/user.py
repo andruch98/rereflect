@@ -24,6 +24,9 @@ class User(Base):
     # SAML SSO fields (saml-sso: config-model-and-crud aspect)
     saml_subject = Column(String(255), unique=True, nullable=True, index=True)
 
+    # Explicit personal Ask Genius default; null means choose a period each conversation.
+    ask_genius_default_period = Column(JSON, nullable=True)
+
     # Notification preferences
     weekly_digest_enabled = Column(Boolean, default=True, nullable=False, server_default="true")
     alert_channels = Column(JSON, nullable=True)  # Per-user override: {"dashboard": true, "email": false, "slack": false}

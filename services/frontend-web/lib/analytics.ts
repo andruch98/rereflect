@@ -8,13 +8,21 @@ import mixpanel from "mixpanel-browser";
 
 const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const IS_REVIEW_PREVIEW = process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW === "true";
+
+// Review preview chats and bearer-token share URLs must never be captured by
+// the marketing recorder, including navigation from another preview page.
+function analyticsEnabled() {
+  return IS_PRODUCTION && !!MIXPANEL_TOKEN && !IS_REVIEW_PREVIEW &&
+    (typeof window === 'undefined' || !window.location.pathname.startsWith('/share/ask-genius/'));
+}
 
 // Initialize Mixpanel (production only)
 export function initAnalytics() {
   if (typeof window === "undefined") return;
-  if (!IS_PRODUCTION || !MIXPANEL_TOKEN) return;
+  if (!analyticsEnabled()) return;
 
-  mixpanel.init(MIXPANEL_TOKEN, {
+  mixpanel.init(MIXPANEL_TOKEN!, {
     autocapture: true,
     record_sessions_percent: 100,
   });
@@ -22,7 +30,7 @@ export function initAnalytics() {
 
 // Identify user (call after login/signup)
 export function identifyUser(userId: string, properties?: Record<string, unknown>) {
-  if (!IS_PRODUCTION || !MIXPANEL_TOKEN) return;
+  if (!analyticsEnabled()) return;
 
   mixpanel.identify(userId);
   if (properties) {
@@ -32,13 +40,13 @@ export function identifyUser(userId: string, properties?: Record<string, unknown
 
 // Reset on logout
 export function resetAnalytics() {
-  if (!IS_PRODUCTION || !MIXPANEL_TOKEN) return;
+  if (!analyticsEnabled()) return;
   mixpanel.reset();
 }
 
 // Track custom event
 export function trackEvent(eventName: string, properties?: Record<string, unknown>) {
-  if (!IS_PRODUCTION || !MIXPANEL_TOKEN) return;
+  if (!analyticsEnabled()) return;
   mixpanel.track(eventName, properties);
 }
 
