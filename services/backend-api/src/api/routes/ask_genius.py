@@ -1,6 +1,7 @@
 """Private community questions, personal chat history and explicit personal period preferences."""
 from __future__ import annotations
 
+import json
 import os
 import openai
 import time
@@ -23,6 +24,7 @@ from src.models.ask_genius_share import AskGeniusShare
 from src.models.user import User
 from src.services import ask_genius as service
 from src.services import ask_genius_sharing as sharing
+from src.services.ask_genius_followups import topic_review_followup
 from src.services.ask_genius_periods import Period, parse_question_period, preference_command, resolve_period
 from src.services.review_preview import require_preview_organization
 
@@ -339,6 +341,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             raise HTTPException(422, str(exc)) from None
 
         evidence = None
+        local_sources = []
         if local_answer is None:
             try:
                 evidence = service.build_evidence(user.organization_id, db, selected)
@@ -346,6 +349,21 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 raise HTTPException(422, str(exc)) from None
             local_answer = service.no_data_answer(evidence)
         expanded = service.evidence_requested(question, history)
+        if local_answer is None and expanded and conversation and selected == prior_period:
+            # Reattach evidence only when the preceding answer used exactly the
+            # same authorized records and resolved dates. Changed data/periods,
+            # broader requests and ambiguous scopes keep the normal model path.
+            prior_request = next((m.raw_request for m in recent if m.role == 'user'), {}) or {}
+            prior_messages = prior_request.get('messages', []) if isinstance(prior_request, dict) else []
+            try:
+                prior_context = json.loads(prior_messages[1]['content'].split('\n', 1)[1])
+            except (IndexError, KeyError, TypeError, ValueError):
+                prior_context = {}
+            if (isinstance(prior_context, dict) and prior_context.get('reviews') == evidence['reviews']
+                    and prior_context.get('period') == evidence['period']):
+                followup = topic_review_followup(question, evidence, history)
+                if followup is not None:
+                    local_answer, local_sources = followup
         config = None
         messages = []
         if local_answer is None:
@@ -371,7 +389,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
         db.add(user_message)
         db.commit()  # Persist explicit preference changes / attempted model requests before returning.
         started = time.monotonic()
-        sources = []
+        sources = local_sources
         result = None
         if local_answer is None:
             try:

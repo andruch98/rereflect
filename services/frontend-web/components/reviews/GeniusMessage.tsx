@@ -142,6 +142,17 @@ function textOf(children: ReactNode): string {
   return Children.toArray(children).map(child => typeof child === 'string' || typeof child === 'number' ? String(child) : isValidElement<{ children?: ReactNode }>(child) ? textOf(child.props.children) : '').join('');
 }
 
+function topicAtStart(text: string, topics: Iterable<string>): string | undefined {
+  const trimmed = text.trim();
+  for (const topic of topics) {
+    if (trimmed === topic) return topic;
+    if (!trimmed.startsWith(topic)) continue;
+    // Preserve the exact known name, allowing only a descriptive parenthetical
+    // before the colon. "Staffing:" must never attach sources for "Staff".
+    if (/^(?:\s+\([^()\r\n]+\))?\s*:/.test(trimmed.slice(topic.length))) return topic;
+  }
+}
+
 /** Ask Genius does not inherit the general copilot's actions, HTML or navigation. */
 export function GeniusMessage({ message, publicSnapshot = false }: { message: ChatMessage; publicSnapshot?: boolean }) {
   const [copiedContent, setCopiedContent] = useState<string>();
@@ -157,10 +168,9 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
   const matchedTopics = new Set<string>();
   // Match exact topic labels at the start of Markdown list items; source text cannot
   // create links. Unmatched legacy metadata remains accessible under a labeled group.
-  const topicFor = (text: string) => [...topicGroups.keys()].find(topic => text.trim().startsWith(`${topic}:`) || text.trim() === topic);
   const bulletLines = message.content.split('\n').filter(line => /^\s*(?:[-*+] |\d+\. )/.test(line));
   for (const line of bulletLines) {
-    const topic = topicFor(line.replace(/^\s*(?:[-*+] |\d+\. )/, '').replace(/\*\*/g, '').trim());
+    const topic = topicAtStart(line.replace(/^\s*(?:[-*+] |\d+\. )/, '').replace(/\*\*/g, ''), topicGroups.keys());
     if (topic) matchedTopics.add(topic);
   }
   const content = assistant
@@ -172,7 +182,7 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
     return { a: ({ children }: { children?: ReactNode }) => <span>{children}</span>, img: () => null,
       li: ({ children }: { children?: ReactNode }) => {
         const text = textOf(children).trim();
-        const topic = [...groups.keys()].find(name => text.startsWith(`${name}:`) || text === name);
+        const topic = topicAtStart(text, groups.keys());
         return <li>{children}{topic && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}</li>;
       } };
   }, [sources, publicSnapshot]);

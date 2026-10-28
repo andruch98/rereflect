@@ -53,3 +53,44 @@ def test_explanations_stay_1000_but_requested_analysis_can_use_3000():
     payload['answer'] += 'a'
     with pytest.raises(ValueError):
         service.validate_answer(json.dumps(payload), records(), True)
+
+
+def test_requested_verbatim_review_detail_can_use_extra_room_but_not_for_explanation():
+    data = records()
+    excerpt = data['reviews'][0]['original_review'][:2000]
+    payload = {'answer': 'x' * 999 + '\n' + excerpt,
+               'evidence': [{'review_id': 1, 'kind': 'review', 'excerpt': excerpt}]}
+    answer, sources = service.validate_answer(json.dumps(payload), data, True)
+    assert len(answer) == 3000
+    assert sources[0]['review']['original_review'] == data['reviews'][0]['original_review']
+    payload['answer'] = 'x' * 1000 + '\n' + excerpt[:1500]
+    payload['evidence'][0]['excerpt'] = excerpt[:1500]
+    with pytest.raises(ValueError, match='Explanation exceeds'):
+        service.validate_answer(json.dumps(payload), data, True)
+
+
+def test_popup_only_or_invalid_excerpts_do_not_grant_longer_messages():
+    data = records()
+    payload = {'answer': 'x' * 1001,
+               'evidence': [{'review_id': 1, 'kind': 'review', 'excerpt': 'Actual review 1.'}]}
+    with pytest.raises(ValueError, match='Explanation exceeds'):
+        service.validate_answer(json.dumps(payload), data, True)
+    payload['answer'] = 'x' * 990 + 'Invented source quote.'
+    payload['evidence'][0]['excerpt'] = 'Invented source quote.'
+    with pytest.raises(ValueError, match='does not match'):
+        service.validate_answer(json.dumps(payload), data, True)
+
+
+def test_overlapping_source_selectors_do_not_double_count_extra_room():
+    data = records()
+    excerpt = data['reviews'][0]['original_review'][:600]
+    payload = {'answer': 'x' * 1000 + '\n' + excerpt, 'evidence': [
+        {'review_id': 1, 'kind': 'review', 'excerpt': excerpt},
+        {'review_id': 1, 'kind': 'review', 'excerpt': excerpt[:500]},
+    ]}
+    with pytest.raises(ValueError, match='Explanation exceeds'):
+        service.validate_answer(json.dumps(payload), data, True)
+    payload['answer'] = 'x' * 999 + '\n' + excerpt
+    assert service.validate_answer(json.dumps(payload), data, True)[0] == payload['answer']
+    with pytest.raises(ValueError, match='not requested'):
+        service.validate_answer(json.dumps(payload), data, False)

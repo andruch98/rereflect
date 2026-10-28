@@ -29,6 +29,8 @@ only sending requires a period and starts a request. Browse more questions uses
 Review, Analysis, Survey and Management response tabs. Disconnected categories
 remain visible and labeled, with their questions unavailable. The period picker
 is prominent, default saving is secondary and missing-date coverage is condensed.
+Its required-period state persists independently of focus, including while editing
+the composer or an incomplete custom range, and clears when a valid period is chosen.
 
 ## Evidence and answers
 
@@ -53,10 +55,32 @@ old complaints are not assumed current or unresolved. Follow-ups retain the same
 topics and distinguish star ratings from saved sentiment. Avoid repetitive
 conclusions, unnecessary names and broader-topic counts on narrower claims.
 Normal answers and explanations are capped at 1,000 characters including spaces.
-Only requested evidence may expand the complete answer to 3,000 characters; the
+Only requested written source detail may expand the complete answer to 3,000 characters; the
 explanation itself remains within 1,000. A headline count or citation alone does
 not qualify. Oversized output is rejected without truncating meaning or retrying
 the provider automatically.
+
+The policy is organized by scope, verification, presentation and writing, with
+seven distinct examples. The runtime contract defines selectors rather than
+restating product rules. The context explicitly separates the maximum expanded
+message size from the explanation limit and requires actual written source detail.
+Validated verbatim review excerpts may use the additional room; overlapping
+excerpts count once. Popup-only references do not qualify. The existing explicit
+saved-analysis allowance remains, with semantic substance and explanatory-prose
+discipline enforced by instructions, not proven by the presence of a reference.
+
+The exact short negative-topic-to-review follow-up can attach sources locally
+without another model call. It accepts only an initial broad negative-topic
+exchange or the approved frequency → negative topics → reviews sequence, with
+an exact flat topic list, no numeric claims, and a matching negative source for
+every topic. It checks that authorized review data and resolved dates are unchanged
+from the prior model request. Other wording, longer conversations, narrower themes,
+changed filters/data and ambiguous scopes follow the ordinary model path with the
+consolidated context instructions. This is deliberately not a general intent engine;
+it validates topic/source membership, not every descriptive claim in prior prose.
+Only the latest ten messages are supplied to the model; no indefinite-memory claim
+is made. Exact topic labels with a parenthetical qualifier also retain inline popup
+placement in the renderer.
 
 The model returns a concise explanation and validated evidence selectors. For a
 complete review list it can supply allowlisted rating/topic/sentiment filters;
@@ -190,3 +214,16 @@ The prior TypeScript diagnostics remain; no new Ask Genius diagnostic appears.
 No live model charges or Mac/Docker/browser visual verification are claimed.
 The existing 100-review / 80,000-character model-context guard remains in place;
 popup pagination does not silently widen that cohort or bypass its cost bound.
+
+## Context and instruction revision verification
+
+252 backend checks passed, including the reported three-turn conversation,
+explicit broadening, changed periods/data, topic-level negative evidence inside
+positive overall reviews, and written-source length allowances. 106 frontend tests
+passed with one private fixture skipped, including persistent period highlighting
+and exact topic/parenthetical popup placement. All 22 updater/build checks passed.
+Focused ESLint is clean; the TypeScript diagnostic set is unchanged at 87.
+The consolidated policy has seven distinct examples and 1,855 words versus 2,041
+in its predecessor. These checks use simulated responses, not live provider calls;
+they establish the application behavior and prompt delivery, not guaranteed LLM
+compliance or Mac/browser visual fidelity.

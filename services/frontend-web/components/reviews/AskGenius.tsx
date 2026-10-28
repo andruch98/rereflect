@@ -65,6 +65,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
   const [error, setError] = useState('');
   const [attemptedQuestion, setAttemptedQuestion] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<GeniusPeriod | null>();
+  const [periodRequired, setPeriodRequired] = useState(false);
   const [savingPreference, setSavingPreference] = useState(false);
   const [preferenceNotice, setPreferenceNotice] = useState('');
   const [preferenceError, setPreferenceError] = useState('');
@@ -105,6 +106,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
     setInput('');
     setAttemptedQuestion('');
     setSelectedPeriod(undefined);
+    setPeriodRequired(false);
     setPreferenceNotice('');
     setPreferenceError('');
     setBrowseQuestions(false);
@@ -114,6 +116,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
   function changePeriod(value: GeniusPeriod | null) {
     if (busyRef.current || preferenceBusy.current) return;
     setSelectedPeriod(value);
+    if (validPeriod(value)) setPeriodRequired(false);
     setError('');
     setAttemptedQuestion('');
     setPreferenceNotice('');
@@ -142,13 +145,16 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
 
   function chooseQuestion(question: string) {
     setInput(question);
-    if (!validPeriod(period)) document.getElementById('genius-period')?.focus();
-    else document.getElementById('genius-question')?.focus();
+    if (!validPeriod(period)) {
+      setPeriodRequired(true);
+      document.getElementById('genius-period')?.focus();
+    } else document.getElementById('genius-question')?.focus();
   }
 
   async function send(retryQuestion?: string) {
     const question = (retryQuestion ?? input).trim();
     if (!validPeriod(period) && !asksToChangeDefault(question)) {
+      setPeriodRequired(true);
       document.getElementById('genius-period')?.focus();
       return;
     }
@@ -172,6 +178,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
       setCompleted({ id: answer.conversation_id, messages: updated, period: answer.period });
       setConversationId(answer.conversation_id);
       setSelectedPeriod(answer.period);
+      if (validPeriod(answer.period)) setPeriodRequired(false);
       if (answer.preference_updated) {
         queryClient.setQueryData<GeniusStatus>([...scope, 'status'], previous => previous ? { ...previous, default_period: answer.default_period } : previous);
       }
@@ -207,7 +214,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
     <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:grid-rows-1">
       <GeniusChatHistory conversations={history.data?.conversations ?? []} selectedId={conversationId} disabled={busy || savingPreference} loading={history.isPending} failed={history.isError} onSelect={selectConversation} onRefresh={() => { void queryClient.invalidateQueries({ queryKey: [...scope, 'history'] }); }} onDeleted={id => { queryClient.removeQueries({ queryKey: [...scope, 'conversation', id] }); if (id === conversationId) selectConversation(); }} />
       <section aria-label="Ask Genius conversation" className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background">
-        <GeniusPeriodPicker period={period} defaultPeriod={status.data?.default_period ?? null} coverage={status.data?.date_coverage} disabled={status.isPending || status.isError || busy || loadingConversation} saving={savingPreference} notice={preferenceNotice} error={preferenceError} onChange={changePeriod} onSave={value => { void saveDefaultPeriod(value); }} />
+        <GeniusPeriodPicker period={period} highlightRequired={periodRequired} defaultPeriod={status.data?.default_period ?? null} coverage={status.data?.date_coverage} disabled={status.isPending || status.isError || busy || loadingConversation} saving={savingPreference} notice={preferenceNotice} error={preferenceError} onChange={changePeriod} onSave={value => { void saveDefaultPeriod(value); }} />
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-4 sm:p-6"><div className="mx-auto w-full max-w-3xl space-y-6">
           {status.isPending ? <p role="status" className="text-sm text-muted-foreground">Checking Ask Genius…</p>
             : status.isError ? <Alert><AlertDescription>Ask Genius could not be reached. <button type="button" className="underline" onClick={() => status.refetch()}>Check again</button></AlertDescription></Alert>

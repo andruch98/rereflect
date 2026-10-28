@@ -8,6 +8,7 @@ const inputClass = 'h-11 min-w-0 rounded-lg border border-input bg-background px
 
 interface Props {
   period: GeniusPeriod | null;
+  highlightRequired: boolean;
   defaultPeriod: GeniusPeriod | null;
   coverage?: GeniusStatus['date_coverage'];
   disabled: boolean;
@@ -18,15 +19,16 @@ interface Props {
   onSave: (period: GeniusPeriod | null) => void;
 }
 
-export function GeniusPeriodPicker({ period, defaultPeriod, coverage, disabled, saving, notice, error, onChange, onSave }: Props) {
+export function GeniusPeriodPicker({ period, highlightRequired, defaultPeriod, coverage, disabled, saving, notice, error, onChange, onSave }: Props) {
   const valid = validPeriod(period);
+  const needsPeriod = highlightRequired && !valid;
   const isDefault = !!period && !!defaultPeriod && period.preset === defaultPeriod.preset && period.start_date === defaultPeriod.start_date && period.end_date === defaultPeriod.end_date;
   const undated = coverage?.undated_reviews ?? 0;
   return <div className="shrink-0 space-y-2 border-b p-4">
     <div className="flex flex-wrap items-end gap-2">
       <div className="flex min-w-0 flex-1 flex-col gap-1 sm:min-w-64 sm:flex-none">
         <label htmlFor="genius-period" className="text-sm font-medium">Time period</label>
-        <select id="genius-period" value={period?.preset ?? ''} disabled={disabled || saving} aria-describedby="genius-period-help" className={`${inputClass} border-primary/70 font-medium`} onChange={event => onChange(event.target.value ? { preset: event.target.value as GeniusPeriodPreset } : null)}>
+        <select id="genius-period" value={period?.preset ?? ''} disabled={disabled || saving} aria-describedby="genius-period-help" aria-invalid={needsPeriod || undefined} className={`${inputClass} border-primary/70 font-medium${needsPeriod ? ' ring-2 ring-primary' : ''}`} onChange={event => onChange(event.target.value ? { preset: event.target.value as GeniusPeriodPreset } : null)}>
           <option value="">Choose a period</option>
           {GENIUS_PERIODS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>

@@ -28,6 +28,8 @@ Show these four starters after the period control. They remain readable and
 clickable before a period is selected. Selecting any question fills the editable
 composer; only sending starts an answer request. If a period is missing, clearly
 direct the manager to the selector rather than making the question cards inert.
+Keep the orange missing-period cue visible after focus moves to the composer;
+clear it only once a valid period is selected, including complete custom ranges.
 
 1. Which topics came up most often in reviews during this period?
 2. What were the main complaints in reviews during this period?
@@ -61,13 +63,17 @@ Do not include the rejected question about concerns left unanswered in replies.
   frequency and reliable recency. Avoid repetition, filler conclusions and
   unnecessary staff or reviewer names. Avoid a fixed report template.
 - Follow-ups retain the same topics, source scope and established timeframe.
+  Resolve this scope before selecting a presentation. After negative-topic
+  discussion, "let me see each review" retains those topics and negative content,
+  with sources grouped beneath each topic. It does not reset to every review in
+  the period. Explicit broadening replaces only the restrictions the manager changes.
   Attribute claims to residents instead of presenting them as proven facts.
   Missing dates or resolution records do not establish a current/unresolved
   problem. For undated all-history data, say "across the saved reviews" rather
   than implying a complete community history or dated intake count.
 - Maximum 1,000 characters, including spaces, for summaries and explanations.
-  Requested supporting evidence may expand the whole answer to 3,000 characters;
-  the explanation itself stays concise. A citation or headline count alone does
+  Requested source detail written in the answer may expand it to 3,000 characters;
+  the explanatory prose itself stays within 1,000. A citation or headline count alone does
   not qualify for the larger limit. Never cut a qualification or sentence away
   to make an oversized answer appear compliant.
 - Show evidence when requested or after the manager accepts an offer. Select by
@@ -75,8 +81,8 @@ Do not include the rejected question about concerns left unanswered in replies.
   No fixed number of excerpts. Use View review / View N reviews links under the relevant topic,
   not internal labels such as "Review 3" or long source cards. Open the full review and expandable
   saved analysis in a popup without leaving the chat. Full popup contents are
-  separate from the displayed chat-answer character budget. Offer remaining
-  relevant information without inventing a remaining count. Provide author
+  separate from the displayed chat-answer character budget. Provide requested
+  evidence directly without offering it again. Provide author
   information only if requested and actually available.
 - Read community information only. No publishing, contacting residents, tasks,
   source-record changes, or implied actions. Personal chat management, explicit
@@ -137,3 +143,13 @@ preserving credentials, login, database, and blocked review-analysis settings.
 - Character limits apply only to LLM-written messages, excluding popup reviews,
   popup analysis and application-generated controls. No longer topic explanations
   were requested; that earlier interpretation was withdrawn.
+
+## Consolidated instruction policy
+
+Maintain one behavioral policy, with the runtime contract limited to data and
+output fields. Integrate refinements into the relevant rule, replacing superseded
+wording. Use a small set of distinct illustrative examples, never production facts.
+For frequency questions, retain frequency order and give each topic its own bullet,
+verified count and actual reported experience, complaints first within the topic.
+Do not substitute sentiment labels for substance or broader-topic counts for a
+narrower complaint. Context, counts and source mappings must agree.

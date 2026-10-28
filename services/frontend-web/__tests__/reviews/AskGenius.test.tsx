@@ -130,19 +130,67 @@ it('requires a chosen period when the account has no saved default', async () =>
   mount();
   const input = screen.getByRole('textbox', { name: 'Your question' });
   await waitFor(() => expect(input).toBeEnabled());
-  expect(screen.getByRole('combobox', { name: 'Time period' })).toHaveValue('');
+  const picker = screen.getByRole('combobox', { name: 'Time period' });
+  expect(picker).toHaveValue('');
+  expect(picker).not.toHaveClass('ring-2');
   expect(screen.getByRole('button', { name: 'Which topics came up most often in reviews during this period?' })).toBeEnabled();
   fireEvent.click(screen.getByRole('button', { name: 'Which topics came up most often in reviews during this period?' }));
   expect(input).toHaveValue('Which topics came up most often in reviews during this period?');
-  expect(screen.getByRole('combobox', { name: 'Time period' })).toHaveFocus();
+  expect(picker).toHaveFocus();
   expect(screen.getByText('Choose a time period above to send your question.')).toBeInTheDocument();
+  input.focus();
+  expect(picker).not.toHaveFocus();
   fireEvent.change(input, { target: { value: 'What are the main complaints?' } });
+  expect(picker).toHaveClass('ring-2', 'ring-primary');
+  expect(picker).toHaveAttribute('aria-invalid', 'true');
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.getByRole('button', { name: 'Send question' })).toBeDisabled();
   expect(mocks.ask).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByRole('combobox', { name: 'Time period' }), { target: { value: 'last_14_days' } });
+  fireEvent.change(picker, { target: { value: 'last_14_days' } });
+  expect(picker).not.toHaveClass('ring-2');
+  expect(picker).not.toHaveAttribute('aria-invalid');
   expect(screen.getByRole('button', { name: 'Send question' })).toBeEnabled();
   expect(mocks.saveDefaultPeriod).not.toHaveBeenCalled();
+});
+
+it('keeps the period reminder highlighted until a complete valid custom range is selected', async () => {
+  mocks.status.mockResolvedValue(connectedStatus({ default_period: null }));
+  mount();
+  const input = screen.getByRole('textbox', { name: 'Your question' });
+  await waitFor(() => expect(input).toBeEnabled());
+  const picker = screen.getByRole('combobox', { name: 'Time period' });
+  fireEvent.click(screen.getByRole('button', { name: 'Which topics came up most often in reviews during this period?' }));
+  fireEvent.change(picker, { target: { value: 'custom' } });
+  input.focus();
+  expect(picker).toHaveClass('ring-2', 'ring-primary');
+  fireEvent.change(screen.getByLabelText('Period start date'), { target: { value: '2026-10-10' } });
+  expect(picker).toHaveClass('ring-2', 'ring-primary');
+  fireEvent.change(screen.getByLabelText('Period end date'), { target: { value: '2026-10-01' } });
+  expect(picker).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByRole('button', { name: 'Send question' })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Period end date'), { target: { value: '2026-10-27' } });
+  expect(picker).not.toHaveClass('ring-2');
+  expect(picker).not.toHaveAttribute('aria-invalid');
+  expect(screen.getByRole('button', { name: 'Send question' })).toBeEnabled();
+  expect(mocks.ask).not.toHaveBeenCalled();
+});
+
+it('keeps a manually submitted missing-period reminder visible after blur and resets it for a new chat', async () => {
+  mocks.status.mockResolvedValue(connectedStatus({ default_period: null }));
+  mount();
+  const input = screen.getByRole('textbox', { name: 'Your question' });
+  await waitFor(() => expect(input).toBeEnabled());
+  const picker = screen.getByRole('combobox', { name: 'Time period' });
+  fireEvent.change(input, { target: { value: 'What are the main complaints?' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  input.focus();
+  expect(picker).not.toHaveFocus();
+  expect(picker).toHaveClass('ring-2', 'ring-primary');
+  expect(mocks.ask).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
+  expect(picker).toHaveValue('');
+  expect(picker).not.toHaveClass('ring-2');
+  expect(picker).not.toHaveAttribute('aria-invalid');
 });
 
 it('shows all category tabs while only connected questions can be selected', async () => {

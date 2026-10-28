@@ -134,6 +134,39 @@ describe('Topic links and complete review collections', () => {
     expect(screen.getByRole('dialog')).not.toHaveTextContent(original);
   });
 
+  it('attaches parenthetical topic labels inline without a duplicate fallback group', () => {
+    show('- **Staff & customer service** (negative aspects): Reports of unanswered calls.\n- **Billing:** Reports of disputed fees.', { kind: 'ask_genius', sources: [
+      { ...source, topic: 'Staff & customer service' },
+      { ...source, review_id: 8, topic: 'Billing', review: { ...source.review, original_review: 'The fee was unexplained.' } },
+    ] });
+    const bullets = screen.getAllByRole('listitem');
+    expect(screen.getAllByLabelText('Reviews for Staff & customer service')).toHaveLength(1);
+    expect(within(bullets[0]).getByLabelText('Reviews for Staff & customer service')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'View review' })).toHaveLength(2);
+    fireEvent.click(within(bullets[0]).getByRole('button', { name: 'View review' }));
+    const modal = screen.getByRole('dialog');
+    expect(modal).toHaveTextContent(original);
+    expect(modal).not.toHaveTextContent('The fee was unexplained.');
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it.each(['Staffing', 'Staff training', 'Staff (negative aspects) concerns'])('does not attach Staff sources to the different label %s', label => {
+    show(`- **${label}:** Reports of unanswered calls.`, { kind: 'ask_genius', sources: [{ ...source, topic: 'Staff' }] });
+    expect(within(screen.getByRole('listitem')).queryByRole('button', { name: 'View review' })).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('Reviews for Staff')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'View review' })).toHaveLength(1);
+  });
+
+  it('opens only server-provided review IDs when a parenthetical topic contains a Markdown review link', async () => {
+    get.mockResolvedValue({ text: original, star_rating: 1, apartment_analysis: null });
+    show('- **Staff** (negative aspects): [View review](/feedbacks/999).', { kind: 'ask_genius', sources: [{ review_id: 7, topic: 'Staff' }] });
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'View review' })).toHaveLength(1);
+    fireEvent.click(within(screen.getByRole('listitem')).getByRole('button', { name: 'View review' }));
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent(original));
+    expect(get).toHaveBeenCalledExactlyOnceWith(7);
+  });
+
   it('shows 78 reviews in manager-triggered pages of 50 and 28, with no private fetching', () => {
     const sources = Array.from({ length: 78 }, (_, index) => ({ ...source, review_id: index + 1, review: { ...source.review, original_review: `Original content ${index + 1}.` } }));
     show('Found 78 matching reviews.', { kind: 'ask_genius', sources }, true);

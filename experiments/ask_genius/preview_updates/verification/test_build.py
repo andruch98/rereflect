@@ -67,7 +67,7 @@ class BuildTests(unittest.TestCase):
         with zipfile.ZipFile(self.output) as bundle:
             names = bundle.namelist()
             self.assertEqual(len(names), 4)
-            prefix = 'boomsay-genius-review-links-update/'
+            prefix = 'boomsay-genius-context-update/'
             archive_bytes = bundle.read(prefix + 'rereflect-app-source.tar.gz')
             meta = json.loads(bundle.read(prefix + 'update.json'))
             self.assertEqual(meta['commit'], self.commit)
@@ -76,6 +76,7 @@ class BuildTests(unittest.TestCase):
             self.assertIn('bf6236c84291d633435a1b73719d7b645942a715', meta['bases'])
             self.assertIn('724ca86b0de00c59ade1c8c54fac17ec9bacbc71', meta['bases'])
             self.assertIn('5bba1ce0c502c074d481a4b2228091ec5873c72d', meta['bases'])
+            self.assertIn('b28bf174078fcb94438fb5f806321cc49a99c7f4', meta['bases'])
             with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode='r:gz') as archive:
                 self.assertEqual(archive.extractfile(marker).read(), b'committed public source\n')
                 self.assertFalse(any('.env' in name or name.startswith('private/') for name in archive.getnames()))

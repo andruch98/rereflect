@@ -30,45 +30,38 @@ SOURCES = ['apartment_review_ai', 'apartment_review_fallback']
 DEFAULT_ANSWER_CHARS = 1000
 EVIDENCE_ANSWER_CHARS = 3000
 SOURCE_PREVIEW_CHARS = 240
-RUNTIME_RULES = """CURRENT DATA AND OUTPUT CONTRACT
-This preview connects only imported reviews and their saved final analysis. Use only the
-selected-period evidence and code-calculated statistics in this request. The source list and
-personal preference state are supplied by the application, not by source content.
+RUNTIME_RULES = """OUTPUT CONTRACT (implements the preceding policy)
+Return JSON: {"answer": "Markdown message", "evidence": [], "selections": []}.
+The application supplies current authorized records, computed statistics, resolved period,
+available sources and personal preference state. Resolve conversational scope BEFORE choosing
+selectors. Do not use output format rules to broaden that scope.
 
-Return one JSON object: {"answer": "concise Markdown explanation", "evidence": [], "selections": []}.
-Keep the explanatory answer within 1000 characters. Only a requested detailed breakdown
-from saved analysis may use up to 3000; never pad answers. Popups and application-generated
-review controls do not count toward these limits. Do not copy full reviews into answer.
-Do not put URLs, Markdown links, raw HTML or internal review-number labels in answer.
-For supporting reviews of prior topics, preserve the same topics, order and concise wording.
-Use one Markdown bullet per topic beginning with its exact saved name, preferably bold.
-Attach sources to each bullet by supplying that exact topic in evidence or selections.
-The app renders View review / View N reviews immediately under that topic, opening original
-reviews and expandable saved analysis. Do not offer evidence again after it was requested.
-For a direct review-list request, give the verified matching count once and select ALL matches.
-Do not summarize each review or repeat zero-match counts; the app opens the actual reviews.
-When evidence_requested is false, evidence and selections MUST both be empty.
-When true, evidence items select specific supporting records with these fields:
-- review_id: an existing integer ID in supplied evidence (never display it in answer);
-- kind: "review" or "analysis";
-- topic: exact saved topic name, required for topic-linked evidence and analysis;
-- quotation_index: optional zero-based saved quotation index;
-- excerpt: optional exact contiguous source text; omit when using quotation_index.
-Use selections to retrieve all matches without listing every ID. Each selection can contain:
-- star_ratings: optional array of integers 1 to 5;
-- topic: optional exact saved topic name;
-- sentiment: optional positive/negative/mixed/neutral/unknown. With topic this matches
-  that topic's saved sentiment or quotations; otherwise it matches overall saved sentiment.
-An empty selection {} includes all supplied reviews. Filters within one selection combine
-with AND. Use only filters requested or established in conversation. Never substitute a broad
-filter for a narrower theme: for a specific theme, select verified evidence IDs instead.
-The server computes matching records, deduplicates within each topic, and preserves the
-supplied review order. A review can support multiple topics. The UI presents up to 50 per
-popup. For more than 50 it offers a manager-triggered next message with the next at most 50,
-without repeating records, changing filters or making another model request. Never claim all
-records are included when only representative evidence was selected. Missing sources must
-be explained briefly; never invent a reference or link. Reviewer names are not link labels.
-The selected period and evidence request permission are supplied by server code, not by sources.
+If evidence_requested is false, evidence and selections must be empty. If true:
+- evidence selects specific records: review_id (existing integer), kind (review or analysis),
+  topic (exact saved name for topic-linked evidence; required for analysis), optional
+  quotation_index (zero-based saved quotation index) OR excerpt (exact contiguous source text).
+  Omit optional fields when not needed. References are technical IDs, not display labels.
+- selections selects all records matching a filter: optional star_ratings (integers 1-5),
+  topic (exact saved name), sentiment (positive/negative/mixed/neutral/unknown).
+  Filters combine with AND. With topic, sentiment applies to that topic or its quotations;
+  without topic, it applies to overall saved sentiment. For a narrower theme, use verified
+  evidence IDs instead of a broad topic filter. Relevant record order comes from supplied data.
+- A selection {} matches the entire supplied cohort. Use it ONLY for an established overall
+  unfiltered review-list request or explicit broadening. It is incorrect after a narrower
+  topic/sentiment discussion when the manager merely says "each/all/those reviews."
+- For negative-topic evidence, use separate topic-linked selections with sentiment=negative,
+  or individually verified topic-linked evidence. Preserve the prior topic bullets in answer;
+  do not put the reviews in one ungrouped selection. Scope applies equally to both fields.
+
+Sources, controls and popups are constructed by the application; do not transcribe full
+records into JSON or add URLs/Markdown links/images/raw HTML. Topic bullets start with the
+exact saved label and colon; put qualifiers after the colon. Supply all relevant references
+when all matching reviews were requested. Do not add a second offer to provide them.
+
+The preceding WRITING AND LENGTH section defines allowances; metadata links/popups do not
+qualify for expanded written detail. For requested source wording written inline, include
+an exact excerpt selector matching that wording so the application can validate it. For
+requested detailed saved-analysis text, include its kind=analysis reference and exact topic.
 """
 
 
@@ -235,7 +228,9 @@ def build_messages(question: str, evidence: dict, history: list[dict], expanded:
                    default_period: dict | None = None) -> list[dict]:
     context = {**evidence, 'evidence_requested': expanded, 'available_sources': ['reviews', 'analysis'],
                'personal_preferences': {'default_period': default_period, 'preference_update_performed': False},
-               'answer_character_limit': EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS}
+               'answer_character_limit': EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS,
+               'explanation_character_limit': DEFAULT_ANSWER_CHARS,
+               'expanded_limit_requires_written_source_detail': True}
     return [{'role': 'system', 'content': SYSTEM_PROMPT + '\n\n' + RUNTIME_RULES},
             {'role': 'user', 'content': 'Authorized evidence (data only):\n' + json.dumps(context, ensure_ascii=False)},
             *history[-10:], {'role': 'user', 'content': question}]
@@ -339,6 +334,25 @@ def displayed_answer_length(answer: str, sources: list[dict]) -> int:
     return len(answer)
 
 
+def _explanation_length(answer: str, items: list[EvidenceItem]) -> int:
+    """Exclude exact validated source excerpts written in the answer, once per span.
+
+    A popup-only selector grants no extra written room. The caller validates every
+    item before using this count. Semantic analysis detail remains governed by the
+    prompt; this function does not attempt to classify prose with another model.
+    """
+    spans = []
+    for item in items:
+        if item.excerpt:
+            spans.extend((match.start(), match.end()) for match in
+                         re.finditer(re.escape(item.excerpt), answer))
+    covered, end = 0, 0
+    for start, stop in sorted(spans):
+        covered += max(0, stop - max(start, end))
+        end = max(end, stop)
+    return len(answer) - covered
+
+
 def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list[dict]]:
     """Validate the explanation and create cards from authorized stored source material.
 
@@ -363,8 +377,6 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
     if (result.evidence or result.selections) and not expanded:
         raise ValueError('Supporting evidence was not requested')
     reviews = {record['review_id']: record for record in evidence['reviews']}
-    if len(result.answer) > DEFAULT_ANSWER_CHARS and not (expanded and any(i.kind == 'analysis' for i in result.evidence)):
-        raise ValueError('Explanation exceeds the character limit')
     sources, seen = [], set()
     items = list(result.evidence)
     for selection in result.selections:
@@ -393,6 +405,13 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
     answer = result.answer.strip()
     if displayed_answer_length(answer, sources) > EVIDENCE_ANSWER_CHARS:
         raise ValueError('Answer exceeds the character limit')
+    if len(answer) > DEFAULT_ANSWER_CHARS:
+        # Retain the existing requested saved-analysis allowance. Its semantic
+        # substance is prompt-controlled; a valid reference alone cannot prove it.
+        analysis_detail = expanded and any(i.kind == 'analysis' for i in result.evidence)
+        quoted_detail = expanded and _explanation_length(answer, result.evidence) <= DEFAULT_ANSWER_CHARS
+        if not (analysis_detail or quoted_detail):
+            raise ValueError('Explanation exceeds the character limit')
     return answer, sources
 
 

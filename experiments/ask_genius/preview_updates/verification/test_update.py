@@ -20,6 +20,7 @@ spec.loader.exec_module(updater)
 BASES = [
     '7519b93674d40f87e9915ae458ac503cd69e1d2d',
     '051d06fa9d5e81108c3ea01366e2b24f2ec86a48',
+    'b28bf174078fcb94438fb5f806321cc49a99c7f4',
     'e19eb96cf0a19802d9bcc569c643845e36417032',
     '66e7ec4c61a147eced6eed05be45207725253ba6',
     '4c117094a132b3f395140026336b25ee220ca862',
@@ -189,18 +190,20 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((backup / 'keep').read_text(), 'previous layout source backup')
         self.assertTrue((self.root / updater.BACKUP / 'app/old-source.txt').is_file())
 
-    def test_installed_improvements_update_preserves_all_previous_backups(self):
+    def test_installed_review_links_update_preserves_all_previous_backups(self):
         source_path = self.root / 'SOURCE.txt'
         original_source = source_path.read_text()
-        source_path.write_text(original_source.replace(BASES[0], '5bba1ce0c502c074d481a4b2228091ec5873c72d'))
-        for name in ('backup-before-genius-layout', 'backup-before-genius-improvements'):
+        source_path.write_text(original_source.replace(BASES[0], 'b28bf174078fcb94438fb5f806321cc49a99c7f4'))
+        previous_backups = ('backup-before-genius-layout', 'backup-before-genius-improvements',
+                            'backup-before-genius-chat-update', 'backup-before-genius-review-links-update')
+        for name in previous_backups:
             backup = self.root / name
             backup.mkdir()
             (backup / 'keep').write_text('earlier source backup: ' + name)
         before = self.snapshot()
         self.assertTrue(self.install())
         for name, data in before.items():
-            if name.startswith(('backup-before-genius-layout/', 'backup-before-genius-improvements/', 'private/')):
+            if name.startswith(tuple(folder + '/' for folder in previous_backups) + ('private/',)):
                 self.assertEqual((self.root / name).read_bytes(), data)
         self.assertEqual((self.root / updater.BACKUP / 'SOURCE.txt').read_bytes(), before['SOURCE.txt'])
         installed = self.snapshot()
