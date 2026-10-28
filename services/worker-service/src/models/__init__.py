@@ -93,6 +93,7 @@ class FeedbackItem(Base):
     # The FK constraint exists in the actual database
     organization_id = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
+    review_date = Column(Date, nullable=True)  # Original posting date; never import time
     star_rating = Column(Integer, nullable=True)
     apartment_analysis = Column(JSON, nullable=True)
     source = Column(String, nullable=True)  # intercom, zendesk, manual, slack, webhook, etc
