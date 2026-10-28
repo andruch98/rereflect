@@ -72,8 +72,8 @@ Do not include the rejected question about concerns left unanswered in replies.
   to make an oversized answer appear compliant.
 - Show evidence when requested or after the manager accepts an offer. Select by
   relevance, then reliable recency, including contrasting evidence when material.
-  No fixed number of excerpts. Use actual review wording as clickable excerpts,
-  not internal labels such as "Review 3". Open the full review and expandable
+  No fixed number of excerpts. Use View review / View N reviews links under the relevant topic,
+  not internal labels such as "Review 3" or long source cards. Open the full review and expandable
   saved analysis in a popup without leaving the chat. Full popup contents are
   separate from the displayed chat-answer character budget. Offer remaining
   relevant information without inventing a remaining count. Provide author
@@ -124,3 +124,16 @@ manager to assess in the configured Mac preview.
 Push the completed changes together to the existing Ask Genius draft PR. Do not
 merge or deploy production. Supply the compatible Mac source update while
 preserving credentials, login, database, and blocked review-analysis settings.
+
+## Approved review-links follow-up
+
+- Share confirmation: top-center highlighted green banner, white text, checkmark,
+  close button; no Manage links option.
+- Supporting-review follow-ups preserve concise topics and order, attach each
+  topic's validated reviews directly beneath it, and do not offer evidence again.
+- Direct review lists give the count once and open all matching records in a popup,
+  up to 50 per displayed evidence message. Further pages are manager-triggered,
+  preserve filters/order, do not repeat reviews and require no model call.
+- Character limits apply only to LLM-written messages, excluding popup reviews,
+  popup analysis and application-generated controls. No longer topic explanations
+  were requested; that earlier interpretation was withdrawn.

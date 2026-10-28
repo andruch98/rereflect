@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Children, isValidElement, type ReactNode, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, ChevronDown, ChevronRight, Copy } from 'lucide-react';
+import { Check, ChevronDown, Copy } from 'lucide-react';
 import type { ChatMessage } from '@/components/copilot/ChatArea';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -20,6 +20,7 @@ interface ReviewSnapshot {
 
 interface Source {
   review_id: number;
+  topic?: string;
   excerpt?: string;
   excerpt_truncated?: boolean;
   review?: ReviewSnapshot;
@@ -38,7 +39,7 @@ function readSources(metadata: ChatMessage['structured_data']): Source[] {
       ? { original_review: value.review.original_review,
         star_rating: typeof value.review.star_rating === 'number' ? value.review.star_rating : null,
         saved_analysis: value.review.saved_analysis } : undefined;
-    return [{ review_id: value.review_id, excerpt: typeof value.excerpt === 'string' ? value.excerpt : undefined, excerpt_truncated: value.excerpt_truncated === true, review }];
+    return [{ review_id: value.review_id, topic: typeof value.topic === 'string' ? value.topic : undefined, excerpt: typeof value.excerpt === 'string' ? value.excerpt : undefined, excerpt_truncated: value.excerpt_truncated === true, review }];
   });
 }
 
@@ -59,7 +60,7 @@ function excerptOf(text: string): string {
   return trimmed.length > 240 ? `${trimmed.slice(0, 237).trimEnd()}…` : trimmed;
 }
 
-function ReviewSource({ source, publicSnapshot }: { source: Source; publicSnapshot: boolean }) {
+function ReviewDetail({ source, publicSnapshot }: { source: Source; publicSnapshot: boolean }) {
   const [legacy, setLegacy] = useState<{ review: ReviewSnapshot; analysis: unknown }>();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -90,21 +91,8 @@ function ReviewSource({ source, publicSnapshot }: { source: Source; publicSnapsh
     </div>;
   }
 
-  return <Dialog onOpenChange={() => setAnalysisOpen(false)}>
-    <DialogTrigger asChild>
-      <button type="button" className="group flex w-full items-center gap-4 rounded-xl border bg-card px-4 py-3 text-left text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="min-w-0 flex-1 space-y-2">
-          <span className="block whitespace-pre-wrap break-words text-base leading-relaxed">{excerpt ? `“${excerpt}”` : 'Rating only — no written review'}</span>
-          <span className="block text-xs font-semibold text-foreground">Open review + analysis</span>
-        </span>
-        <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground" />
-      </button>
-    </DialogTrigger>
-    <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-xl sm:p-7">
-      <DialogHeader>
-        <DialogTitle className="text-xl">Review</DialogTitle>
-        <DialogDescription className="sr-only">Original review and its saved analysis.</DialogDescription>
-      </DialogHeader>
+  return <section className="space-y-3 border-b py-5 last:border-0" aria-label="Original review">
+
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <ReviewRating rating={review.star_rating} />
         {analysisState.status === 'available' && <ReviewSentiment sentiment={analysisState.result.sentiment} />}
@@ -117,19 +105,77 @@ function ReviewSource({ source, publicSnapshot }: { source: Source; publicSnapsh
         </button>
         {analysisOpen && <div className="mt-3"><ApartmentAnalysis analysis={analysis} reviewText={review.original_review} /></div>}
       </div>
-    </DialogContent>
-  </Dialog>;
+  </section>;
+}
+
+function uniqueReviews(sources: Source[]): Source[] {
+  return [...new Map(sources.map(source => [source.review_id, source])).values()];
+}
+
+/** A page is a frozen subset of validated metadata, never a new model request. */
+function ReviewCollection({ sources, publicSnapshot, topic }: { sources: Source[]; publicSnapshot: boolean; topic?: string }) {
+  const [pages, setPages] = useState(1);
+  const records = uniqueReviews(sources);
+  const shown = Math.min(pages * 50, records.length);
+  const remaining = records.length - shown;
+  return <div aria-label={topic ? `Reviews for ${topic}` : 'Supporting reviews'} className="my-2 space-y-3 text-base font-normal">
+    {Array.from({ length: pages }, (_, page) => {
+      const start = page * 50;
+      const batch = records.slice(start, start + 50);
+      const label = records.length === 1 ? 'View review' : topic ? `View ${batch.length} reviews` : records.length <= 50 ? `View all ${batch.length} reviews` : `View ${batch.length} reviews`;
+      return <div key={page} role={page ? 'article' : undefined} aria-label={page ? 'Additional reviews' : undefined} className={page ? 'border-t pt-3' : ''}>
+        {records.length > 50 && <p className="mb-1 text-sm text-muted-foreground">{page === 0 ? `Found ${records.length} reviews. ` : ''}Showing {start + 1}–{start + batch.length} of {records.length} reviews.</p>}
+        <Dialog>
+          <DialogTrigger asChild><button type="button" className="rounded-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{label}</button></DialogTrigger>
+          <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-xl sm:p-7">
+            <DialogHeader><DialogTitle className="text-xl">{topic || (batch.length === 1 ? 'Review' : 'Reviews')}</DialogTitle><DialogDescription>{records.length > 50 ? `Reviews ${start + 1}–${start + batch.length} of ${records.length}. ` : ''}Original review content and expandable saved analysis.</DialogDescription></DialogHeader>
+            {batch.map(source => <ReviewDetail key={source.review_id} source={source} publicSnapshot={publicSnapshot} />)}
+          </DialogContent>
+        </Dialog>
+      </div>;
+    })}
+    {remaining > 0 && <button type="button" className="rounded-md border px-3 py-2 text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setPages(value => value + 1)}>{remaining <= 50 ? `Show remaining ${remaining}` : 'Show next 50 reviews'}</button>}
+  </div>;
+}
+
+function textOf(children: ReactNode): string {
+  return Children.toArray(children).map(child => typeof child === 'string' || typeof child === 'number' ? String(child) : isValidElement<{ children?: ReactNode }>(child) ? textOf(child.props.children) : '').join('');
 }
 
 /** Ask Genius does not inherit the general copilot's actions, HTML or navigation. */
 export function GeniusMessage({ message, publicSnapshot = false }: { message: ChatMessage; publicSnapshot?: boolean }) {
   const [copiedContent, setCopiedContent] = useState<string>();
   const [copyError, setCopyError] = useState(false);
-  const sources = readSources(message.structured_data);
+  const sources = useMemo(() => readSources(message.structured_data), [message.structured_data]);
   const assistant = message.role === 'assistant';
+  const topicGroups = new Map<string, Source[]>();
+  const ungrouped: Source[] = [];
+  for (const source of sources) {
+    if (source.topic) topicGroups.set(source.topic, [...(topicGroups.get(source.topic) ?? []), source]);
+    else ungrouped.push(source);
+  }
+  const matchedTopics = new Set<string>();
+  // Match exact topic labels at the start of Markdown list items; source text cannot
+  // create links. Unmatched legacy metadata remains accessible under a labeled group.
+  const topicFor = (text: string) => [...topicGroups.keys()].find(topic => text.trim().startsWith(`${topic}:`) || text.trim() === topic);
+  const bulletLines = message.content.split('\n').filter(line => /^\s*(?:[-*+] |\d+\. )/.test(line));
+  for (const line of bulletLines) {
+    const topic = topicFor(line.replace(/^\s*(?:[-*+] |\d+\. )/, '').replace(/\*\*/g, '').trim());
+    if (topic) matchedTopics.add(topic);
+  }
   const content = assistant
     ? message.content.replace(/\[Review\s*#?\d+\]\(\/feedbacks\/\d+\)/gi, 'supporting review below')
     : message.content;
+  const markdownComponents = useMemo(() => {
+    const groups = new Map<string, Source[]>();
+    for (const source of sources) if (source.topic) groups.set(source.topic, [...(groups.get(source.topic) ?? []), source]);
+    return { a: ({ children }: { children?: ReactNode }) => <span>{children}</span>, img: () => null,
+      li: ({ children }: { children?: ReactNode }) => {
+        const text = textOf(children).trim();
+        const topic = [...groups.keys()].find(name => text.startsWith(`${name}:`) || text === name);
+        return <li>{children}{topic && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}</li>;
+      } };
+  }, [sources, publicSnapshot]);
   const copied = copiedContent === content;
   useEffect(() => {
     if (copiedContent === undefined) return;
@@ -140,8 +186,7 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
   async function copyAnswer() {
     setCopyError(false);
     try {
-      const excerpts = sources.flatMap(source => source.excerpt ? [`“${source.excerpt}${source.excerpt_truncated ? '…' : ''}”`] : []);
-      await navigator.clipboard.writeText([content, ...excerpts].join('\n\n'));
+      await navigator.clipboard.writeText(content);
       setCopiedContent(content);
     } catch {
       setCopyError(true);
@@ -152,9 +197,10 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
 
   return <article aria-label="Ask Genius answer" className="mb-8 space-y-4 text-foreground">
     <div className="break-words text-base leading-7 sm:text-[17px] [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_li_p]:mb-1 [&_blockquote]:my-4 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_pre]:whitespace-pre-wrap [&_h1]:mb-3 [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:font-semibold [&_h3]:mb-3 [&_h3]:font-semibold">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: () => null }} urlTransform={() => ''}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={markdownComponents} urlTransform={() => ''}>{content}</ReactMarkdown>
     </div>
-    {!!sources.length && <div aria-label="Supporting reviews" className="space-y-3">{sources.map((source, index) => <ReviewSource key={`${source.review_id}-${index}`} source={source} publicSnapshot={publicSnapshot} />)}</div>}
+    {[...topicGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><ReviewCollection sources={records} topic={topic} publicSnapshot={publicSnapshot} /></section>)}
+    {!!ungrouped.length && <ReviewCollection sources={ungrouped} publicSnapshot={publicSnapshot} />}
     <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="ghost" size="sm" className="h-8 gap-2 px-2 text-muted-foreground" onClick={() => { void copyAnswer(); }}>{copied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />}{copied ? 'Copied' : 'Copy'}</Button>
       {copyError && <p role="status" className="text-xs text-muted-foreground">Could not copy. Select the answer text to copy it.</p>}

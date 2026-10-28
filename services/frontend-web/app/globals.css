@@ -18,3 +18,6 @@
   opacity: 0.15 !important;
   border-radius: var(--radius) !important;
 }
+
+/* Accessible high-contrast confirmation, shared by Ask Genius themes. */
+:root { --genius-success: oklch(0.45 0.13 150); --genius-success-foreground: oklch(1 0 0); }

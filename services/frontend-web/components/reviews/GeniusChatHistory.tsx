@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { MoreHorizontal, Pencil, Pin, PinOff, Share2, SquarePen, Trash2 } from 'lucide-react';
+import { CheckCircle2, X, MoreHorizontal, Pencil, Pin, PinOff, Share2, SquarePen, Trash2 } from 'lucide-react';
 import { askGeniusAPI, type GeniusConversation } from '@/lib/api/ask-genius';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,7 +66,10 @@ export function GeniusChatHistory({ conversations, selectedId, disabled, loading
               </DropdownMenuContent></DropdownMenu>
             <Button variant="ghost" size="icon" className={`h-8 w-7 shrink-0 ${chat.is_pinned ? 'text-foreground' : 'text-muted-foreground'}`} disabled={locked} aria-label={`${chat.is_pinned ? 'Unpin' : 'Pin'} ${chat.title}`} onClick={() => { void change(() => askGeniusAPI.updateConversation(chat.public_id, { is_pinned: !chat.is_pinned })); }}><Pin className={`h-4 w-4 ${chat.is_pinned ? 'fill-current' : ''}`} /></Button>
           </li>)}</ul></section>)}</div>}
-    {notice && <p role="status" className="mt-3 rounded-lg border bg-muted/50 p-3 text-xs leading-relaxed">{notice}</p>}
+    {notice && <div role="status" className="fixed left-1/2 top-5 z-[100] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl bg-[var(--genius-success)] px-5 py-4 text-[var(--genius-success-foreground)] shadow-lg">
+      <CheckCircle2 aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" /><p className="flex-1 text-sm font-medium leading-6">{notice}</p>
+      <button type="button" aria-label="Dismiss share confirmation" className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current" onClick={() => setNotice('')}><X aria-hidden="true" className="h-4 w-4" /></button>
+    </div>}
     {uncopiedLink && <Input aria-label="Public chat link" value={uncopiedLink} readOnly onFocus={event => event.currentTarget.select()} className="mt-2 text-xs" />}
     {error && !dialog && <p role="alert" className="mt-3 text-xs text-destructive">{error}</p>}
     <Dialog open={!!dialog} onOpenChange={open => { if (!open && !mutating) setDialog(undefined); }}><DialogContent><DialogHeader><DialogTitle>{dialog?.action === 'rename' ? 'Rename chat' : 'Delete chat?'}</DialogTitle><DialogDescription>{dialog?.action === 'rename' ? 'Keep the existing name or choose your own.' : 'This removes the chat from your history and cannot be undone. Shared copies remain available.'}</DialogDescription></DialogHeader>

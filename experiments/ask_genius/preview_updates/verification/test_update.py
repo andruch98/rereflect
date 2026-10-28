@@ -19,6 +19,7 @@ updater = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(updater)
 BASES = [
     '7519b93674d40f87e9915ae458ac503cd69e1d2d',
+    '051d06fa9d5e81108c3ea01366e2b24f2ec86a48',
     'e19eb96cf0a19802d9bcc569c643845e36417032',
     '66e7ec4c61a147eced6eed05be45207725253ba6',
     '4c117094a132b3f395140026336b25ee220ca862',

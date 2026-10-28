@@ -56,6 +56,9 @@ it('creates and copies a public link with no manage-link option', async () => {
   expect(write).toHaveBeenCalledWith(`${window.location.origin}/share/ask-genius/snapshot-token`);
   expect(api.shareConversation).toHaveBeenCalledWith('one');
   expect(screen.queryByText(/Manage link/)).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveClass('fixed', 'left-1/2', 'top-5');
+  await user.click(screen.getByRole('button', { name: 'Dismiss share confirmation' }));
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
 });
 it('provides a selectable link if clipboard permission is unavailable', async () => {
   mount(); const user = await menu(); vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));

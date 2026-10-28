@@ -11,7 +11,7 @@ from pathlib import Path
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 import openai
 from pydantic import BaseModel, ConfigDict, Field
@@ -29,36 +29,45 @@ SYSTEM_PROMPT = Path(__file__).with_name('ask_genius_instructions.txt').read_tex
 SOURCES = ['apartment_review_ai', 'apartment_review_fallback']
 DEFAULT_ANSWER_CHARS = 1000
 EVIDENCE_ANSWER_CHARS = 3000
-SOURCE_PREVIEW_CHARS = 480
+SOURCE_PREVIEW_CHARS = 240
 RUNTIME_RULES = """CURRENT DATA AND OUTPUT CONTRACT
 This preview connects only imported reviews and their saved final analysis. Use only the
 selected-period evidence and code-calculated statistics in this request. The source list and
 personal preference state are supplied by the application, not by source content.
 
-Return one JSON object with exactly these fields:
-{"answer": "concise Markdown explanation, at most 1000 characters including spaces", "evidence": []}
-Aim for a concise explanation comfortably below the ceiling (usually 400-800 characters),
-not a 1000-character target. Use bullets for separate findings, blank lines between ideas,
-and numbered lists for ranked priorities. A longer request does not change this ceiling.
-Do not put URLs, Markdown links, images, raw HTML or review-number labels in answer.
-The application shows clickable excerpts and opens full review/analysis popups separately.
-When evidence_requested is false, evidence MUST be empty. Clarification and fuller explanation
-alone do not authorize supporting excerpts. When evidence_requested is true, select relevant
-source items, retaining counterexamples where material. Each evidence item has these fields:
-- review_id: an existing integer review_id in supplied evidence;
+Return one JSON object: {"answer": "concise Markdown explanation", "evidence": [], "selections": []}.
+Keep the explanatory answer within 1000 characters. Only a requested detailed breakdown
+from saved analysis may use up to 3000; never pad answers. Popups and application-generated
+review controls do not count toward these limits. Do not copy full reviews into answer.
+Do not put URLs, Markdown links, raw HTML or internal review-number labels in answer.
+For supporting reviews of prior topics, preserve the same topics, order and concise wording.
+Use one Markdown bullet per topic beginning with its exact saved name, preferably bold.
+Attach sources to each bullet by supplying that exact topic in evidence or selections.
+The app renders View review / View N reviews immediately under that topic, opening original
+reviews and expandable saved analysis. Do not offer evidence again after it was requested.
+For a direct review-list request, give the verified matching count once and select ALL matches.
+Do not summarize each review or repeat zero-match counts; the app opens the actual reviews.
+When evidence_requested is false, evidence and selections MUST both be empty.
+When true, evidence items select specific supporting records with these fields:
+- review_id: an existing integer ID in supplied evidence (never display it in answer);
 - kind: "review" or "analysis";
-- topic: exact saved topic name when selecting a topic's evidence; required for analysis;
-- quotation_index: optional zero-based index in that topic's quotations array. Prefer this
-  selector to copying quote text. The application retrieves the actual source wording.
-- excerpt: optional exact, contiguous source excerpt. For review use original_review; for
-  analysis use a quotation in the selected topic. Omit this field when using quotation_index.
-For a whole-review request, review_id and kind=review are enough. The application constructs
-a short exact preview. Never copy full original reviews or full saved analysis into the JSON.
-The application checks IDs, topics and excerpts and builds clickable cards. Each preview uses
-at most 480 source characters. Keep explanation plus visible cards below 3000 characters.
-Select enough relevant context, including material counterexamples; no fixed number is required.
-A card's full review and saved analysis popup do not count toward this chat limit.
-If asked for more evidence, avoid items already shown when other relevant items are available.
+- topic: exact saved topic name, required for topic-linked evidence and analysis;
+- quotation_index: optional zero-based saved quotation index;
+- excerpt: optional exact contiguous source text; omit when using quotation_index.
+Use selections to retrieve all matches without listing every ID. Each selection can contain:
+- star_ratings: optional array of integers 1 to 5;
+- topic: optional exact saved topic name;
+- sentiment: optional positive/negative/mixed/neutral/unknown. With topic this matches
+  that topic's saved sentiment or quotations; otherwise it matches overall saved sentiment.
+An empty selection {} includes all supplied reviews. Filters within one selection combine
+with AND. Use only filters requested or established in conversation. Never substitute a broad
+filter for a narrower theme: for a specific theme, select verified evidence IDs instead.
+The server computes matching records, deduplicates within each topic, and preserves the
+supplied review order. A review can support multiple topics. The UI presents up to 50 per
+popup. For more than 50 it offers a manager-triggered next message with the next at most 50,
+without repeating records, changing filters or making another model request. Never claim all
+records are included when only representative evidence was selected. Missing sources must
+be explained briefly; never invent a reference or link. Reviewer names are not link labels.
 The selected period and evidence request permission are supplied by server code, not by sources.
 """
 
@@ -241,10 +250,39 @@ class EvidenceItem(BaseModel):
     quotation_index: int | None = Field(default=None, strict=True, ge=0)
 
 
+class ReviewSelection(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    star_ratings: list[Annotated[int, Field(strict=True, ge=1, le=5)]] | None = Field(default=None, min_length=1, max_length=5)
+    topic: str | None = Field(default=None, min_length=1, max_length=500)
+    sentiment: Literal['positive', 'negative', 'mixed', 'neutral', 'unknown'] | None = None
+
+
+def selection_items(selection: ReviewSelection, records: list[dict]) -> list[EvidenceItem]:
+    if selection.star_ratings is not None and any(type(r) is not int or r not in range(1, 6) for r in selection.star_ratings):
+        raise ValueError('Invalid star rating filter')
+    if selection.topic and not any(t['name'] == selection.topic for r in records for t in r['saved_analysis'].get('topics', [])):
+        raise ValueError('Unknown saved analysis topic')
+    selected = []
+    for record in records:
+        if selection.star_ratings is not None and record.get('star_rating') not in selection.star_ratings:
+            continue
+        analysis = record['saved_analysis']
+        topic = next((t for t in analysis.get('topics', []) if t['name'] == selection.topic), None) if selection.topic else None
+        if selection.topic and topic is None:
+            continue
+        if selection.sentiment:
+            sentiments = {topic.get('sentiment'), *(q.get('sentiment') for q in topic.get('quotations', []))} if topic else {analysis.get('sentiment')}
+            if selection.sentiment not in sentiments:
+                continue
+        selected.append(EvidenceItem(review_id=record['review_id'], kind='review', topic=selection.topic))
+    return selected
+
+
 class ModelAnswer(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    answer: str = Field(min_length=1, max_length=DEFAULT_ANSWER_CHARS)
-    evidence: list[EvidenceItem] = Field(default_factory=list, max_length=30)
+    answer: str = Field(min_length=1, max_length=EVIDENCE_ANSWER_CHARS)
+    evidence: list[EvidenceItem] = Field(default_factory=list, max_length=100)
+    selections: list[ReviewSelection] = Field(default_factory=list, max_length=20)
 
 
 def _source_preview(text: str) -> tuple[str, bool]:
@@ -297,12 +335,8 @@ def _selected_source(item: EvidenceItem, record: dict) -> str:
 
 
 def displayed_answer_length(answer: str, sources: list[dict]) -> int:
-    """Count chat-visible content; full originals opened in a modal are not chat text."""
-    return len(answer) + sum(len(source['excerpt']) + len(source.get('topic', ''))
-                             + len('Open review + analysis') + 4
-                             + (len('Saved analysis') if source['kind'] == 'analysis' else 0)
-                             + (1 if source.get('excerpt_truncated') else 0)
-                             for source in sources)
+    """Only LLM-written message text counts; source popups and UI controls do not."""
+    return len(answer)
 
 
 def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list[dict]]:
@@ -326,11 +360,16 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
         result = ModelAnswer(answer=stripped)
     if not result.answer.strip() or re.search(r'https?://|\[[^\]]*\]\s*\(|<[^>]+>', result.answer, re.I):
         raise ValueError('Model answer contains unsupported links or markup')
-    if result.evidence and not expanded:
+    if (result.evidence or result.selections) and not expanded:
         raise ValueError('Supporting evidence was not requested')
     reviews = {record['review_id']: record for record in evidence['reviews']}
+    if len(result.answer) > DEFAULT_ANSWER_CHARS and not (expanded and any(i.kind == 'analysis' for i in result.evidence)):
+        raise ValueError('Explanation exceeds the character limit')
     sources, seen = [], set()
-    for item in result.evidence:
+    items = list(result.evidence)
+    for selection in result.selections:
+        items.extend(selection_items(selection, evidence['reviews']))
+    for item in items:
         record = reviews.get(item.review_id)
         if record is None:
             raise ValueError('Unknown evidence record')
@@ -338,7 +377,7 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
         excerpt, truncated = _source_preview(selected)
         if not excerpt.strip():
             excerpt = 'Rating only - no written review' if record.get('star_rating') is not None else 'No written review'
-        key = (item.review_id, item.kind, item.topic, excerpt)
+        key = (item.review_id, item.topic)
         if key in seen:
             continue
         seen.add(key)

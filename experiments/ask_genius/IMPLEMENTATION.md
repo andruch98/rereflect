@@ -58,15 +58,29 @@ explanation itself remains within 1,000. A headline count or citation alone does
 not qualify. Oversized output is rejected without truncating meaning or retrying
 the provider automatically.
 
-The model returns a short explanation and structured record/topic/quotation
-selectors. It no longer needs to transcribe long reviews. Server code validates
-IDs against the selected cohort and creates actual-source excerpt cards (up to
-480 source characters each) with the selected full original and saved analysis
-for a popup. Optional model-copied excerpts remain exact-match validated. The
-1,000/3,000 limits cover explanation and visible cards, not the full popup data.
-The renderer disables model links, images and raw HTML. Older private source
-links resolve through the authenticated review API. Completed source references
-remain in follow-up context; failed user attempts are excluded from model history.
+The model returns a concise explanation and validated evidence selectors. For a
+complete review list it can supply allowlisted rating/topic/sentiment filters;
+server code selects every match in the authorized period cohort in stable order.
+Specific themes still require individually verified source IDs rather than a
+broader filter. Records are deduplicated per topic, not across different topics.
+
+Topic bullets use exact saved topic labels and receive View review / View N reviews
+controls immediately underneath. Direct review lists use a single collection link.
+No long source cards or internal review numbers lead the chat. Full original
+reviews and expandable saved analysis appear only inside the popup. The popup
+shows at most 50 records. Selecting Show remaining N / Show next 50 reviews adds
+an additional displayed evidence message for the next subset, without a provider
+request. These presentation pages reset when the answer is remounted; the complete
+selected evidence stays in stored message metadata and public snapshots.
+
+Only LLM-written text counts toward the 1,000/3,000 limits; application controls,
+original reviews and saved analysis in popups are exempt. Optional model-copied
+excerpts remain exact-match validated. The renderer disables model URLs, images
+and raw HTML. Legacy private reviews load through authenticated APIs only when
+a popup opens. Public snapshots never request private review endpoints.
+
+The share-copy confirmation is a high-contrast green banner at the viewport's
+top center with a checkmark and dismiss button, and no Manage links option.
 
 ## Access and configuration
 
@@ -165,3 +179,14 @@ The approved PDF is the visual reference; review the running Mac preview against
 it. The loopback-only preview supports signed-out sharing on that same Mac;
 remote recipients require a publicly reachable deployment. No network configuration,
 production deployment or merge is included.
+
+## Review-links revision verification
+
+180 backend checks and 99 frontend tests passed (one private fixture skipped),
+plus 22 updater tests. New checks cover 78 matching reviews, 50/28 popup pages,
+topic-to-review placement, duplicate references, strict filters, popup length
+exemption, and the dismissible share banner. ESLint passes on edited UI files.
+The prior TypeScript diagnostics remain; no new Ask Genius diagnostic appears.
+No live model charges or Mac/Docker/browser visual verification are claimed.
+The existing 100-review / 80,000-character model-context guard remains in place;
+popup pagination does not silently widen that cohort or bypass its cost bound.

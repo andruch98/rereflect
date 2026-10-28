@@ -2,7 +2,7 @@
 
 The updater replaces application source and its archive/metadata only. It never
 reads AI credentials or login files, changes Compose/network configuration,
-starts Docker, or makes a model request. `backup-before-genius-chat-update` avoids
+starts Docker, or makes a model request. `backup-before-genius-review-links-update` avoids
 colliding with either the prior layout or improvements update. Both previous
 backup folders remain untouched.
 
@@ -23,11 +23,11 @@ After the final application commit exists locally, run:
 ```bash
 python3 experiments/ask_genius/preview_updates/build-update.py \
   --commit FULL_FINAL_COMMIT_SHA \
-  --output /absolute/path/boomsay-genius-chat-update.zip \
+  --output /absolute/path/boomsay-genius-review-links-update.zip \
   --verification-log /absolute/path/offline-checks.txt
 ```
 
-The ZIP contains the `boomsay-genius-chat-update` folder. The builder first checks
+The ZIP contains the `boomsay-genius-review-links-update` folder. The builder first checks
 that the builder, updater and README match the selected commit, then archives that
 commit's allowlisted application paths, verifies
 archive entries, writes `update.json` with the commit and SHA-256, and includes

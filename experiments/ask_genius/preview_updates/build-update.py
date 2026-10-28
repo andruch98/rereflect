@@ -21,6 +21,7 @@ SOURCE_PATHS = (
     'LICENSE', 'NOTICE',
 )
 SUPPORTED_BASES = (
+    '051d06fa9d5e81108c3ea01366e2b24f2ec86a48',
     '7519b93674d40f87e9915ae458ac503cd69e1d2d',
     'e19eb96cf0a19802d9bcc569c643845e36417032',
     '66e7ec4c61a147eced6eed05be45207725253ba6',
@@ -30,7 +31,7 @@ SUPPORTED_BASES = (
     '724ca86b0de00c59ade1c8c54fac17ec9bacbc71',
     '5bba1ce0c502c074d481a4b2228091ec5873c72d',
 )
-BUNDLE_NAME = 'boomsay-genius-chat-update'
+BUNDLE_NAME = 'boomsay-genius-review-links-update'
 
 
 def build(commit: str, output: Path, verification_log: Path | None = None) -> None:

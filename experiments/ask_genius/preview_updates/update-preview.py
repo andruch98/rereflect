@@ -14,7 +14,7 @@ import tarfile
 import tempfile
 
 
-BACKUP = 'backup-before-genius-chat-update'
+BACKUP = 'backup-before-genius-review-links-update'
 MUTATED_FILES = ('rereflect-app-source.tar.gz', 'checksums.json', 'SOURCE.txt')
 MANIFEST_REQUIRED = {
     'rereflect-app-source.tar.gz', 'private/saved-ai-records.json', 'restore.py',

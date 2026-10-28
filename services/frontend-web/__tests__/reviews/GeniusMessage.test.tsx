@@ -27,7 +27,7 @@ afterEach(cleanup);
 describe('Ask Genius review excerpts', () => {
   it('opens a snapshot review without fetching and expands saved analysis on demand', async () => {
     show();
-    fireEvent.click(screen.getByRole('button', { name: /The team ignored my calls.*Open review/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'View review' }));
     const modal = screen.getByRole('dialog');
     expect(within(modal).getByText(original)).toBeInTheDocument();
     expect(within(modal).getByRole('heading', { name: 'Review' })).toBeInTheDocument();
@@ -43,32 +43,33 @@ describe('Ask Genius review excerpts', () => {
   it('keeps legacy saved string quotations unlabeled', () => {
     const legacy = { ...source, review: { ...source.review, saved_analysis: { ...source.review.saved_analysis, topics: [{ name: 'Staff', sentiment: 'negative', quotations: [{ text: 'The team ignored my calls.', sentiment: 'unlabeled' }] }] } } };
     show('Concerns.', { kind: 'ask_genius', sources: [legacy] });
-    fireEvent.click(screen.getByRole('button', { name: /Open review/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'View review' }));
     fireEvent.click(screen.getByRole('button', { name: /Saved analysis/ }));
     expect(screen.getByRole('heading', { name: 'Unlabeled quotations' })).toBeInTheDocument();
   });
 
   it('marks an excerpt as shortened without shortening the popup review', () => {
     show('Concerns.', { kind: 'ask_genius', sources: [{ ...source, excerpt: 'The team ignored', excerpt_truncated: true }] });
-    fireEvent.click(screen.getByRole('button', { name: /“The team ignored…”/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'View review' }));
     expect(screen.getByRole('dialog')).toHaveTextContent(original);
   });
 
   it('loads an older private source through the authorized review API', async () => {
     get.mockResolvedValue({ text: original, star_rating: 1, apartment_analysis: null });
     show('See [Review #7](/feedbacks/7).', { kind: 'ask_genius', sources: [{ review_id: 7, label: 'Review #7', href: '/feedbacks/7' }] });
-    const trigger = await screen.findByRole('button', { name: /The team ignored my calls.*Open review/ });
-    expect(get).toHaveBeenCalledWith(7);
+    const trigger = await screen.findByRole('button', { name: 'View review' });
+    expect(get).not.toHaveBeenCalled();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.queryByText('Review #7')).not.toBeInTheDocument();
     fireEvent.click(trigger);
-    expect(screen.getByRole('dialog')).toHaveTextContent(original);
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent(original));
+    expect(get).toHaveBeenCalledWith(7);
   });
 
   it('never fetches private reviews from a public snapshot, including malformed legacy sources', async () => {
     show('Shared finding.', { kind: 'ask_genius', sources: [{ review_id: 999, href: '/feedbacks/999', excerpt: 'An excerpt.' }] }, true);
+    fireEvent.click(screen.getByRole('button', { name: 'View review' }));
     expect(screen.getByText('The full review was not included in this shared chat.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Open review/ })).not.toBeInTheDocument();
     expect(get).not.toHaveBeenCalled();
   });
 
@@ -90,11 +91,11 @@ describe('Ask Genius review excerpts', () => {
     expect(screen.queryByLabelText('Supporting reviews')).not.toBeInTheDocument();
   });
 
-  it('copies the answer and visible excerpts without dumping the full review', async () => {
+  it('copies only the written answer, excluding popup records', async () => {
     show();
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     await screen.findByRole('button', { name: 'Copied' });
-    expect(writeText).toHaveBeenCalledWith('Residents reported communication concerns.\n\n“The team ignored my calls.”');
+    expect(writeText).toHaveBeenCalledWith('Residents reported communication concerns.');
     expect(writeText.mock.calls[0][0]).not.toContain('three times');
   });
 
@@ -115,5 +116,42 @@ describe('Ask Genius review excerpts', () => {
       act(() => { vi.advanceTimersByTime(2000); });
       expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
     } finally { vi.useRealTimers(); }
+  });
+});
+
+
+describe('Topic links and complete review collections', () => {
+  it('attaches each popup directly to its topic and deduplicates matching reviews', () => {
+    show('- **Staff:** Reports of unanswered calls.\n- **Billing:** Reports of disputed fees.', { kind: 'ask_genius', sources: [
+      { ...source, topic: 'Staff' }, { ...source, topic: 'Staff' },
+      { ...source, review_id: 8, topic: 'Billing', review: { ...source.review, original_review: 'The fee was unexplained.' } },
+    ] });
+    const bullets = screen.getAllByRole('listitem');
+    expect(bullets).toHaveLength(2);
+    expect(screen.queryByText(original)).not.toBeInTheDocument();
+    fireEvent.click(within(bullets[1]).getByRole('button', { name: 'View review' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('The fee was unexplained.');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent(original);
+  });
+
+  it('shows 78 reviews in manager-triggered pages of 50 and 28, with no private fetching', () => {
+    const sources = Array.from({ length: 78 }, (_, index) => ({ ...source, review_id: index + 1, review: { ...source.review, original_review: `Original content ${index + 1}.` } }));
+    show('Found 78 matching reviews.', { kind: 'ask_genius', sources }, true);
+    expect(screen.getByText('Found 78 reviews. Showing 1–50 of 78 reviews.')).toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: 'Additional reviews' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View 50 reviews' }));
+    expect(within(screen.getByRole('dialog')).getAllByRole('region', { name: 'Original review' })).toHaveLength(50);
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('Original content 51.');
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show remaining 28' }));
+    const next = screen.getByRole('article', { name: 'Additional reviews' });
+    expect(next).toHaveTextContent('Showing 51–78 of 78 reviews.');
+    fireEvent.click(within(next).getByRole('button', { name: 'View 28 reviews' }));
+    const modal = screen.getByRole('dialog');
+    expect(within(modal).getAllByRole('region', { name: 'Original review' })).toHaveLength(28);
+    expect(modal).toHaveTextContent('Original content 78.');
+    expect(modal).not.toHaveTextContent('Original content 1.');
+    expect(screen.queryByRole('button', { name: /Show (?:remaining|next)/ })).not.toBeInTheDocument();
+    expect(get).not.toHaveBeenCalled();
   });
 });

@@ -22,7 +22,7 @@ it('shows only the shared snapshot without sign-in, a private sidebar or a compo
   mount();
   expect(await screen.findByRole('heading', { name: 'Repair concerns' })).toBeInTheDocument();
   expect(screen.getByText('Residents reported repair delays.')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /We waited for a repair.*Open review/ })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'View review' })).toBeInTheDocument();
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'New chat' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /Sign in/ })).not.toBeInTheDocument();

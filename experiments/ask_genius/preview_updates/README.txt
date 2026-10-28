@@ -1,4 +1,4 @@
-BOOMSAY - ASK GENIUS CHAT UPDATE
+BOOMSAY - ASK GENIUS REVIEW LINKS UPDATE
 
 This updates application source only. Your existing OpenAI key, AI configuration,
 Docker networks, login, saved reviews and conversation history are preserved.
@@ -7,16 +7,17 @@ existing database migration step adds chat pinning and public share snapshots.
 Older previews also receive the optional saved time-period preference field.
 Existing reviews, analysis and message content are preserved.
 
-1. Unzip boomsay-genius-chat-update.zip. Its folder is also named
-   boomsay-genius-chat-update. Keep your existing boomsay-dashboard-preview folder.
+1. Unzip boomsay-genius-review-links-update.zip. Its folder is also named
+   boomsay-genius-review-links-update. Keep your existing boomsay-dashboard-preview folder.
 2. Open Terminal in that EXISTING preview folder.
 3. Type python3 followed by a space, drag update-preview.py from the new
-   boomsay-genius-chat-update folder into Terminal, and press Enter.
+   boomsay-genius-review-links-update folder into Terminal, and press Enter.
 4. Run: bash start-local.sh
 5. Open http://127.0.0.1:53004/ask-genius with your existing login.
 
-The updater preserves the previous application in backup-before-genius-chat-update.
-Earlier backup-before-genius-layout and backup-before-genius-improvements folders
+The updater preserves the previous application in backup-before-genius-review-links-update.
+Earlier backup-before-genius-chat-update, backup-before-genius-layout and
+backup-before-genius-improvements folders
 are kept separately. They do not block this update.
 Rerunning a completed update is safe. Run only one updater at a time. If it
 reports an unsupported preview or an existing unfinished backup, keep the folder and

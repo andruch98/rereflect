@@ -219,9 +219,8 @@ def test_evidence_continuation_accepts_yes_or_show_more_with_pronoun_offer():
     assert not service.evidence_requested('Yes',[{'role':'assistant','content':'Would you like it?'}])
 
 
-def test_oversized_evidence_is_rejected_without_dropping_records_or_changing_claims(flow):
-    # Seven distinct card previews exceed the visible 3,000-character budget even
-    # though full originals now live in popups rather than the assistant text.
+def test_popup_text_is_exempt_and_repeated_review_selectors_are_deduplicated(flow):
+    # The full original exceeds the message ceiling but is only read in a popup.
     record = flow['rows'][0]
     quotes = [str(i) + ' ' + ('source words ' * 39) for i in range(7)]
     record.text = '\n'.join(quotes)
@@ -229,8 +228,11 @@ def test_oversized_evidence_is_rejected_without_dropping_records_or_changing_cla
     flow['model'].update(answer='These excerpts show the reported experiences.', evidence=[
         {'review_id':record.id,'kind':'review','excerpt':quote} for quote in quotes])
     result=flow['ask']('Show supporting reviews',period=ALL)
-    assert result.status_code==502
-    assert flow['db'].query(ConversationMessage).filter_by(role='assistant').count()==0
+    assert result.status_code==200
+    sources = result.json()['structured_data']['sources']
+    assert len(sources) == 1
+    assert sources[0]['review']['original_review'] == record.text
+    assert len(record.text) > 3000
     assert len(flow['calls'])==1
 
 

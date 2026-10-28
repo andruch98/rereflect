@@ -67,7 +67,7 @@ class BuildTests(unittest.TestCase):
         with zipfile.ZipFile(self.output) as bundle:
             names = bundle.namelist()
             self.assertEqual(len(names), 4)
-            prefix = 'boomsay-genius-chat-update/'
+            prefix = 'boomsay-genius-review-links-update/'
             archive_bytes = bundle.read(prefix + 'rereflect-app-source.tar.gz')
             meta = json.loads(bundle.read(prefix + 'update.json'))
             self.assertEqual(meta['commit'], self.commit)
