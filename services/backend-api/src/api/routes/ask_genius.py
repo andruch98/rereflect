@@ -24,6 +24,7 @@ from src.models.ask_genius_share import AskGeniusShare
 from src.models.user import User
 from src.services import ask_genius as service
 from src.services import ask_genius_sharing as sharing
+from src.services import ask_genius_surveys as survey_service
 from src.services.ask_genius_followups import topic_review_followup
 from src.services.ask_genius_periods import Period, parse_question_period, preference_command, resolve_period
 from src.services.review_preview import require_preview_organization
@@ -72,6 +73,7 @@ class ConversationSummary(BaseModel):
     title: str | None
     is_pinned: bool
     updated_at: datetime
+    sharing_unavailable_reason: str | None = None
 
 
 class ShareResult(BaseModel):
@@ -79,9 +81,18 @@ class ShareResult(BaseModel):
     path: str
 
 
-def conversation_summary(conversation):
+def conversation_summary(conversation, db=None):
+    private_survey = None
+    if db is not None:
+        private_survey = db.query(ConversationMessage.id).filter(
+            ConversationMessage.conversation_id == conversation.id,
+            or_(ConversationMessage.structured_data['source_scope'].as_string().in_(['surveys', 'mixed']),
+                ConversationMessage.raw_request['source_scope'].as_string().in_(['surveys', 'mixed']),
+                ConversationMessage.structured_data['sharing_unavailable_reason'].as_string().isnot(None)),
+        ).first()
     return {'public_id': conversation.public_id, 'title': conversation.title,
-            'is_pinned': conversation.is_pinned, 'updated_at': conversation.updated_at}
+            'is_pinned': conversation.is_pinned, 'updated_at': conversation.updated_at,
+            'sharing_unavailable_reason': survey_service.SHARING_REASON if private_survey else None}
 
 
 def authorize(user: User) -> None:
@@ -169,7 +180,7 @@ def status(user: User = Depends(get_current_user), db: Session = Depends(get_db)
     _, reason = service.configured_llm(user.organization_id, db)
     return {'ready': reason is None, 'reason': reason,
             'default_period': period_dict(default_period_for(user)),
-            'available_sources': ['reviews', 'analysis'], 'timezone': 'America/New_York',
+            'available_sources': ['reviews', 'analysis', 'surveys'], 'timezone': 'America/New_York',
             'date_coverage': service.date_coverage(user.organization_id, db)}
 
 
@@ -191,7 +202,7 @@ def update_preferences(body: Preferences, user: User = Depends(get_current_user)
 def list_conversations(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     authorize(user)
     rows = conversations_for(user, db).order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc(), Conversation.id.desc()).all()
-    return {'conversations': [conversation_summary(c) for c in rows], 'total': len(rows)}
+    return {'conversations': [conversation_summary(c, db) for c in rows], 'total': len(rows)}
 
 
 @router.get('/conversations/{public_id}')
@@ -200,8 +211,9 @@ def get_conversation(public_id: UUID, user: User = Depends(get_current_user), db
     conversation = owned_conversation(public_id, user, db)
     messages = db.query(ConversationMessage).filter_by(conversation_id=conversation.id).order_by(ConversationMessage.id).all()
     # Audit context/provider payloads are deliberately not part of the client API.
-    return {**conversation_summary(conversation),
+    return {**conversation_summary(conversation, db),
             'period': period_dict(conversation_period(conversation, db)),
+            'sharing_unavailable_reason': sharing.unavailable_reason(messages),
             'messages': [{'id': m.id, 'role': m.role, 'content': m.content,
                           'structured_data': m.structured_data, 'created_at': m.created_at,
                           'status': (m.raw_request or {}).get('status') if m.role == 'user' else 'completed'} for m in messages]}
@@ -219,7 +231,7 @@ def update_conversation(public_id: UUID, body: ConversationUpdate,
             conversation.is_pinned = body.is_pinned
         conversation.updated_at = datetime.utcnow()
         db.commit()
-        return conversation_summary(conversation)
+        return conversation_summary(conversation, db)
 
 
 @router.delete('/conversations/{public_id}', status_code=204)
@@ -301,6 +313,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             raise HTTPException(409, 'This question was already attempted. Check its conversation before asking again.')
 
         history = []
+        prior_metadata = {}
         if conversation:
             request_status = ConversationMessage.raw_request['status'].as_string()
             recent = db.query(ConversationMessage).filter(
@@ -308,6 +321,9 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 or_(ConversationMessage.role == 'assistant', request_status == 'completed', request_status.is_(None)),
             ).order_by(ConversationMessage.id.desc()).limit(10).all()
             history = [service.history_message(m) for m in reversed(recent)]
+            prior_answer = next((m for m in recent if m.role == 'assistant'), None)
+            prior_metadata = (prior_answer.structured_data or {}) if prior_answer else {}
+        source_scope = survey_service.source_scope(question, prior_metadata.get('source_scope'))
         prior_period = conversation_period(conversation, db)
         saved_default = default_period_for(user)
         try:
@@ -342,14 +358,23 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
 
         evidence = None
         local_sources = []
+        survey_match_ids = None
+        expanded = service.evidence_requested(question, history)
         if local_answer is None:
             try:
-                evidence = service.build_evidence(user.organization_id, db, selected)
+                evidence = service.build_authorized_evidence(user.organization_id, db, selected, source_scope)
+                evidence = survey_service.filter_resolution(evidence, question)
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
-            local_answer = service.no_data_answer(evidence)
-        expanded = service.evidence_requested(question, history)
-        if local_answer is None and expanded and conversation and selected == prior_period:
+            if local_answer is None:
+                direct = survey_service.local_answer(question, evidence, prior_metadata if selected == prior_period else None)
+                if direct is not None:
+                    local_answer, local_sources, survey_match_ids = direct
+                    if not expanded:
+                        local_sources = []
+            if local_answer is None:
+                local_answer = service.no_data_answer(evidence)
+        if local_answer is None and source_scope == 'reviews' and expanded and conversation and selected == prior_period:
             # Reattach evidence only when the preceding answer used exactly the
             # same authorized records and resolved dates. Changed data/periods,
             # broader requests and ambiguous scopes keep the normal model path.
@@ -380,6 +405,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                  'messages': messages, 'period': period_dict(selected),
                  'resolved_period': resolve_period(selected) if selected else None,
                  'evidence_requested': expanded, 'preference_updated': preference_updated,
+                 'source_scope': source_scope,
                  'model': config.model if config else None, 'provider': config.provider if config else None,
                  'max_completion_tokens': 1200 if config else 0, 'max_retries': 0}
         user_message = ConversationMessage(conversation_id=conversation.id, role='user', content=question,
@@ -425,7 +451,17 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
         metadata = {'kind': 'ask_genius', 'period': period_dict(selected),
                     'period_label': resolve_period(selected)['label'] if selected else None,
                     'default_period': period_dict(default_period_for(user)),
-                    'preference_updated': preference_updated, 'sources': sources}
+                    'preference_updated': preference_updated, 'sources': sources,
+                    'source_scope': source_scope}
+        if source_scope in {'surveys', 'mixed'}:
+            metadata['sharing_unavailable_reason'] = survey_service.SHARING_REASON
+            metadata['survey_counts'] = evidence.get('survey_calculated', {}) if evidence else {}
+            selected_ids = survey_match_ids if survey_match_ids is not None else [
+                source['survey_id'] for source in sources if source.get('kind') == 'survey']
+            if survey_match_ids is None and not selected_ids and evidence and evidence.get('survey_resolution_filter'):
+                selected_ids = [record['survey_id'] for record in evidence['surveys']]
+            if survey_match_ids is not None or selected_ids:
+                metadata['survey_match_ids'] = selected_ids
         answer = ConversationMessage(conversation_id=conversation.id, role='assistant', content=answer_text,
                                      structured_data=metadata, context_scope=service.SCOPE, query_type='analysis',
                                      llm_provider=config.provider if config else None, llm_model=config.model if config else None,

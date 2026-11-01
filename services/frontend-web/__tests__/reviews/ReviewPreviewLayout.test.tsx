@@ -18,8 +18,16 @@ it('shows the authorized community and only the current milestone navigation', a
   expect(screen.getByText('Authorized review content')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Reviews' })).toHaveAttribute('href', '/feedbacks');
   expect(screen.getByRole('link', { name: 'Ask Genius' })).toHaveAttribute('href', '/ask-genius');
+  expect(screen.getByRole('link', { name: 'Surveys' })).toHaveAttribute('href', '/surveys');
   expect(screen.queryByText('AI Copilot')).not.toBeInTheDocument();
   expect(screen.queryByText('Churn Risks')).not.toBeInTheDocument();
+});
+
+it('allows an authenticated original survey detail without redirecting it to reviews', async () => {
+  mocks.path = '/surveys/11111111-1111-4111-8111-111111111111';
+  mocks.get.mockResolvedValue({ data: { organization_id: 11, name: 'Lake House Apartments' } });
+  mount(); await screen.findByText('Authorized review content');
+  expect(mocks.replace).not.toHaveBeenCalled();
 });
 it('does not render review children while community access is denied', async () => {
   mocks.get.mockRejectedValue(new Error('Forbidden'));

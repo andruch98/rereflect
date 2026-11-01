@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from src.models.feedback import FeedbackItem
 from src.services.copilot.llm_resolver import LLMConfig
 from src.services.ask_genius_periods import Period, resolve_period
+from src.services import ask_genius_surveys as survey_service
 
 SCOPE = 'boomsay_reviews'
 MAX_REVIEWS = 100
@@ -41,6 +42,11 @@ If evidence_requested is false, evidence and selections must be empty. If true:
   topic (exact saved name for topic-linked evidence; required for analysis), optional
   quotation_index (zero-based saved quotation index) OR excerpt (exact contiguous source text).
   Omit optional fields when not needed. References are technical IDs, not display labels.
+- For surveys, evidence selects {"survey_id": "existing UUID", "kind": "survey"},
+  optionally excerpt matching exact original submitted text. Never use review_id for surveys.
+- survey_selections selects finalized submissions: {} means the established entire survey
+  cohort, or {"issue_resolution":"unresolved"} (also resolved, partially_resolved, not_checked).
+  Preserve prior restrictions. Use verified survey IDs for narrower narrative findings.
 - selections selects all records matching a filter: optional star_ratings (integers 1-5),
   topic (exact saved name), sentiment (positive/negative/mixed/neutral/unknown).
   Filters combine with AND. With topic, sentiment applies to that topic or its quotations;
@@ -186,14 +192,27 @@ def build_evidence(org_id: int, db: Session, period: Period | None = None) -> di
     return evidence
 
 
+def build_authorized_evidence(org_id: int, db: Session, period: Period, scope: str) -> dict:
+    if scope == 'surveys':
+        evidence = {'period': resolve_period(period), 'reviews': [], 'calculated': {}}
+    else:
+        evidence = build_evidence(org_id, db, period)
+    evidence['source_scope'] = scope
+    if scope in {'surveys', 'mixed'}:
+        evidence.update(survey_service.build_evidence(org_id, db, period))
+    if len(json.dumps(evidence, ensure_ascii=False)) > MAX_EVIDENCE_CHARS:
+        raise ValueError('The selected records are too large to read completely. Choose a shorter period.')
+    return evidence
+
+
 def evidence_requested(question: str, history: list[dict]) -> bool:
     """Conservative expansion gate; a request for a longer explanation is insufficient."""
     lowered = question.casefold().strip()
-    if re.search(r"\b(?:do not|don't|without|no)\s+(?:show|include|give|provide)?\s*(?:me\s+)?(?:supporting\s+)?(?:evidence|reviews?|excerpts?|quotes?|records?)\b", lowered):
+    if re.search(r"\b(?:do not|don't|without|no)\s+(?:show|include|give|provide)?\s*(?:me\s+)?(?:supporting\s+)?(?:evidence|reviews?|surveys?|answers?|submissions?|excerpts?|quotes?|records?)\b", lowered):
         return False
-    if re.search(r"\b(?:show|see|list|give|provide|display|include|open|read|tie|link|connect|match|trace)\b.{0,90}\b(?:reviews?|evidence|excerpts?|quotes?|records?|saved analysis|supporting (?:information|feedback|data)|survey (?:answers?|responses?|data)|management responses?)\b", lowered):
+    if re.search(r"\b(?:show|see|list|give|provide|display|include|open|read|tie|link|connect|match|trace)\b.{0,90}\b(?:reviews?|surveys?|answers?|submissions?|evidence|excerpts?|quotes?|records?|saved analysis|supporting (?:information|feedback|data)|survey (?:answers?|responses?|data)|management responses?)\b", lowered):
         return True
-    if re.search(r"\b(?:which|what)\s+(?:original\s+|actual\s+|specific\s+)?reviews?\b", lowered):
+    if re.search(r"\b(?:which|what)\s+(?:original\s+|actual\s+|specific\s+)?(?:reviews?|submissions?|surveys?)\b", lowered):
         return True
     if re.search(r"\b(?:show|give|provide|see)\b.{0,35}\b(?:topic|theme|sentiment)\b.{0,25}\b(?:breakdown|analysis)\b", lowered):
         return True
@@ -217,8 +236,8 @@ def history_message(message) -> dict:
     metadata = message.structured_data if isinstance(message.structured_data, dict) else {}
     sources = metadata.get('sources')
     if message.role == 'assistant' and isinstance(sources, list):
-        attached = [{key: source[key] for key in ('review_id', 'excerpt', 'kind', 'topic') if key in source}
-                    for source in sources if isinstance(source, dict) and isinstance(source.get('review_id'), int)]
+        attached = [{key: source[key] for key in ('review_id', 'survey_id', 'excerpt', 'kind', 'topic') if key in source}
+                    for source in sources if isinstance(source, dict) and (isinstance(source.get('review_id'), int) or isinstance(source.get('survey_id'), str))]
         if attached:
             content += '\n\nAttached source cards: ' + json.dumps(attached, ensure_ascii=False)
     return {'role': message.role, 'content': content}
@@ -226,7 +245,11 @@ def history_message(message) -> dict:
 
 def build_messages(question: str, evidence: dict, history: list[dict], expanded: bool = False,
                    default_period: dict | None = None) -> list[dict]:
-    context = {**evidence, 'evidence_requested': expanded, 'available_sources': ['reviews', 'analysis'],
+    scope = evidence.get('source_scope', 'reviews')
+    available = ['surveys'] if scope == 'surveys' else ['reviews', 'analysis']
+    if scope == 'mixed':
+        available.append('surveys')
+    context = {**evidence, 'evidence_requested': expanded, 'available_sources': available,
                'personal_preferences': {'default_period': default_period, 'preference_update_performed': False},
                'answer_character_limit': EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS,
                'explanation_character_limit': DEFAULT_ANSWER_CHARS,
@@ -250,6 +273,18 @@ class ReviewSelection(BaseModel):
     star_ratings: list[Annotated[int, Field(strict=True, ge=1, le=5)]] | None = Field(default=None, min_length=1, max_length=5)
     topic: str | None = Field(default=None, min_length=1, max_length=500)
     sentiment: Literal['positive', 'negative', 'mixed', 'neutral', 'unknown'] | None = None
+
+
+class SurveyEvidenceItem(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    survey_id: str = Field(min_length=36, max_length=36)
+    kind: Literal['survey']
+    excerpt: str | None = Field(default=None, min_length=1, max_length=2500)
+
+
+class SurveySelection(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    issue_resolution: Literal['resolved', 'partially_resolved', 'unresolved', 'not_checked'] | None = None
 
 
 def selection_items(selection: ReviewSelection, records: list[dict]) -> list[EvidenceItem]:
@@ -276,8 +311,9 @@ def selection_items(selection: ReviewSelection, records: list[dict]) -> list[Evi
 class ModelAnswer(BaseModel):
     model_config = ConfigDict(extra='forbid')
     answer: str = Field(min_length=1, max_length=EVIDENCE_ANSWER_CHARS)
-    evidence: list[EvidenceItem] = Field(default_factory=list, max_length=100)
+    evidence: list[EvidenceItem | SurveyEvidenceItem] = Field(default_factory=list, max_length=200)
     selections: list[ReviewSelection] = Field(default_factory=list, max_length=20)
+    survey_selections: list[SurveySelection] = Field(default_factory=list, max_length=4)
 
 
 def _source_preview(text: str) -> tuple[str, bool]:
@@ -374,14 +410,28 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
         result = ModelAnswer(answer=stripped)
     if not result.answer.strip() or re.search(r'https?://|\[[^\]]*\]\s*\(|<[^>]+>', result.answer, re.I):
         raise ValueError('Model answer contains unsupported links or markup')
-    if (result.evidence or result.selections) and not expanded:
+    if (result.evidence or result.selections or result.survey_selections) and not expanded:
         raise ValueError('Supporting evidence was not requested')
     reviews = {record['review_id']: record for record in evidence['reviews']}
     sources, seen = [], set()
     items = list(result.evidence)
     for selection in result.selections:
         items.extend(selection_items(selection, evidence['reviews']))
+    surveys = {record['survey_id']: record for record in evidence.get('surveys', [])}
+    for selection in result.survey_selections:
+        items.extend(SurveyEvidenceItem(kind='survey', survey_id=record['survey_id'])
+                     for record in surveys.values() if selection.issue_resolution is None or any(
+                         q['id'] == 'issue_resolution' and q['answer'] == selection.issue_resolution for q in record['questions']))
     for item in items:
+        if isinstance(item, SurveyEvidenceItem):
+            record = surveys.get(item.survey_id)
+            if record is None:
+                raise ValueError('Unknown survey evidence record')
+            key = ('survey', item.survey_id)
+            if key not in seen:
+                sources.append(survey_service.source(record, item.excerpt))
+                seen.add(key)
+            continue
         record = reviews.get(item.review_id)
         if record is None:
             raise ValueError('Unknown evidence record')
@@ -416,6 +466,10 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
 
 
 def no_data_answer(evidence: dict) -> str | None:
+    if evidence.get('source_scope') == 'surveys':
+        return None if evidence.get('surveys') else f'There are no finalized maintenance survey submissions matching this request within {evidence["period"]["label"]}.'
+    if evidence.get('source_scope') == 'mixed' and evidence.get('surveys'):
+        return None
     if evidence['reviews']:
         return None
     period = evidence['period']['label']

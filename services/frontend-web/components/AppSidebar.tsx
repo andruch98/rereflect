@@ -36,6 +36,7 @@ import {
   Key,
   Activity,
   ShieldCheck,
+  ClipboardList,
 } from 'lucide-react';
 import { authAPI, UserResponse } from '@/lib/api/auth';
 import { Logo } from './Logo';
@@ -74,6 +75,11 @@ const workspaceNavItems = [
     title: 'Feedbacks',
     href: '/feedbacks',
     icon: MessageSquare,
+  },
+  {
+    title: 'Surveys',
+    href: '/surveys',
+    icon: ClipboardList,
   },
   {
     title: 'AI Copilot',
@@ -191,7 +197,7 @@ export function AppSidebar() {
     if (href === '/feedbacks') {
       return pathname === href || pathname.startsWith('/feedbacks/') || pathname.startsWith('/feedback-sources');
     }
-    if (href === '/customers') {
+    if (href === '/customers' || href === '/surveys') {
       return pathname === href || pathname.startsWith('/customers/');
     }
     if (href === '/workflow') {

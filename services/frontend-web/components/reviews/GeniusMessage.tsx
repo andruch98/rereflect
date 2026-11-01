@@ -26,6 +26,12 @@ interface Source {
   review?: ReviewSnapshot;
 }
 
+interface SurveySource {
+  survey_id: string;
+  label: string;
+  excerpt?: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -34,13 +40,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function readSources(metadata: ChatMessage['structured_data']): Source[] {
   if (!metadata || metadata.kind !== 'ask_genius' || !Array.isArray(metadata.sources)) return [];
   return metadata.sources.flatMap((value: unknown) => {
-    if (!isRecord(value) || typeof value.review_id !== 'number' || !Number.isSafeInteger(value.review_id) || value.review_id <= 0) return [];
+    if (!isRecord(value) || value.source === 'survey' || typeof value.review_id !== 'number' || !Number.isSafeInteger(value.review_id) || value.review_id <= 0) return [];
     const review = isRecord(value.review) && typeof value.review.original_review === 'string'
       ? { original_review: value.review.original_review,
         star_rating: typeof value.review.star_rating === 'number' ? value.review.star_rating : null,
         saved_analysis: value.review.saved_analysis } : undefined;
     return [{ review_id: value.review_id, topic: typeof value.topic === 'string' ? value.topic : undefined, excerpt: typeof value.excerpt === 'string' ? value.excerpt : undefined, excerpt_truncated: value.excerpt_truncated === true, review }];
   });
+}
+
+function readSurveySources(metadata: ChatMessage['structured_data']): SurveySource[] {
+  if (!metadata || metadata.kind !== 'ask_genius' || !Array.isArray(metadata.sources)) return [];
+  const rows = metadata.sources.flatMap((value: unknown) => {
+    if (!isRecord(value) || value.source !== 'survey' || typeof value.survey_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.survey_id)) return [];
+    return [{ survey_id: value.survey_id, label: typeof value.label === 'string' ? value.label : 'Maintenance survey', excerpt: typeof value.excerpt === 'string' ? value.excerpt : undefined }];
+  });
+  return [...new Map(rows.map(row => [row.survey_id, row])).values()];
+}
+
+function SurveyCollection({ sources }: { sources: SurveySource[] }) {
+  const [pages, setPages] = useState(1);
+  const shown = Math.min(pages * 50, sources.length);
+  return <section aria-label="Supporting survey answers" className="space-y-3 rounded-xl border p-4">
+    <h3 className="font-semibold">Original survey answers</h3>
+    {sources.length > 50 && <p className="text-sm text-muted-foreground">Showing {shown} of {sources.length} submissions.</p>}
+    <ul className="divide-y">{sources.slice(0, shown).map(source => <li key={source.survey_id} className="space-y-2 py-3 first:pt-0 last:pb-0"><p className="text-sm font-medium">{source.label}</p>{source.excerpt && source.excerpt !== source.label && <p className="whitespace-pre-wrap break-words text-sm leading-6">{source.excerpt}</p>}<a href={`/surveys/${encodeURIComponent(source.survey_id)}`} className="inline-block text-sm text-primary underline underline-offset-4">View original answers<span className="sr-only"> — {source.label}</span></a></li>)}</ul>
+    {shown < sources.length && <Button type="button" variant="outline" size="sm" onClick={() => setPages(value => value + 1)}>{sources.length - shown <= 50 ? `Show remaining ${sources.length - shown}` : 'Show next 50 submissions'}</Button>}
+  </section>;
 }
 
 function savedAnalysisForDisplay(snapshot: unknown): unknown {
@@ -158,6 +184,7 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
   const [copiedContent, setCopiedContent] = useState<string>();
   const [copyError, setCopyError] = useState(false);
   const sources = useMemo(() => readSources(message.structured_data), [message.structured_data]);
+  const surveySources = useMemo(() => publicSnapshot ? [] : readSurveySources(message.structured_data), [message.structured_data, publicSnapshot]);
   const assistant = message.role === 'assistant';
   const topicGroups = new Map<string, Source[]>();
   const ungrouped: Source[] = [];
@@ -211,6 +238,7 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
     </div>
     {[...topicGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><ReviewCollection sources={records} topic={topic} publicSnapshot={publicSnapshot} /></section>)}
     {!!ungrouped.length && <ReviewCollection sources={ungrouped} publicSnapshot={publicSnapshot} />}
+    {!!surveySources.length && <SurveyCollection key={surveySources.map(source => source.survey_id).join(':')} sources={surveySources} />}
     <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="ghost" size="sm" className="h-8 gap-2 px-2 text-muted-foreground" onClick={() => { void copyAnswer(); }}>{copied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />}{copied ? 'Copied' : 'Copy'}</Button>
       {copyError && <p role="status" className="text-xs text-muted-foreground">Could not copy. Select the answer text to copy it.</p>}

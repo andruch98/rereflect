@@ -1,0 +1,68 @@
+{
+  "catalog_version": 1,
+  "rating_labels": {
+    "1": "Terrible",
+    "2": "Bad",
+    "3": "Okay",
+    "4": "Good",
+    "5": "Excellent"
+  },
+  "templates": [
+    {
+      "id": "maintenance_v1",
+      "event_type": "maintenance_completed",
+      "title": "Tell us about your maintenance experience",
+      "questions": [
+        {
+          "id": "maintenance_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate the maintenance service for {request_description}?"
+        },
+        {
+          "id": "issue_resolution",
+          "type": "single_choice",
+          "required": true,
+          "text": "Is the issue fully resolved?",
+          "options": [
+            {
+              "value": "resolved",
+              "label": "Yes, fully resolved"
+            },
+            {
+              "value": "partially_resolved",
+              "label": "Partially resolved"
+            },
+            {
+              "value": "unresolved",
+              "label": "No, still unresolved"
+            },
+            {
+              "value": "not_checked",
+              "label": "I haven’t checked yet"
+            }
+          ]
+        },
+        {
+          "id": "maintenance_response_time",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate our maintenance team’s response time to your request?",
+          "special_options": [
+            {
+              "value": "not_sure",
+              "label": "Not sure"
+            }
+          ]
+        },
+        {
+          "id": "maintenance_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to know about this maintenance experience?"
+        }
+      ]
+    }
+  ]
+}

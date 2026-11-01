@@ -27,7 +27,7 @@ def test_status_has_no_implicit_default_and_actual_date_coverage(flow):
     result = flow['client'].get('/api/v1/ask-genius/status',headers=flow['headers']).json()
     assert result['default_period'] is None
     assert result['date_coverage'] == {'total_reviews':5,'dated_reviews':4,'undated_reviews':1}
-    assert result['available_sources'] == ['reviews','analysis']
+    assert result['available_sources'] == ['reviews','analysis','surveys']
     assert result['timezone'] == 'America/New_York'
 
 

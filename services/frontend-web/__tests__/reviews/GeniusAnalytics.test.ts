@@ -17,3 +17,10 @@ it('excludes direct anonymous share URLs even outside preview configuration', as
   const analytics = await import('@/lib/analytics'); analytics.initAnalytics(); analytics.trackEvent('Shared chat');
   expect(mock.init).not.toHaveBeenCalled(); expect(mock.track).not.toHaveBeenCalled();
 });
+
+it('does not initialize analytics or capture a private survey capability URL', async () => {
+  vi.stubEnv('NODE_ENV', 'production'); vi.stubEnv('NEXT_PUBLIC_MIXPANEL_TOKEN', 'test'); vi.stubEnv('NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW', 'false');
+  window.history.replaceState(null, '', '/survey/private-token');
+  const analytics = await import('@/lib/analytics'); analytics.initAnalytics(); analytics.trackEvent('Survey');
+  expect(mock.init).not.toHaveBeenCalled(); expect(mock.track).not.toHaveBeenCalled();
+});

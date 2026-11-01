@@ -10,4 +10,7 @@ export async function register() {
   }
 }
 
-export const onRequestError = Sentry.captureRequestError;
+export const onRequestError: typeof Sentry.captureRequestError = (...args) => {
+  if (['/survey/', '/share/ask-genius/'].some(prefix => args[1].path.includes(prefix))) return;
+  return Sentry.captureRequestError(...args);
+};

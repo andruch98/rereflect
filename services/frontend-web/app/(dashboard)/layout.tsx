@@ -23,6 +23,7 @@ import { ReviewPreviewLayout } from '@/components/reviews/ReviewPreviewLayout';
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/feedbacks': 'Feedbacks',
+  '/surveys': 'Surveys',
   '/feedback-sources': 'Feedback Sources',
   '/feedback-sources/new': 'New Feedback Source',
   '/feedback-sources/pending': 'Pending Feedback',
@@ -70,6 +71,7 @@ export default function DashboardLayout({
     if (pathname.startsWith('/feedbacks/')) {
       return 'Feedback Details';
     }
+    if (pathname.startsWith('/surveys/')) return 'Survey answers';
     // Check for feedback source detail page
     if (pathname.match(/^\/feedback-sources\/\d+$/)) {
       return 'Source Details';

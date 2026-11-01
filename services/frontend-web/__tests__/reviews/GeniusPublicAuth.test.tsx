@@ -25,3 +25,10 @@ it('continues protecting private chat routes', async () => {
   render(<AuthProvider><p>Private content</p></AuthProvider>);
   await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/login'));
 });
+
+it('allows a resident private survey link without a manager login', async () => {
+  mocks.pathname = '/survey/private-token';
+  render(<AuthProvider><p>Resident survey</p></AuthProvider>);
+  expect(await screen.findByText('Resident survey')).toBeInTheDocument();
+  expect(mocks.push).not.toHaveBeenCalled(); expect(mocks.getMe).not.toHaveBeenCalled();
+});

@@ -21,5 +21,7 @@ if (dsn && process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW !== 'true') {
 
     // Do not send PII (emails, usernames) to Sentry.
     sendDefaultPii: false,
+    beforeSend: event => ['/survey/', '/share/ask-genius/'].some(prefix => event.request?.url?.includes(prefix)) ? null : event,
+    beforeSendTransaction: event => ['/survey/', '/share/ask-genius/'].some(prefix => event.request?.url?.includes(prefix)) ? null : event,
   });
 }

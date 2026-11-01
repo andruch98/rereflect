@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { CheckCircle2, X, MoreHorizontal, Pencil, Pin, PinOff, Share2, SquarePen, Trash2 } from 'lucide-react';
 import { askGeniusAPI, type GeniusConversation } from '@/lib/api/ask-genius';
 import { Button } from '@/components/ui/button';
@@ -33,10 +34,14 @@ export function GeniusChatHistory({ conversations, selectedId, disabled, loading
     mutationRef.current = true;
     setMutating(true); setError(''); setNotice(''); setUncopiedLink('');
     try { await action(); success?.(); onRefresh(); }
-    catch { setError('This change could not be confirmed. Please try again.'); }
+    catch (caught) {
+      const detail = isAxiosError(caught) ? caught.response?.data?.detail : undefined;
+      setError(typeof detail === 'string' && detail.length <= 500 ? detail : 'This change could not be confirmed. Please try again.');
+    }
     finally { mutationRef.current = false; setMutating(false); }
   }
   async function share(chat: GeniusConversation) {
+    if (chat.sharing_unavailable_reason) { setError(chat.sharing_unavailable_reason); return; }
     await change(async () => {
       const shared = await askGeniusAPI.shareConversation(chat.public_id);
       const link = new URL(`/share/ask-genius/${encodeURIComponent(shared.token)}`, window.location.origin).href;
@@ -60,7 +65,8 @@ export function GeniusChatHistory({ conversations, selectedId, disabled, loading
                 <DropdownMenuItem onSelect={() => { setError(''); setTitle(chat.title); setDialog({ action: 'rename', chat }); }}><Pencil className="mr-2 h-4 w-4" />Rename</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => { void change(() => askGeniusAPI.updateConversation(chat.public_id, { is_pinned: !chat.is_pinned })); }}>{chat.is_pinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}{chat.is_pinned ? 'Unpin' : 'Pin'}</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => { void share(chat); }}><Share2 className="mr-2 h-4 w-4" />Share</DropdownMenuItem>
+                <DropdownMenuItem disabled={!!chat.sharing_unavailable_reason} onSelect={() => { void share(chat); }}><Share2 className="mr-2 h-4 w-4" />Share</DropdownMenuItem>
+                {chat.sharing_unavailable_reason && <p className="px-2 py-2 text-xs leading-5 text-muted-foreground">{chat.sharing_unavailable_reason}</p>}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => { setError(''); setDialog({ action: 'delete', chat }); }}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
               </DropdownMenuContent></DropdownMenu>

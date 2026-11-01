@@ -96,6 +96,9 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
   const canChooseQuestion = canInteract;
   const canSend = canInteract && (validPeriod(period) || asksToChangeDefault(input));
   const availableSources = status.data?.available_sources ?? [];
+  const surveySharingReason = messages.some(message => message.role === 'assistant' && message.structured_data && (message.structured_data.sharing_unavailable_reason || ['surveys', 'mixed'].includes(String(message.structured_data.source_scope))))
+    ? 'Public sharing is unavailable for chats that use resident survey answers.' : null;
+  const historyConversations = (history.data?.conversations ?? []).map(chat => chat.public_id === conversationId && surveySharingReason ? { ...chat, sharing_unavailable_reason: surveySharingReason } : chat);
   useEffect(() => { if (messages.length || busy) answerEnd.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }); }, [messages.length, busy]);
 
   function selectConversation(id?: string) {
@@ -210,9 +213,9 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
   }
 
   return <main className="flex h-[calc(100dvh-4rem)] min-h-[30rem] w-full min-w-0 flex-col px-4 py-4 sm:px-6">
-    <header className="mb-4 shrink-0 space-y-1"><h1 className="text-3xl font-semibold">Ask Genius</h1><p className="text-muted-foreground">Ask questions about this community’s saved reviews and analysis.</p></header>
+    <header className="mb-4 shrink-0 space-y-1"><h1 className="text-3xl font-semibold">Ask Genius</h1><p className="text-muted-foreground">Ask questions about this community’s reviews, saved review analysis, and submitted survey answers.</p></header>
     <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:grid-rows-1">
-      <GeniusChatHistory conversations={history.data?.conversations ?? []} selectedId={conversationId} disabled={busy || savingPreference} loading={history.isPending} failed={history.isError} onSelect={selectConversation} onRefresh={() => { void queryClient.invalidateQueries({ queryKey: [...scope, 'history'] }); }} onDeleted={id => { queryClient.removeQueries({ queryKey: [...scope, 'conversation', id] }); if (id === conversationId) selectConversation(); }} />
+      <GeniusChatHistory conversations={historyConversations} selectedId={conversationId} disabled={busy || savingPreference} loading={history.isPending} failed={history.isError} onSelect={selectConversation} onRefresh={() => { void queryClient.invalidateQueries({ queryKey: [...scope, 'history'] }); }} onDeleted={id => { queryClient.removeQueries({ queryKey: [...scope, 'conversation', id] }); if (id === conversationId) selectConversation(); }} />
       <section aria-label="Ask Genius conversation" className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background">
         <GeniusPeriodPicker period={period} highlightRequired={periodRequired} defaultPeriod={status.data?.default_period ?? null} coverage={status.data?.date_coverage} disabled={status.isPending || status.isError || busy || loadingConversation} saving={savingPreference} notice={preferenceNotice} error={preferenceError} onChange={changePeriod} onSave={value => { void saveDefaultPeriod(value); }} />
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-4 sm:p-6"><div className="mx-auto w-full max-w-3xl space-y-6">
@@ -250,7 +253,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
             {!validPeriod(period) && !asksToChangeDefault(input) && input.trim() && <p className="text-sm font-medium text-foreground">Choose a time period above to send your question.</p>}
             <label htmlFor="genius-question" className="sr-only">Your question</label>
             <div className="flex items-end gap-2"><Textarea id="genius-question" placeholder={messages.length ? 'Ask a follow-up about this community…' : 'Ask about this community’s reviews…'} className="min-h-14 text-base leading-relaxed md:text-base" value={input} maxLength={2000} rows={2} disabled={!canInteract} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} /><Button type="submit" disabled={!canSend || !input.trim()} aria-label="Send question"><ArrowUp className="h-5 w-5" /></Button></div>
-            <p className="text-xs text-muted-foreground">Reviews and analysis connected. Surveys and management responses not connected yet.</p>
+            <p className="text-xs text-muted-foreground">Reviews, saved review analysis, and submitted survey answers connected. Management responses not connected yet.</p>
           </div>
         </form>
       </section>

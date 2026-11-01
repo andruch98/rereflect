@@ -11,7 +11,7 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 // Public chat links are capabilities; never record preview sessions or their URLs.
 const telemetryAllowed = process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW !== 'true' &&
-  !(typeof window !== 'undefined' && window.location.pathname.startsWith('/share/ask-genius/'));
+  !(typeof window !== 'undefined' && ['/share/ask-genius/', '/survey/'].some(prefix => window.location.pathname.startsWith(prefix)));
 
 if (dsn && telemetryAllowed) {
   Sentry.init({

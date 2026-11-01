@@ -1,0 +1,77 @@
+name: boomsay-survey-demo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: survey_demo
+      POSTGRES_PASSWORD: fictional-local-database-only
+      POSTGRES_DB: survey_demo
+    volumes:
+      - survey_demo_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U survey_demo -d survey_demo"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --save, "", --appendonly, "no"]
+
+  api:
+    build:
+      context: ../..
+      dockerfile: experiments/maintenance_surveys/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://survey_demo:fictional-local-database-only@postgres:5432/survey_demo
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CACHE_ENABLED: "false"
+      JWT_SECRET: fictional-local-survey-demo-jwt-secret-never-use-in-a-shared-install
+      LLM_ENCRYPTION_KEY: 8ZBhLB0mS7lnKZKGSjZ0nGRxKCXQOxJvYcvHkKZ3fLY=
+      SELF_HOSTED: "true"
+      BOOMSAY_REVIEW_PREVIEW: "true"
+      BOOMSAY_PREVIEW_ORGANIZATION_ID: "1"
+      APARTMENT_EXPERIMENT_ORG_ID: "1"
+      BOOMSAY_SURVEY_DEMO: "true"
+      BOOMSAY_SURVEY_SIMULATION: "true"
+      SURVEY_DEMO_PASSWORD: fictional-survey-demo-login
+      SURVEY_PUBLIC_BASE_URL: http://127.0.0.1:53104
+      APP_URL: http://127.0.0.1:53104
+      CORS_ORIGINS: http://127.0.0.1:53104
+      ASK_GENIUS_ENABLED: "false"
+      ASK_GENIUS_API_KEY: ""
+      OPENAI_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      GOOGLE_AI_API_KEY: ""
+      RESEND_API_KEY: ""
+      SENTRY_DSN: ""
+    command: [sh, -c, "python -m alembic upgrade head && python -m src.survey_demo init && python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - 127.0.0.1:53105:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  web:
+    build:
+      context: ../..
+      dockerfile: services/frontend-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:53105
+        NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW: "true"
+        NEXT_PUBLIC_SENTRY_DSN: ""
+        NEXT_PUBLIC_MIXPANEL_TOKEN: ""
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+      SENTRY_DSN: ""
+    ports:
+      - 127.0.0.1:53104:3000
+    depends_on:
+      - api
+
+volumes:
+  survey_demo_postgres:

@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from src.api.routes import auth, organizations, feedback, dashboard, analyze, integrations
+from src.api.routes import auth, organizations, feedback, dashboard, analyze, integrations, surveys
 from src.api.routes import source_webhooks, feedback_sources, pending_feedback, billing, team, invites, audit_logs
 from src.api.routes import categories, ai_settings, anomalies, insights, changelog, notifications, analytics, saved_views, shared_links, workflow, email_webhooks
 from src.api.routes import customer_health, activity_feed, dashboard_layout, admin_users, admin_orgs
@@ -399,6 +399,7 @@ app.include_router(outreach_router.router)
 app.include_router(conversation_folders.router)
 app.include_router(conversations.router)
 app.include_router(ask_genius.router)
+app.include_router(surveys.router)
 app.include_router(copilot_ws.router)
 app.include_router(copilot.router)
 app.include_router(copilot_actions.router)

@@ -14,7 +14,7 @@ const IS_REVIEW_PREVIEW = process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW === "tr
 // the marketing recorder, including navigation from another preview page.
 function analyticsEnabled() {
   return IS_PRODUCTION && !!MIXPANEL_TOKEN && !IS_REVIEW_PREVIEW &&
-    (typeof window === 'undefined' || !window.location.pathname.startsWith('/share/ask-genius/'));
+    (typeof window === 'undefined' || !['/share/ask-genius/', '/survey/'].some(prefix => window.location.pathname.startsWith(prefix)));
 }
 
 // Initialize Mixpanel (production only)

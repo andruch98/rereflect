@@ -17,6 +17,24 @@ const source = {
 function show(content = 'Residents reported communication concerns.', data: ChatMessage['structured_data'] = { kind: 'ask_genius', sources: [source] }, publicSnapshot = false) {
   return render(<GeniusMessage message={{ id: 1, role: 'assistant', content, created_at: '', structured_data: data }} publicSnapshot={publicSnapshot} />);
 }
+
+it('opens validated survey originals with a source-specific identifier and never trusts a supplied URL', () => {
+  const surveyId = '11111111-1111-4111-8111-111111111111';
+  show('The issue remains unresolved.', { kind: 'ask_genius', sources: [{ source: 'survey', survey_id: surveyId, label: 'Maintenance survey', excerpt: 'Is the issue fully resolved? No, still unresolved', href: 'https://untrusted.invalid' }] });
+  expect(screen.getByRole('link', { name: /View original answers/ })).toHaveAttribute('href', `/surveys/${surveyId}`);
+  expect(screen.getByText('Is the issue fully resolved? No, still unresolved')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'View review' })).not.toBeInTheDocument();
+  expect(get).not.toHaveBeenCalled();
+});
+
+it('does not render private survey evidence in a public snapshot or accept malformed survey identifiers', () => {
+  show('Shared answer.', { kind: 'ask_genius', sources: [{ source: 'survey', survey_id: '11111111-1111-4111-8111-111111111111', label: 'Private resident', excerpt: 'Private answer' }] }, true);
+  expect(screen.queryByText('Private resident')).not.toBeInTheDocument();
+  expect(screen.queryByText('Private answer')).not.toBeInTheDocument();
+  cleanup();
+  show('Answer.', { kind: 'ask_genius', sources: [{ source: 'survey', survey_id: '../feedbacks/7', href: '/feedbacks/7' }] });
+  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+});
 beforeEach(() => {
   vi.clearAllMocks();
   writeText.mockResolvedValue(undefined);

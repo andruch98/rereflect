@@ -1,0 +1,23 @@
+# Only public committed application inputs belong in this demo build context.
+**
+!services/
+!services/backend-api/
+!services/backend-api/**
+!services/analysis-engine/
+!services/analysis-engine/src/
+!services/analysis-engine/src/analyzer/
+!services/analysis-engine/src/analyzer/**
+!experiments/
+!experiments/maintenance_surveys/
+!experiments/maintenance_surveys/fixtures/
+!experiments/maintenance_surveys/fixtures/**
+**/.env
+**/.env.*
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/node_modules/
+**/*.sqlite3
+**/*.db
+**/private/
