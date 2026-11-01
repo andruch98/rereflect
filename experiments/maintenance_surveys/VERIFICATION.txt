@@ -1,0 +1,129 @@
+BoomSay maintenance surveys — full-application verification
+
+VERDICT: The core integration worked in the full application with mocked email
+and model responses. This was not a scaffold or live AI-quality evaluation.
+
+Repository: andruch98/rereflect
+Branch: feat/maintenance-survey-integration
+Original base: 59dfd9122b20d0098eceedf8e1d1296e86b6f0a3 (master)
+Starting checkout: b1fe329596620dbdba11cc28171103ed546876c4; clean.
+Verified implementation/evidence: 6306996ff6ae3df98d58f087d7c0f2dddffaeb33.
+The following commit changes handoff/inventory/report only. Its full SHA is the
+package commit recorded in update.json and the Git bundle's feature ref.
+
+ENVIRONMENT
+Production Next.js image; FastAPI src.api.main:app; actual login/JWT, all real
+application routers, PostgreSQL 16, Redis 7, and actual Celery worker without Beat.
+Existing BoomSay preview startup flags skipped unrelated startup seed/model jobs.
+No application routes, auth dependencies or database sessions were stubbed.
+Optional large ML packages were omitted under the repository CI convention.
+Only the email sender and OpenAI-compatible model HTTP endpoint were mocked.
+
+Dedicated Compose project: boomsay-survey-full-20261101.
+Separate new database volume, loopback web/API/model ports 53204/53205/53206.
+Published test credentials and all resident inputs were fictional. Live keys blank.
+No production or Mac preview data/storage/configuration was accessed or changed.
+
+STEP | ACTUAL RESULT
+1. Confirm checkout | PASS: correct branch at b1fe329; no existing local changes.
+2. Sidebar routes | PASS: list/detail select Surveys; customer list/detail do not;
+   Customers still selects its own routes; lookalike /surveys-other is inactive.
+3. Production build | PASS: default Turbopack; TypeScript stage and 60 static pages.
+   System fonts retained; no Google Fonts downloads or validation suppression.
+4. Full stack startup | PASS: real API, production web, Postgres, Redis, worker and
+   mock endpoint running. API migrations succeeded; worker connected and ready.
+5. Browser login | PASS: real email/password form -> /api/v1/auth/login HTTP 200;
+   real /auth/me returned authorized organization 1. No minted test JWT override.
+6. Generic simulated event | PASS: authenticated POST /api/v1/surveys/simulate
+   returned HTTP 200 and a pending maintenance survey for DEMO-WO-1001.
+7. Immediate invitation | PASS: persisted invitation.status=simulated and actual
+   private survey URL returned in the ingestion response. No sent/delivered claim.
+8. Event replay | PASS: same survey UUID and private link; database retained one
+   occurrence, one invitation and one survey.
+9. Resident form | PASS: opened without manager login, saved draft, reloaded with
+   answers intact, then final submit HTTP 200 before confirmation appeared.
+10. Dashboard | PASS: Jamie Example, unit 204, ticket DEMO-WO-1001, submitted date,
+    simulated invitation status and View answers appeared in the real dashboard.
+11. Original detail | PASS: four original question headings, rendered request,
+    2 — Bad, No still unresolved, Not sure and exact comment were checked.
+12. Ask Genius | PASS: supported list, narrative and original-answer follow-up
+    through the real UI/routes. Application counts: 1 submission, 1 resident.
+13. Provider boundary | PASS: two real SDK HTTP requests reached only the local
+    mock, each carrying finalized original questions/options/answers. Replies
+    were explicitly marked MOCKED MODEL. No live model call was made.
+14. Evidence | PASS: followed /surveys/04444f50-2379-4832-bcc6-83cb242d9cde from Ask
+    Genius back to the correct authenticated original answers.
+15. Privacy | PASS: anonymous manager access blocked; survey-chat share HTTP 422.
+16. Restart/preservation | PASS: restarted API; submission timestamp/answers,
+    fictional prior review/saved analysis, settings/password and existing chat
+    were unchanged. No database reset or volume deletion.
+17. No analysis/scheduling | PASS: worker received no tasks; Celery queue length 0.
+    No Beat, timers, reminders or survey-analysis pipeline was introduced.
+18. Browser errors | PASS: no page errors during the completed full-stack flow.
+
+ACTUAL INPUT/OUTPUT
+Event: maintenance_completed; fictional-maintenance-event-001;
+occurrence fictional-maintenance-occurrence-001; community 1; ticket DEMO-WO-1001;
+request 'the kitchen faucet repair'; completed 2026-11-01T10:15:00-05:00;
+Jamie Example; jamie@survey-demo.invalid; unit 204; is_simulated=true.
+No employee/vendor information was required.
+
+Survey UUID: 04444f50-2379-4832-bcc6-83cb242d9cde.
+Submitted: 2026-11-01T19:52:16.432389+00:00.
+Answers: overall=2; issue_resolution=unresolved; response_time=not_sure;
+comment='The kitchen faucet still leaks after the ticket was marked completed.'
+
+Supported Ask Genius wording used:
+- Show the completed maintenance surveys for this period.
+- What did residents say about their maintenance experience?
+- Show the original answers behind that.
+Period: All available history.
+Example mocked narrative: 'MOCKED MODEL: The resident reported that the maintenance
+issue remains unresolved. This is an offline integration demonstration.'
+Ticket completion did not change the resident's unresolved answer.
+
+RESOLVED BLOCKERS / RETRIES
+- Demo manager .invalid address was rejected by the existing login EmailStr
+  validator. Changed only the fictional bootstrap address to
+  manager@survey-demo.example.com; no auth validation was relaxed or existing
+  account renamed. Old isolated demo volumes remain untouched.
+- Non-root frontend could not scan root-owned public/brand. Docker COPY now uses
+  the established nextjs ownership setting already used for other assets.
+- The managed environment's internal Docker network did not expose localhost
+  bindings. The verification overlay uses a separate bridge with loopback ports.
+- Lowercase no_proxy overrode uppercase NO_PROXY. An initial narrative request
+  got proxy HTTP 403, surfaced as API 502. Both internal-only exclusions now match;
+  the resumed check used the same saved survey, without a reset, and passed.
+- The 32 GB VFS Docker store filled during native builds/container copies. Build
+  cache and stateless test containers were reclaimed; database volumes were not
+  deleted. Temporary CA mounts retained TLS verification. Completed images got
+  thin final corrections; runtime API/auth/survey/Ask hashes match source.
+- Additional DOM checks were corrected to wait for navigation and use underlying
+  'submitted' text rather than its CSS capitalization; application data was correct.
+
+BOUNDED CHECKS
+- Frontend: 42 passed across sidebar, surveys and evidence tests.
+- Backend: 7 passed across demo guards, real login-schema address and mock Ask CLI.
+- ESLint: exit 0, 0 errors, 42 existing warnings.
+- Standalone tsc: exit 2, exactly 87 existing test diagnostics; no new or removed
+  signatures against preserved unchanged-master evidence. Not broadly fixed.
+- Production build: exit 0, default Next 16.1.6 Turbopack, pnpm 10.32.1.
+- Python/Node syntax checks and git diff whitespace checks passed.
+- Packaging checks and final archive/bundle integrity are recorded in the delivery
+  receipt after packaging the final commit. No installed preview update was run.
+
+EVIDENCE
+experiments/maintenance_surveys/verification/full-stack/ contains the reproducible
+Compose overlay, mock provider, browser runner, fixture, results.json,
+provider-observations.json, provenance.json, dashboard-check.json,
+type-comparison.json and production-build.log. The earlier raw TypeScript
+master/feature logs and comparison evidence remain under verification/font-build/.
+
+LIMITATIONS
+The 87 TypeScript test-fixture errors and 42 lint warnings remain. The unsupported
+survey-count starter wording is unchanged. Mac preview installation/startup,
+ARM Docker builds, live AI quality and real email/PMS operation were not verified.
+This pass did not rerun unrelated full backend/worker/frontend suites or repeat
+concurrency/migration round trips already covered earlier. Existing updater tests
+use synthetic preview skeletons. Timing, reminders, automatic survey analysis,
+other types and visual refinement remain deferred.
