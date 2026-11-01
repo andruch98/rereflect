@@ -1,0 +1,58 @@
+# Overlay the existing isolated demo. No application routes/dependencies are mocked.
+services:
+  postgres:
+    image: postgres:16
+  api:
+    image: boomsay-survey-verify-api:local
+    ports: !override
+      - 127.0.0.1:53205:8000
+    environment:
+      SURVEY_PUBLIC_BASE_URL: http://127.0.0.1:53204
+      APP_URL: http://127.0.0.1:53204
+      CORS_ORIGINS: http://127.0.0.1:53204
+      ASK_GENIUS_ENABLED: "true"
+      ASK_GENIUS_PROVIDER: openai_compatible
+      ASK_GENIUS_MODEL: offline-survey-mock
+      ASK_GENIUS_BASE_URL: http://model-mock:8080/v1
+      NO_PROXY: postgres,redis,model-mock,localhost,127.0.0.1
+      no_proxy: postgres,redis,model-mock,localhost,127.0.0.1
+    depends_on:
+      model-mock:
+        condition: service_started
+  web:
+    image: boomsay-survey-verify-web:local
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:53205
+    ports: !override
+      - 127.0.0.1:53204:3000
+  model-mock:
+    image: boomsay-survey-verify-web:local
+    command: [node, /mock.cjs]
+    volumes:
+      - ./verification/full-stack/model_mock.cjs:/mock.cjs:ro
+    ports:
+      - 127.0.0.1:53206:8080
+  worker:
+    image: boomsay-survey-verify-worker:local
+    build:
+      context: ../..
+      dockerfile: experiments/maintenance_surveys/verification/full-stack/Worker.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://survey_demo:fictional-local-database-only@postgres:5432/survey_demo
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      OPENAI_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      GOOGLE_AI_API_KEY: ""
+      RESEND_API_KEY: ""
+      SENTRY_DSN: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+# Separate runtime network; HTTP entry points are bound to host loopback only.
+networks:
+  default:
+    driver: bridge

@@ -99,3 +99,7 @@ though runtime tests passed. They are not broadly fixed in this task.
 - Future timing/reminders, survey analysis, other templates and visual refinement
   remain deferred. System fonts can vary by platform and change line wrapping;
   existing layout structure, spacing and size classes were retained.
+
+Historical note: the sidebar issue listed above was fixed in the subsequent
+full-application verification pass; see ../full-stack/README.md. The count wording
+limitation and original TypeScript evidence remain unchanged.

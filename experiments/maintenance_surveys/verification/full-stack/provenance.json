@@ -1,0 +1,24 @@
+{
+  "entrypoint": "src.api.main:app",
+  "runtime_source_hashes_match_checkout": true,
+  "files": {
+    "src/api/main.py": "e59e6185b7acc0d8034f5d715208f633f7169d80dc085a9dd2482b89a0e94fa8",
+    "src/api/routes/auth.py": "ef847b962e89d90c6104657d9a82cc1e979abbf7f56c48513263149d233bec21",
+    "src/api/routes/surveys.py": "f285986e0db5d94c7fb29219e8f5f5b5a3a6b60a2db04781ac8ba65881de5da4",
+    "src/api/routes/ask_genius.py": "3211252c07fd02ec47226110ce595ec086f642e98c6e011c6dfed5233ad750c5",
+    "src/api/dependencies.py": "8c501247c4e8fffe6ba5ee181944b23c31646eabf2110e9778dd18e1c57e46ff",
+    "src/services/surveys.py": "905a070f7bc9d46b82c921ed4dcc5276da58ef48cde2f1bd3246dbf8ef0b530d",
+    "src/services/ask_genius.py": "d5dada18d965fdf38c3181ebdee5da2bd768ffae1f85b47ace0d233d76fe104c",
+    "src/services/ask_genius_surveys.py": "110791565e284eb21abba6d3f0dcc3578db4427f3648f1ce77662f3bd55623f1",
+    "src/survey_demo.py": "e9b93f3836d824efe8ae8019a88ae0f95c39839612d3bc419c3e9b71f4a13492"
+  },
+  "database_counts": {
+    "occurrences": 1,
+    "surveys": 1,
+    "invitations": 1,
+    "submitted": 1,
+    "reviews": 1
+  },
+  "celery_queue_length": 0,
+  "worker_received_tasks": false
+}

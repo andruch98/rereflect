@@ -32,7 +32,7 @@ docker compose -f experiments/maintenance_surveys/compose.yml logs --tail=40 api
 open http://127.0.0.1:53104/surveys
 ```
 
-The local fictional login is `manager@survey-demo.invalid`, password
+The local fictional login is `manager@survey-demo.example.com`, password
 `fictional-survey-demo-login`. These public demo credentials and synthetic
 encryption/JWT settings are only for this loopback, fictional-data installation.
 No real provider key is loaded from the shell or another preview. The initializer

@@ -10,6 +10,11 @@ from src.models.survey import SurveyInstance
 from src.survey_demo import initialize_demo, demo_community, DEMO_EMAIL, DEMO_NAME
 
 
+def test_fictional_manager_address_passes_the_actual_login_schema():
+    from src.api.schemas import LoginRequest
+    assert LoginRequest(email=DEMO_EMAIL, password='fictional-survey-demo-login').email == DEMO_EMAIL
+
+
 def test_demo_init_requires_explicit_mode_even_on_empty_storage(monkeypatch):
     engine = create_engine('sqlite://')
     Base.metadata.create_all(engine)

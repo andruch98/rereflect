@@ -1,0 +1,301 @@
+{
+  "mocked": true,
+  "calls": [
+    {
+      "question": "What did residents say about their maintenance experience?",
+      "context": {
+        "period": {
+          "preset": "all_time",
+          "label": "All available history",
+          "timezone": "America/New_York"
+        },
+        "reviews": [],
+        "calculated": {},
+        "source_scope": "surveys",
+        "surveys": [
+          {
+            "survey_id": "04444f50-2379-4832-bcc6-83cb242d9cde",
+            "submitted_at": "2026-11-01T19:52:16.432389+00:00",
+            "template_id": "maintenance_v1",
+            "template_version": 1,
+            "maintenance_context": {
+              "event_id": "fictional-maintenance-event-001",
+              "occurrence_id": "fictional-maintenance-occurrence-001",
+              "event_type": "maintenance_completed",
+              "ticket_id": "DEMO-WO-1001",
+              "request_description": "the kitchen faucet repair",
+              "resident_id": "fictional-resident-001",
+              "resident_name": "Jamie Example",
+              "resident_email": "jamie@survey-demo.invalid",
+              "unit_id": "fictional-unit-204",
+              "unit_number": "204",
+              "employee_id": null,
+              "employee_name": null,
+              "is_simulated": true,
+              "community_name": "BoomSay Fictional Survey Demo",
+              "ticket_completed_at": "2026-11-01T10:15:00-05:00"
+            },
+            "questions": [
+              {
+                "id": "maintenance_overall",
+                "type": "rating",
+                "required": true,
+                "text": "Overall, how would you rate the maintenance service for the kitchen faucet repair?",
+                "rendered_text": "Overall, how would you rate the maintenance service for the kitchen faucet repair?",
+                "original_text": "Overall, how would you rate the maintenance service for {request_description}?",
+                "rating_labels": {
+                  "1": "Terrible",
+                  "2": "Bad",
+                  "3": "Okay",
+                  "4": "Good",
+                  "5": "Excellent"
+                },
+                "answer": 2,
+                "answer_label": "2 \u2014 Bad"
+              },
+              {
+                "id": "issue_resolution",
+                "type": "single_choice",
+                "required": true,
+                "text": "Is the issue fully resolved?",
+                "options": [
+                  {
+                    "value": "resolved",
+                    "label": "Yes, fully resolved"
+                  },
+                  {
+                    "value": "partially_resolved",
+                    "label": "Partially resolved"
+                  },
+                  {
+                    "value": "unresolved",
+                    "label": "No, still unresolved"
+                  },
+                  {
+                    "value": "not_checked",
+                    "label": "I haven\u2019t checked yet"
+                  }
+                ],
+                "rendered_text": "Is the issue fully resolved?",
+                "original_text": "Is the issue fully resolved?",
+                "rating_labels": null,
+                "answer": "unresolved",
+                "answer_label": "No, still unresolved"
+              },
+              {
+                "id": "maintenance_response_time",
+                "type": "rating",
+                "required": true,
+                "text": "How would you rate our maintenance team\u2019s response time to your request?",
+                "special_options": [
+                  {
+                    "value": "not_sure",
+                    "label": "Not sure"
+                  }
+                ],
+                "rendered_text": "How would you rate our maintenance team\u2019s response time to your request?",
+                "original_text": "How would you rate our maintenance team\u2019s response time to your request?",
+                "rating_labels": {
+                  "1": "Terrible",
+                  "2": "Bad",
+                  "3": "Okay",
+                  "4": "Good",
+                  "5": "Excellent"
+                },
+                "answer": "not_sure",
+                "answer_label": "Not sure"
+              },
+              {
+                "id": "maintenance_comment",
+                "type": "text",
+                "required": false,
+                "max_length": 2000,
+                "text": "What would you like us to know about this maintenance experience?",
+                "rendered_text": "What would you like us to know about this maintenance experience?",
+                "original_text": "What would you like us to know about this maintenance experience?",
+                "rating_labels": null,
+                "answer": "The kitchen faucet still leaks after the ticket was marked completed.",
+                "answer_label": "The kitchen faucet still leaks after the ticket was marked completed."
+              }
+            ],
+            "saved_analysis": {
+              "status": "not_generated"
+            }
+          }
+        ],
+        "survey_calculated": {
+          "submission_count": 1,
+          "distinct_resident_count": 1,
+          "issue_resolution_counts": {
+            "unresolved": 1
+          },
+          "issue_resolution_submission_ids": {
+            "unresolved": [
+              "04444f50-2379-4832-bcc6-83cb242d9cde"
+            ]
+          }
+        },
+        "survey_coverage_note": "Finalized maintenance survey submissions only. Periods use survey submission time in the community timezone; ticket completion is separate. Each submission is counted once. Saved survey analysis has not been generated.",
+        "evidence_requested": false,
+        "available_sources": [
+          "surveys"
+        ],
+        "personal_preferences": {
+          "default_period": null,
+          "preference_update_performed": false
+        },
+        "answer_character_limit": 1000,
+        "explanation_character_limit": 1000,
+        "expanded_limit_requires_written_source_detail": true
+      }
+    },
+    {
+      "question": "Show the original answers behind that.",
+      "context": {
+        "period": {
+          "preset": "all_time",
+          "label": "All available history",
+          "timezone": "America/New_York"
+        },
+        "reviews": [],
+        "calculated": {},
+        "source_scope": "surveys",
+        "surveys": [
+          {
+            "survey_id": "04444f50-2379-4832-bcc6-83cb242d9cde",
+            "submitted_at": "2026-11-01T19:52:16.432389+00:00",
+            "template_id": "maintenance_v1",
+            "template_version": 1,
+            "maintenance_context": {
+              "event_id": "fictional-maintenance-event-001",
+              "occurrence_id": "fictional-maintenance-occurrence-001",
+              "event_type": "maintenance_completed",
+              "ticket_id": "DEMO-WO-1001",
+              "request_description": "the kitchen faucet repair",
+              "resident_id": "fictional-resident-001",
+              "resident_name": "Jamie Example",
+              "resident_email": "jamie@survey-demo.invalid",
+              "unit_id": "fictional-unit-204",
+              "unit_number": "204",
+              "employee_id": null,
+              "employee_name": null,
+              "is_simulated": true,
+              "community_name": "BoomSay Fictional Survey Demo",
+              "ticket_completed_at": "2026-11-01T10:15:00-05:00"
+            },
+            "questions": [
+              {
+                "id": "maintenance_overall",
+                "type": "rating",
+                "required": true,
+                "text": "Overall, how would you rate the maintenance service for the kitchen faucet repair?",
+                "rendered_text": "Overall, how would you rate the maintenance service for the kitchen faucet repair?",
+                "original_text": "Overall, how would you rate the maintenance service for {request_description}?",
+                "rating_labels": {
+                  "1": "Terrible",
+                  "2": "Bad",
+                  "3": "Okay",
+                  "4": "Good",
+                  "5": "Excellent"
+                },
+                "answer": 2,
+                "answer_label": "2 \u2014 Bad"
+              },
+              {
+                "id": "issue_resolution",
+                "type": "single_choice",
+                "required": true,
+                "text": "Is the issue fully resolved?",
+                "options": [
+                  {
+                    "value": "resolved",
+                    "label": "Yes, fully resolved"
+                  },
+                  {
+                    "value": "partially_resolved",
+                    "label": "Partially resolved"
+                  },
+                  {
+                    "value": "unresolved",
+                    "label": "No, still unresolved"
+                  },
+                  {
+                    "value": "not_checked",
+                    "label": "I haven\u2019t checked yet"
+                  }
+                ],
+                "rendered_text": "Is the issue fully resolved?",
+                "original_text": "Is the issue fully resolved?",
+                "rating_labels": null,
+                "answer": "unresolved",
+                "answer_label": "No, still unresolved"
+              },
+              {
+                "id": "maintenance_response_time",
+                "type": "rating",
+                "required": true,
+                "text": "How would you rate our maintenance team\u2019s response time to your request?",
+                "special_options": [
+                  {
+                    "value": "not_sure",
+                    "label": "Not sure"
+                  }
+                ],
+                "rendered_text": "How would you rate our maintenance team\u2019s response time to your request?",
+                "original_text": "How would you rate our maintenance team\u2019s response time to your request?",
+                "rating_labels": {
+                  "1": "Terrible",
+                  "2": "Bad",
+                  "3": "Okay",
+                  "4": "Good",
+                  "5": "Excellent"
+                },
+                "answer": "not_sure",
+                "answer_label": "Not sure"
+              },
+              {
+                "id": "maintenance_comment",
+                "type": "text",
+                "required": false,
+                "max_length": 2000,
+                "text": "What would you like us to know about this maintenance experience?",
+                "rendered_text": "What would you like us to know about this maintenance experience?",
+                "original_text": "What would you like us to know about this maintenance experience?",
+                "rating_labels": null,
+                "answer": "The kitchen faucet still leaks after the ticket was marked completed.",
+                "answer_label": "The kitchen faucet still leaks after the ticket was marked completed."
+              }
+            ],
+            "saved_analysis": {
+              "status": "not_generated"
+            }
+          }
+        ],
+        "survey_calculated": {
+          "submission_count": 1,
+          "distinct_resident_count": 1,
+          "issue_resolution_counts": {
+            "unresolved": 1
+          },
+          "issue_resolution_submission_ids": {
+            "unresolved": [
+              "04444f50-2379-4832-bcc6-83cb242d9cde"
+            ]
+          }
+        },
+        "survey_coverage_note": "Finalized maintenance survey submissions only. Periods use survey submission time in the community timezone; ticket completion is separate. Each submission is counted once. Saved survey analysis has not been generated.",
+        "evidence_requested": true,
+        "available_sources": [
+          "surveys"
+        ],
+        "personal_preferences": {
+          "default_period": null,
+          "preference_update_performed": false
+        },
+        "answer_character_limit": 3000,
+        "explanation_character_limit": 1000,
+        "expanded_limit_requires_written_source_detail": true
+      }
+    }
+  ]
+}

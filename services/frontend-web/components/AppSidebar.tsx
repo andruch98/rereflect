@@ -198,7 +198,7 @@ export function AppSidebar() {
       return pathname === href || pathname.startsWith('/feedbacks/') || pathname.startsWith('/feedback-sources');
     }
     if (href === '/customers' || href === '/surveys') {
-      return pathname === href || pathname.startsWith('/customers/');
+      return pathname === href || pathname.startsWith(`${href}/`);
     }
     if (href === '/workflow') {
       return pathname === href;

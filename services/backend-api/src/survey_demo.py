@@ -13,7 +13,9 @@ from pathlib import Path
 import sys
 
 DEMO_NAME = 'BoomSay Fictional Survey Demo'
-DEMO_EMAIL = 'manager@survey-demo.invalid'
+# Use the reserved example.com domain so the existing EmailStr login validator
+# accepts the fictional manager; .invalid is rejected before authentication.
+DEMO_EMAIL = 'manager@survey-demo.example.com'
 
 
 def require_demo_mode() -> None:

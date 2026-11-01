@@ -3,8 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ── next/navigation ──────────────────────────────────────────────────────────
+const navigation = vi.hoisted(() => ({ pathname: '/dashboard' }));
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/dashboard',
+  usePathname: () => navigation.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -31,7 +32,7 @@ vi.mock('@/components/ui/sidebar', () => ({
   SidebarGroupLabel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SidebarHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SidebarMenu: ({ children }: { children: React.ReactNode }) => <ul>{children}</ul>,
-  SidebarMenuButton: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SidebarMenuButton: ({ children, isActive }: { children: React.ReactNode; isActive?: boolean }) => <div data-active={isActive}>{children}</div>,
   SidebarMenuItem: ({ children }: { children: React.ReactNode }) => <li>{children}</li>,
 }));
 
@@ -74,6 +75,26 @@ const makeUser = (role: 'owner' | 'admin' | 'member') => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  navigation.pathname = '/dashboard';
+});
+
+describe('AppSidebar — Surveys active route', () => {
+  it.each([
+    ['/surveys', true, false],
+    ['/surveys/898d2883-c5bb-47af-82ff-e8a64014da25', true, false],
+    ['/customers', false, true],
+    ['/customers/resident%40example.invalid', false, true],
+    ['/surveys-other', false, false],
+  ])('marks Surveys and Customers independently on %s', async (pathname, surveysActive, customersActive) => {
+    navigation.pathname = pathname;
+    mockGetMe.mockResolvedValue(makeUser('member'));
+    render(<AppSidebar />);
+    await waitFor(() => expect(screen.getByRole('link', { name: /Preferences/i })).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'Surveys' }).closest('[data-active]'))
+      .toHaveAttribute('data-active', String(surveysActive));
+    expect(screen.getByRole('link', { name: 'Customers' }).closest('[data-active]'))
+      .toHaveAttribute('data-active', String(customersActive));
+  });
 });
 
 describe('AppSidebar — Usage Events nav entry', () => {
