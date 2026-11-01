@@ -45,7 +45,7 @@ class BuildTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('committed public handoff\n')
         scripts = self.root / 'experiments/maintenance_surveys/preview_updates'
-        scripts.mkdir(parents=True)
+        scripts.mkdir(parents=True, exist_ok=True)
         for name in ('build-update.py', 'update-preview.py', 'README.txt'):
             (scripts / name).write_bytes((HERE / name).read_bytes())
         self.git('init', '-q')
@@ -72,8 +72,12 @@ class BuildTests(unittest.TestCase):
             names = bundle.namelist()
             self.assertEqual(len(names), 4 + len(builder.HANDOFF_FILES))
             prefix = 'boomsay-maintenance-survey-update/'
-            for destination in builder.HANDOFF_FILES.values():
-                self.assertEqual(bundle.read(prefix + destination), b'committed public handoff\n')
+            for source, destination in builder.HANDOFF_FILES.items():
+                expected = subprocess.check_output(['git', 'show', self.commit + ':' + source], cwd=self.root)
+                self.assertEqual(bundle.read(prefix + destination), expected)
+            self.assertIn(prefix + 'handoff/README.md', names)
+            self.assertIn(prefix + 'handoff/preview_updates/README.txt', names)
+            self.assertIn(prefix + 'handoff/preview_updates/PACKAGING.md', names)
             archive_bytes = bundle.read(prefix + 'rereflect-app-source.tar.gz')
             meta = json.loads(bundle.read(prefix + 'update.json'))
             self.assertEqual(meta['commit'], self.commit)
@@ -97,9 +101,11 @@ class BuildTests(unittest.TestCase):
             builder.build(self.commit, self.output)
         with zipfile.ZipFile(self.output) as bundle:
             prefix = 'boomsay-maintenance-survey-update/'
-            for destination in builder.HANDOFF_FILES.values():
-                self.assertEqual(bundle.read(prefix + destination), b'committed public handoff\n')
-            self.assertFalse(any('changed-files' in name for name in bundle.namelist()))
+            for source, destination in builder.HANDOFF_FILES.items():
+                expected = subprocess.check_output(['git', 'show', self.commit + ':' + source], cwd=self.root)
+                self.assertEqual(bundle.read(prefix + destination), expected)
+            self.assertTrue(all(prefix + destination not in bundle.namelist()
+                                for destination in builder.OPTIONAL_HANDOFF_FILES.values()))
         self.output.unlink()
         (self.root / optional).write_text('committed changed paths\n')
         self.git('add', optional)
@@ -113,6 +119,8 @@ class BuildTests(unittest.TestCase):
 
     def test_missing_committed_handoff_document_or_fixture_is_rejected(self):
         for source in builder.HANDOFF_FILES:
+            if source.endswith('preview_updates/README.txt'):
+                continue  # The stricter updater-script identity check covers this file first.
             with self.subTest(source=source):
                 self.git('rm', '-q', source)
                 commit = self.commit_fixture()

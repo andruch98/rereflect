@@ -23,7 +23,7 @@ The updater accepts recognized source releases and known startup scripts only.
 An unsupported version or modified manifest is rejected before any write. Keep the
 preview and error message for review; do not edit checksums to bypass a rejection.
 
-Read handoff/HANDOFF.md for verification results and handoff/integration-guide.md
+Read handoff/HANDOFF.md for verification results and handoff/README.md
 for simulation and questionnaire use. Readable fictional events and answers are
 included under handoff/fixtures/. These documents come from the exact feature
 commit recorded in update.json; uncommitted local edits are never packaged.

@@ -58,6 +58,22 @@ Use a complete checkout of this feature branch and Docker Desktop. These command
 create the separate `boomsay-survey-demo` project and its own database volume;
 they do not install over `~/Downloads/boomsay-dashboard-preview`.
 
+If transferring the supplied Git bundle to your Mac, download
+`maintenance-survey-feature.bundle` to Downloads and use a new source folder:
+
+```bash
+cd "$HOME/Downloads"
+git clone https://github.com/andruch98/rereflect.git boomsay-maintenance-survey-source
+cd boomsay-maintenance-survey-source
+git fetch ../maintenance-survey-feature.bundle \
+  refs/heads/feat/maintenance-survey-integration:refs/heads/feat/maintenance-survey-integration
+git switch feat/maintenance-survey-integration
+git log -1 --oneline
+```
+
+The bundle contains local feature commits and requires the verified base commit
+already present in that clone. It does not publish the branch. Then run:
+
 ```bash
 docker compose -f experiments/maintenance_surveys/compose.yml up -d --build
 docker compose -f experiments/maintenance_surveys/compose.yml logs --tail=40 api

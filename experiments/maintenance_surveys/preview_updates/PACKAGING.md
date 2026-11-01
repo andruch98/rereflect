@@ -23,7 +23,9 @@ command lives under `services/backend-api/src` so the preview archive includes i
 The ZIP's `handoff/` directory includes the integration guide, final handoff and
 fictional event/answer fixtures, read with `git show` from that exact commit. A
 committed `experiments/maintenance_surveys/CHANGED_FILES.txt`, when present, is
-included as `handoff/changed-files.txt`. Missing required committed documentation
+included as `handoff/CHANGED_FILES.txt`. Original document names and relative links
+are preserved, including `handoff/README.md` and the updater instructions under
+`handoff/preview_updates/`. Missing required committed documentation
 is a packaging error; uncommitted local documents cannot silently substitute.
 Archives, manifests and verification logs are deliverables outside Git. No local
 preview, uncommitted source, private data or environment files are packaged.

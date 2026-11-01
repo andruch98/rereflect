@@ -35,13 +35,15 @@ SUPPORTED_BASES = (
 )
 BUNDLE_NAME = 'boomsay-maintenance-survey-update'
 HANDOFF_FILES = {
-    'experiments/maintenance_surveys/README.md': 'handoff/integration-guide.md',
+    'experiments/maintenance_surveys/README.md': 'handoff/README.md',
     'experiments/maintenance_surveys/HANDOFF.md': 'handoff/HANDOFF.md',
     'experiments/maintenance_surveys/fixtures/maintenance-completed.json': 'handoff/fixtures/maintenance-completed.json',
     'experiments/maintenance_surveys/fixtures/unresolved-answers.json': 'handoff/fixtures/unresolved-answers.json',
+    'experiments/maintenance_surveys/preview_updates/README.txt': 'handoff/preview_updates/README.txt',
+    'experiments/maintenance_surveys/preview_updates/PACKAGING.md': 'handoff/preview_updates/PACKAGING.md',
 }
 OPTIONAL_HANDOFF_FILES = {
-    'experiments/maintenance_surveys/CHANGED_FILES.txt': 'handoff/changed-files.txt',
+    'experiments/maintenance_surveys/CHANGED_FILES.txt': 'handoff/CHANGED_FILES.txt',
 }
 
 
