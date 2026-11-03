@@ -11,8 +11,10 @@ which builds on master 59dfd9122b20d0098eceedf8e1d1296e86b6f0a3.
 The delivered ZIP's update.json identifies its exact committed source.
 Implementation and testing were authorized. Merge and deployment were not.
 No Mac installation, real email delivery or paid model request was performed by
-this work session. Andres subsequently tested the earlier correction on his Mac: a
-survey count and original-answer popup worked; one narrative question failed.
+this work session. Andres tested the corrections on his Mac: survey counts and
+the original-answer popup worked. After the answer-recovery update, he supplied
+a successful narrative-answer screenshot and confirmed "Show each answer" passes.
+Optional wording polish is deferred.
 
 ## Agreed behavior implemented
 
@@ -78,8 +80,24 @@ Earlier continuity verification could not run Docker or Chromium (environment
 restrictions). Its frontend build compiled but failed on existing unrelated
 TypeScript errors, including invalid Next page exports; the 20 error-bearing
 files then matched the survey base. Those build/browser checks were not repeated
-for answer recovery. The new package has not been run on the Mac. Do not label
-this release production-ready, live-AI-validated or fully browser-tested.
+for answer recovery. Andres's subsequent Mac walkthrough passed the reported
+summary and evidence follow-up. This is limited human verification, not a broad
+live-model evaluation. Do not label this release production-ready or fully
+browser-tested.
+
+## Combined-test collection correction
+
+GitHub CI for f4c6c222 passed frontend, worker and clean database-migration
+checks, but backend pytest stopped before running: both offline suites had a
+top-level test_migration module. Separate earlier suite runs did not expose it.
+Andres approved renaming the survey test, updating this PR and rerunning CI.
+
+The survey test is now test_survey_migration.py; its contents are byte-for-byte
+unchanged. The changed-file inventory uses the new path. The same two migration
+files reproduced the import collision before the rename and passed all three
+tests together afterward. See verification/test-collection/README.md. GitHub's
+complete checks must finish successfully before recommending a merge. This
+correction does not change application behavior, schema, prompts or records.
 
 ## What remains outside this correction
 
@@ -97,9 +115,10 @@ at a time before implementation. Save agreed decisions without repeating or
 contradicting prompt rules. Preserve existing records and the familiar preview
 workflow. Ask about unresolved product choices; do not invent them.
 
-Next: install the new answer-recovery update on the existing Mac preview. Retry
-the failed survey summary, then ask "Show each answer" and compare the summary
-with the popup. No new fictional event or survey submission is required. Merging either this correction or the underlying
-survey branch, and deployment, need explicit approval. The separate migration-pin
-PR #5 must be reconciled with the survey branch's newer migration head before
-merging; do not overwrite that head with the older pin.
+Next: review the complete GitHub checks after the test filename correction.
+Stop and report any new unrelated blocker before expanding scope. Merging this
+correction or the underlying survey branch, and deployment, need explicit
+approval. PR #5's e1d7352fa043 migration pin is already superseded by the survey
+branch's f2e8463ab154 pin; propose closing #5 as superseded when integrating the
+survey branch, rather than replacing the newer pin. Gmail invitation testing
+remains a later workflow milestone; do not enable real sending implicitly.

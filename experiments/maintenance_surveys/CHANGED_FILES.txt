@@ -135,7 +135,7 @@ services/backend-api/tests/surveys_offline/conftest.py
 services/backend-api/tests/surveys_offline/test_demo_guard.py
 services/backend-api/tests/surveys_offline/test_demo_verify_ask.py
 services/backend-api/tests/surveys_offline/test_journey.py
-services/backend-api/tests/surveys_offline/test_migration.py
+services/backend-api/tests/surveys_offline/test_survey_migration.py
 services/backend-api/tests/surveys_offline/test_postgres_concurrency.py
 services/backend-api/tests/test_mutation_route_rbac_sweep.py
 services/backend-api/tests/test_outreach_migration.py
