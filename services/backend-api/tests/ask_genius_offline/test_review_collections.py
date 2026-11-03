@@ -37,9 +37,9 @@ def test_untrusted_filters_fail_closed(selection):
         service.validate_answer(json.dumps({'answer': 'Results.', 'selections': [selection]}), records(), True)
 
 
-def test_selection_requires_permission_and_zero_matches_are_not_fabricated():
-    with pytest.raises(ValueError):
-        service.validate_answer(json.dumps({'answer': 'Results.', 'selections': [{}]}), records(), False)
+def test_unrequested_selection_is_hidden_and_zero_matches_are_not_fabricated():
+    _, hidden = service.validate_answer(json.dumps({'answer': 'Results.', 'selections': [{}]}), records(), False)
+    assert hidden == []
     _, sources = service.validate_answer(json.dumps({'answer': 'No two-star reviews.', 'selections': [{'star_ratings': [2]}]}), records(), True)
     assert sources == []
 
@@ -92,5 +92,5 @@ def test_overlapping_source_selectors_do_not_double_count_extra_room():
         service.validate_answer(json.dumps(payload), data, True)
     payload['answer'] = 'x' * 999 + '\n' + excerpt
     assert service.validate_answer(json.dumps(payload), data, True)[0] == payload['answer']
-    with pytest.raises(ValueError, match='not requested'):
+    with pytest.raises(ValueError, match='Explanation exceeds'):
         service.validate_answer(json.dumps(payload), data, False)

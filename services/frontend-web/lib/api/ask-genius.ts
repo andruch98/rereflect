@@ -27,7 +27,7 @@ export interface GeniusConversation {
   sharing_unavailable_reason?: string | null;
 }
 
-export type GeniusChatMessage = ChatMessage & { status?: 'attempted' | 'failed' | 'completed' };
+export type GeniusChatMessage = ChatMessage & { status?: 'attempted' | 'failed' | 'completed'; error_message?: string | null };
 
 export interface SharedGeniusConversation {
   title: string;

@@ -23,7 +23,7 @@ def main():
             # Only extract our locally built, inspected delivery into a fresh directory.
             assert all(not Path(n).is_absolute() and '..' not in Path(n).parts for n in archive.namelist())
             archive.extractall(root)
-        bundle = root / 'boomsay-survey-continuity-update'
+        bundle = root / 'boomsay-answer-recovery-update'
         spec = importlib.util.spec_from_file_location('delivered_updater', bundle / 'update-preview.py')
         updater = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(updater)
@@ -38,7 +38,8 @@ def main():
         print(f'PASS: {len(files)} packaged source files match commit {meta["commit"]}.')
         print('PASS: archive checksum matches delivery manifest.')
         start = b'#!/bin/sh\n# Synthetic startup: never executed.\n'
-        for base in ('59dfd9122b20d0098eceedf8e1d1296e86b6f0a3', 'ccb53d4122a76ffd6045d2bf188d20dfdb712d2d'):
+        for base in ('59dfd9122b20d0098eceedf8e1d1296e86b6f0a3', 'ccb53d4122a76ffd6045d2bf188d20dfdb712d2d',
+                     '6dd7827360d1a370d59537a0c7407bf5ad5faeff'):
             preview = root / base
             preview.mkdir()
             for name in updater.MANIFEST_REQUIRED:
@@ -55,6 +56,8 @@ def main():
             (preview / 'app/original.txt').write_text('old source')
             (preview / 'backup-before-maintenance-survey-update').mkdir()
             (preview / 'backup-before-maintenance-survey-update/original.txt').write_text('prior backup')
+            (preview / 'backup-before-maintenance-survey-continuity-update').mkdir()
+            (preview / 'backup-before-maintenance-survey-continuity-update/keep.txt').write_text('continuity backup')
             (preview / 'checksums.json').write_text(json.dumps({
                 name: updater.digest((preview / name).read_bytes()) for name in updater.MANIFEST_REQUIRED | {'start-local.sh'}
             }))
@@ -65,7 +68,7 @@ def main():
                 assert updater.update(preview, bundle) is True
                 after = snapshot()
                 for name, value in before.items():
-                    if name.startswith(('private/', 'backup-before-maintenance-survey-update/')) or name in ('compose.json', 'configure.py', 'start-local.sh'):
+                    if name.startswith(('private/', 'backup-before-maintenance-survey-update/', 'backup-before-maintenance-survey-continuity-update/')) or name in ('compose.json', 'configure.py', 'start-local.sh'):
                         assert after[name] == value, name
                 assert after[updater.BACKUP + '/app/original.txt'] == b'old source'
                 assert updater.update(preview, bundle) is False

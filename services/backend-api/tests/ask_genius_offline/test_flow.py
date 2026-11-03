@@ -156,7 +156,7 @@ def test_oversized_explanation_rejected_in_full_without_retry(flow,raw):
     flow['model']['raw']=raw
     result=flow['ask']('Explain the reviews more',period=ALL)
     assert result.status_code==502
-    assert 'length limits' in result.json()['detail']['message']
+    assert 'more text than BoomSay can display' in result.json()['detail']['message']
     assert len(flow['calls'])==1
     assert flow['db'].query(ConversationMessage).filter_by(role='assistant').count()==0
 
@@ -198,7 +198,9 @@ def test_invalid_or_invented_evidence_fails_closed(flow,item):
 
 def test_unrequested_evidence_or_short_citation_does_not_unlock_long_answers(flow):
     flow['model']['evidence']=[{'review_id':flow['rows'][0].id,'kind':'review','excerpt':'Helpful staff.'}]
-    assert flow['ask']('Explain the reviews more',period=ALL).status_code==502
+    assert flow['ask']('Explain the reviews more',period=ALL).json()['structured_data']['sources'] == []
+    flow['model']['answer'] = 'x' * 1001
+    assert flow['ask']('Explain the reviews more',period=ALL).status_code == 502
     flow['model'].update(raw='Read [this](https://external.invalid).')
     assert flow['ask']('Show supporting reviews',period=ALL).status_code==502
 
@@ -253,7 +255,7 @@ def test_provider_timeout_has_connection_message_and_no_automatic_retry(flow):
     flow['model']['exception']=openai.APITimeoutError(request=httpx.Request('POST','https://example.invalid'))
     result=flow['ask'](period=ALL)
     assert result.status_code==502
-    assert 'connection timed out' in result.json()['detail']['message']
+    assert 'connection took too long' in result.json()['detail']['message']
     assert len(flow['calls'])==1
 
 

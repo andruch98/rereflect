@@ -1,5 +1,6 @@
 HISTORICAL REPORT — SURVEY BASE BEFORE CONTINUITY CORRECTIONS
-For current checks and limitations, see verification/continuity/README.md.
+For current checks and limitations, see verification/answer-recovery/README.md.
+The earlier correction round is documented in verification/continuity/README.md.
 The full-stack/browser results below were not rerun in the correction session.
 
 BoomSay maintenance surveys — full-application verification

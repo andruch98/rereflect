@@ -1,59 +1,57 @@
-BOOMSAY — SURVEY CONTINUITY UPDATE (EXISTING MAC PREVIEW)
+BOOMSAY — ASK GENIUS ANSWER RECOVERY UPDATE
 
-This is an update for your existing BoomSay preview at port 53004.
-Keep Docker Desktop running. Unzip this package in Downloads.
+Update your existing BoomSay preview on port 53004. Keep Docker Desktop running.
+Unzip this package in Downloads; keep your existing preview folder in place.
 
-1. Paste this block into Terminal:
+1. Paste into Terminal:
 
    cd "$HOME/Downloads/boomsay-dashboard-preview" &&
-   python3 "$HOME/Downloads/boomsay-survey-continuity-update/update-preview.py" &&
+   python3 "$HOME/Downloads/boomsay-answer-recovery-update/update-preview.py" &&
    bash start-local.sh
 
 2. After startup succeeds, open:
-   http://127.0.0.1:53004/surveys
-   Use your existing login.
+   http://127.0.0.1:53004/ask-genius
+   Use your existing login. Open your survey conversation, with All available
+   history selected. Your already-submitted fictional survey remains available.
 
-3. To try one fictional maintenance survey in that same preview, run:
-
-   cd "$HOME/Downloads/boomsay-dashboard-preview" &&
-   docker compose -f compose.json exec -T api python -m src.survey_preview
-
-   Terminal prints the private survey link. Open that link in your browser.
-   This creates Jamie Example (fictional), unit DEMO-204, ticket DEMO-WO-1001.
-   It records a simulated invitation: NO EMAIL IS SENT.
-   Repeating this command returns the same survey and preserves saved answers.
-   It cannot initialize/reset your community or alter your login/AI settings.
-
-4. Answer 2 — Bad; No, still unresolved; Not sure; and add a fictional comment.
-   Wait for Draft saved, reload to check it, then submit. In Surveys, confirm
-   the submitted status and open View answers.
-
-5. In Ask Genius, choose All available history and ask:
-   How many survey responses did we receive during this period?
+3. Retry the question that failed, or send:
    What did residents say in surveys about their maintenance experience?
-   Show each answer.
-   Check that the relevant question/answer opens in a popup under its topic.
-   View all answers from this survey should expand inside that popup.
 
-The count is computed from submitted surveys without an AI request. Narrative
-questions use YOUR EXISTING configured model and can incur its normal usage costs.
-This update does not change that configuration or replace your model with a mock.
-The automated checks used mocked model answers; live AI quality remains untested.
+   Then ask:
+   Show each answer.
+
+   The summary should answer your question without an error or unwanted evidence
+   controls. The follow-up should open the relevant original answers in a popup.
+   Check the summary against those answers. A software test cannot establish the
+   factual accuracy of a new live model response.
+
+You do not need to create or submit another survey. Narrative questions use your
+existing configured model and can incur its normal usage costs. This update does
+not change that configuration or replace your model with a mock. Automated tests
+used fictional data and mocked/reconstructed responses; live AI quality remains
+unverified.
+
+The fix accepts valid extra supporting references while hiding their controls
+until requested, preserves them for follow-ups, and normalizes only unambiguous
+JSON string line breaks. It continues rejecting invalid references, invented
+quotations and broken output that would require guessing. Failures now have a
+specific stored reason and a plain-English message. No automatic retry is added.
+Shared instructions remain in one core, with a short survey-specific section.
 
 The updater preserves database storage, saved reviews/analysis, chats/defaults,
 login, private configuration, Compose and startup scripts. It backs up application
-source to backup-before-maintenance-survey-continuity-update. Earlier backups
-remain intact. A repeated completed update is a no-op. Unsupported versions are
-rejected before changes; do not edit checksums or remove backups to bypass checks.
+source to backup-before-genius-answer-recovery-update. Earlier backups remain
+intact. A repeated completed update is a no-op. Unsupported versions are rejected
+before changes; do not edit checksums or remove backups to bypass checks.
 
-Startup uses your existing migration command. Survey migrations are additive.
-The source backup is NOT a database backup; restoring old source after applying
-migrations is not a supported rollback. Never use down -v or reset the database.
+Startup uses your existing migration command. No new migration is added by this
+fix. The source backup is NOT a database backup; restoring older source after
+applying migrations is not a supported rollback. Never use down -v or reset data.
 
-This delivery was NOT installed on your Mac. Docker/ARM startup and browser visual
-verification could not be completed in this environment. Relevant automated tests
-passed. The full production build remains blocked by pre-existing unrelated
-TypeScript errors. Your existing preview uses its existing startup method.
+This package has not been installed on your Mac. Mac/ARM startup and live AI
+responses still need your walkthrough. Earlier reports of production-build and
+browser limitations are historical; this fix does not claim to resolve them.
 
-Exact commit and checksum: update.json. Current scope, test results and limitations:
-handoff/HANDOFF.md. Older verification documents are historical, not a fresh test.
+Exact commit and checksum: update.json. Current scope and verification:
+handoff/verification/answer-recovery/README.md and verification/offline-checks.txt.
+Older reports bundled under handoff are historical, not freshly repeated tests.

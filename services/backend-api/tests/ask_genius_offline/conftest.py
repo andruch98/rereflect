@@ -25,6 +25,7 @@ from src.api.routes import ask_genius as routes
 from src.database.session import get_db
 from src.models.base import Base
 from src.models.feedback import FeedbackItem
+from src.models.conversation_message import ConversationMessage
 from src.models.organization import Organization
 from src.models.user import User
 from src.services import ask_genius as service
@@ -86,9 +87,15 @@ def flow(monkeypatch, request):
     with TestClient(app) as client:
         def ask(question='What are the main complaints in reviews?', **extra):
             headers = extra.pop('headers', headers_for(user))
+            request_id = str(uuid4())
             result = client.post('/api/v1/ask-genius/questions', headers=headers, json={
-                'question': question, 'request_id': str(uuid4()), **extra})
-            capture('application', question=question, options=extra, http_status=result.status_code, output=result.json())
+                'question': question, 'request_id': request_id, **extra})
+            attempted = db.query(ConversationMessage).filter_by(role='user').order_by(ConversationMessage.id.desc()).first()
+            audit = attempted.raw_request if attempted and isinstance(attempted.raw_request, dict) else {}
+            diagnostic = {k: audit[k] for k in ('status', 'error', 'validation_reason', 'validation_detail',
+                         'normalizations', 'finish_reason') if k in audit} if audit.get('request_id') == request_id else {}
+            capture('application', question=question, options=extra, http_status=result.status_code,
+                    output=result.json(), diagnostic=diagnostic)
             return result
         yield {'db':db,'user':user,'other_user':other_user,'org':org,'rows':rows,'client':client,
                'headers':headers_for(user),'ask':ask,'model':model,'calls':calls}

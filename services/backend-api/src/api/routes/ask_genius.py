@@ -174,6 +174,19 @@ def answer_payload(conversation, message):
             'preference_updated': metadata.get('preference_updated', False)}
 
 
+def failure_message(audit: dict) -> str:
+    """Explain the recorded cause, both immediately and after reopening a chat."""
+    if audit.get('error') == 'InvalidModelAnswer':
+        return service.validation_message(audit.get('validation_reason', 'invalid_output'))
+    if audit.get('error') == 'ProviderTimeout':
+        return 'The AI connection took too long to respond. Click Retry to try again.'
+    if audit.get('http_status') in (401, 403):
+        return 'BoomSay’s AI connection needs attention. Ask your administrator to check the AI connection settings.'
+    if audit.get('http_status') == 429:
+        return 'The AI service is limiting requests. Try again later; if this continues, ask your administrator to check the AI account.'
+    return 'BoomSay couldn’t connect to its AI service. Please wait a moment, then click Retry.'
+
+
 @router.get('/status')
 def status(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     authorize(user)
@@ -216,7 +229,8 @@ def get_conversation(public_id: UUID, user: User = Depends(get_current_user), db
             'sharing_unavailable_reason': sharing.unavailable_reason(messages),
             'messages': [{'id': m.id, 'role': m.role, 'content': m.content,
                           'structured_data': m.structured_data, 'created_at': m.created_at,
-                          'status': (m.raw_request or {}).get('status') if m.role == 'user' else 'completed'} for m in messages]}
+                          'status': (m.raw_request or {}).get('status') if m.role == 'user' else 'completed',
+                          'error_message': failure_message(m.raw_request) if m.role == 'user' and (m.raw_request or {}).get('status') == 'failed' else None} for m in messages]}
 
 
 @router.patch('/conversations/{public_id}', response_model=ConversationSummary)
@@ -307,7 +321,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 return answer_payload(prior_conversation, response)
             if previous_state.get('status') == 'failed':
                 prior = owned_conversation(db.get(Conversation, previous.conversation_id).public_id, user, db)
-                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': 'This answer could not be completed. Retry to start a new attempt.',
+                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': failure_message(previous_state),
                                           'conversation_id': prior.public_id, 'request_id': str(body.request_id),
                                           'period': previous_state.get('period'),
                                           'reason': previous_state.get('error', 'ProviderRequestFailed')})
@@ -366,6 +380,8 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
         evidence = None
         local_sources = []
         survey_context = []
+        review_context = []
+        normalizations = []
         survey_match_ids = None
         pending_question = None
         if local_answer is None and source_scope is None:
@@ -436,25 +452,25 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 user_message.raw_response = result.raw_response
                 user_message.tokens_in = result.tokens_in
                 user_message.tokens_out = result.tokens_out
-                if not result.answer or result.finish_reason != 'stop':
+                if result.finish_reason != 'stop':
                     raise ValueError('IncompleteModelAnswer')
-                answer_text, sources = service.validate_answer(result.answer, evidence, expanded, survey_context=survey_context)
+                if not result.answer:
+                    raise ValueError('EmptyModelAnswer')
+                answer_text, sources = service.validate_answer(result.answer, evidence, expanded,
+                    survey_context=survey_context, review_context=review_context, normalizations=normalizations)
             except Exception as exc:
                 safe_error = ('InvalidModelAnswer' if isinstance(exc, ValueError) else
                               'ProviderTimeout' if isinstance(exc, openai.APITimeoutError) else
                               'ProviderHTTPError' if isinstance(exc, openai.APIStatusError) else 'ProviderRequestFailed')
-                user_message.raw_request = {**audit, 'status': 'failed', 'error': safe_error,
-                                            'validation_reason': ('incomplete_output' if result and result.finish_reason != 'stop' else 'invalid_output')
-                                                if safe_error == 'InvalidModelAnswer' else None,
+                validation = service.validation_failure(exc) if safe_error == 'InvalidModelAnswer' else {
+                    'validation_reason': None, 'validation_detail': None}
+                user_message.raw_request = {**audit, 'status': 'failed', 'error': safe_error, **validation,
+                                            'normalizations': normalizations,
                                             'finish_reason': result.finish_reason if result else None,
                                             'http_status': exc.status_code if isinstance(exc, openai.APIStatusError) else None}
                 user_message.latency_ms = int((time.monotonic() - started) * 1000)
                 db.commit()
-                message = ('Ask Genius could not return a complete answer within its format and length limits. Please try a narrower question.'
-                           if safe_error == 'InvalidModelAnswer' else
-                           'The AI connection timed out. Please try your question again.'
-                           if safe_error == 'ProviderTimeout' else
-                           'Ask Genius could not reach its AI connection. Please try your question again.')
+                message = failure_message(user_message.raw_request)
                 raise HTTPException(502, {'code': 'ask_genius_failed', 'message': message,
                                           'conversation_id': conversation.public_id, 'request_id': str(body.request_id),
                                           'period': period_dict(selected),
@@ -468,6 +484,9 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                     'source_scope': source_scope}
         if pending_question is not None:
             metadata['pending_question'] = pending_question
+        if review_context:
+            metadata['review_context'] = [{key: s[key] for key in ('review_id', 'kind', 'topic', 'excerpt') if s.get(key) is not None}
+                                          for s in review_context]
         if source_scope in {'surveys', 'mixed'}:
             metadata['sharing_unavailable_reason'] = survey_service.SHARING_REASON
             metadata['survey_counts'] = evidence.get('survey_calculated', {}) if evidence else {}
@@ -488,7 +507,8 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                                      cost_cents=None, latency_ms=int((time.monotonic() - started) * 1000))
         db.add(answer)
         db.flush()
-        user_message.raw_request = {**audit, 'status': 'completed', 'answer_message_id': answer.id}
+        user_message.raw_request = {**audit, 'status': 'completed', 'answer_message_id': answer.id,
+                                    'normalizations': normalizations}
         user_message.tokens_in = None
         user_message.tokens_out = None
         conversation.updated_at = datetime.utcnow()

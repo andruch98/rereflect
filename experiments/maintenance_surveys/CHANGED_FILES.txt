@@ -2,10 +2,32 @@ BoomSay surveys — current changed-file inventory
 Repository: andruch98/rereflect
 Branch: fix/survey-genius-continuity
 Underlying survey base: ccb53d4122a76ffd6045d2bf188d20dfdb712d2d
+Answer-recovery starting commit: 6dd7827360d1a370d59537a0c7407bf5ad5faeff
 Comparison master: 59dfd9122b20d0098eceedf8e1d1296e86b6f0a3
 Exact delivery commit: update.json
 
-CORRECTION PATHS (this round)
+ANSWER RECOVERY PATHS (latest round)
+experiments/maintenance_surveys/CHANGED_FILES.txt
+experiments/maintenance_surveys/HANDOFF.md
+experiments/maintenance_surveys/VERIFICATION.txt
+experiments/maintenance_surveys/preview_updates/PACKAGING.md
+experiments/maintenance_surveys/preview_updates/README.txt
+experiments/maintenance_surveys/preview_updates/build-update.py
+experiments/maintenance_surveys/preview_updates/update-preview.py
+experiments/maintenance_surveys/preview_updates/verification/replay_delivery.py
+experiments/maintenance_surveys/verification/answer-recovery/README.md
+services/backend-api/src/api/routes/ask_genius.py
+services/backend-api/src/services/ask_genius.py
+services/backend-api/src/services/ask_genius_instructions.txt
+services/backend-api/tests/ask_genius_offline/conftest.py
+services/backend-api/tests/ask_genius_offline/test_answer_recovery.py
+services/backend-api/tests/ask_genius_offline/test_flow.py
+services/backend-api/tests/ask_genius_offline/test_review_collections.py
+services/frontend-web/__tests__/reviews/AskGenius.test.tsx
+services/frontend-web/components/reviews/AskGenius.tsx
+services/frontend-web/lib/api/ask-genius.ts
+
+ALL CORRECTION PATHS AGAINST SURVEY BASE
 experiments/maintenance_surveys/CHANGED_FILES.txt
 experiments/maintenance_surveys/HANDOFF.md
 experiments/maintenance_surveys/README.md
@@ -17,6 +39,7 @@ experiments/maintenance_surveys/preview_updates/update-preview.py
 experiments/maintenance_surveys/preview_updates/verification/replay_delivery.py
 experiments/maintenance_surveys/preview_updates/verification/test_build.py
 experiments/maintenance_surveys/preview_updates/verification/test_update.py
+experiments/maintenance_surveys/verification/answer-recovery/README.md
 experiments/maintenance_surveys/verification/continuity/README.md
 experiments/maintenance_surveys/verification/continuity/type-error-provenance.json
 services/backend-api/src/api/routes/ask_genius.py
@@ -26,15 +49,20 @@ services/backend-api/src/services/ask_genius_surveys.py
 services/backend-api/src/services/surveys.py
 services/backend-api/src/survey_preview.py
 services/backend-api/tests/ask_genius_offline/conftest.py
+services/backend-api/tests/ask_genius_offline/test_answer_recovery.py
 services/backend-api/tests/ask_genius_offline/test_flow.py
 services/backend-api/tests/ask_genius_offline/test_retry_history.py
+services/backend-api/tests/ask_genius_offline/test_review_collections.py
 services/backend-api/tests/ask_genius_offline/test_service_v3.py
 services/backend-api/tests/ask_genius_offline/test_surveys.py
+services/frontend-web/__tests__/reviews/AskGenius.test.tsx
 services/frontend-web/__tests__/reviews/GeniusMessage.test.tsx
 services/frontend-web/app/globals.css
 services/frontend-web/app/layout.tsx
+services/frontend-web/components/reviews/AskGenius.tsx
 services/frontend-web/components/reviews/GeniusMessage.tsx
 services/frontend-web/components/reviews/GeniusSurveyEvidence.tsx
+services/frontend-web/lib/api/ask-genius.ts
 services/frontend-web/lib/ask-genius-options.ts
 services/frontend-web/next.config.ts
 services/frontend-web/tailwind.config.ts
@@ -56,6 +84,7 @@ experiments/maintenance_surveys/preview_updates/update-preview.py
 experiments/maintenance_surveys/preview_updates/verification/replay_delivery.py
 experiments/maintenance_surveys/preview_updates/verification/test_build.py
 experiments/maintenance_surveys/preview_updates/verification/test_update.py
+experiments/maintenance_surveys/verification/answer-recovery/README.md
 experiments/maintenance_surveys/verification/continuity/README.md
 experiments/maintenance_surveys/verification/continuity/type-error-provenance.json
 experiments/maintenance_surveys/verification/font-build/README.md
@@ -95,9 +124,11 @@ services/backend-api/src/services/surveys.py
 services/backend-api/src/survey_demo.py
 services/backend-api/src/survey_preview.py
 services/backend-api/tests/ask_genius_offline/conftest.py
+services/backend-api/tests/ask_genius_offline/test_answer_recovery.py
 services/backend-api/tests/ask_genius_offline/test_flow.py
 services/backend-api/tests/ask_genius_offline/test_migration.py
 services/backend-api/tests/ask_genius_offline/test_retry_history.py
+services/backend-api/tests/ask_genius_offline/test_review_collections.py
 services/backend-api/tests/ask_genius_offline/test_service_v3.py
 services/backend-api/tests/ask_genius_offline/test_surveys.py
 services/backend-api/tests/surveys_offline/conftest.py
@@ -109,6 +140,7 @@ services/backend-api/tests/surveys_offline/test_postgres_concurrency.py
 services/backend-api/tests/test_mutation_route_rbac_sweep.py
 services/backend-api/tests/test_outreach_migration.py
 services/frontend-web/Dockerfile
+services/frontend-web/__tests__/reviews/AskGenius.test.tsx
 services/frontend-web/__tests__/reviews/GeniusAnalytics.test.ts
 services/frontend-web/__tests__/reviews/GeniusChatHistory.test.tsx
 services/frontend-web/__tests__/reviews/GeniusMessage.test.tsx
@@ -120,6 +152,8 @@ services/frontend-web/__tests__/surveys/SurveyFlow.test.tsx
 services/frontend-web/app/(dashboard)/layout.tsx
 services/frontend-web/app/(dashboard)/surveys/[id]/page.tsx
 services/frontend-web/app/(dashboard)/surveys/page.tsx
+services/frontend-web/app/globals.css
+services/frontend-web/app/layout.tsx
 services/frontend-web/app/providers.tsx
 services/frontend-web/app/survey/[token]/page.tsx
 services/frontend-web/app/survey/[token]/unsubscribe/page.tsx
@@ -146,8 +180,4 @@ services/frontend-web/next.config.ts
 services/frontend-web/sentry.client.config.ts
 services/frontend-web/sentry.edge.config.ts
 services/frontend-web/sentry.server.config.ts
-services/worker-service/src/models/__init__.py
-
-Runtime corrections: source continuity, topic-linked original-answer popups, survey counts, original fonts, preview-only telemetry/build behavior and guarded fictional simulation.
-Tests and delivery: review/survey regressions, exact-commit packaging, preservation replay and current handoff.
-Raw execution logs and model-fixture transcripts are supplied in the downloadable verification ZIP, not added to application source.
+services/frontend-web/tailwind.config.ts
