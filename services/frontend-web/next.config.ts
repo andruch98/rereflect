@@ -9,7 +9,9 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, "../../"),
 };
 
-export default withSentryConfig(nextConfig, {
+// Local BoomSay previews do not upload build artifacts or initialize Sentry.
+// Runtime configs use the same preview flag; production instrumentation is unchanged.
+export default process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW === 'true' ? nextConfig : withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 

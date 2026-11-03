@@ -14,7 +14,9 @@ from src.services.survey_delivery import prepare_invitation, SimulatedSurveySend
 
 
 def public_base_url() -> str:
-    base = os.getenv('SURVEY_PUBLIC_BASE_URL') or os.getenv('APP_URL', 'http://localhost:3000')
+    base = os.getenv('SURVEY_PUBLIC_BASE_URL') or (
+        'http://127.0.0.1:53004' if os.getenv('BOOMSAY_REVIEW_PREVIEW', '').lower() == 'true'
+        else os.getenv('APP_URL', 'http://localhost:3000'))
     parsed = urlsplit(base)
     if (parsed.scheme not in ('http', 'https') or not parsed.netloc or parsed.username
             or parsed.password or parsed.path not in ('', '/') or parsed.query or parsed.fragment):

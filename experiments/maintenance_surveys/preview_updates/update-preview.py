@@ -14,7 +14,7 @@ import tarfile
 import tempfile
 
 
-BACKUP = 'backup-before-maintenance-survey-update'
+BACKUP = 'backup-before-maintenance-survey-continuity-update'
 MUTATED_FILES = ('rereflect-app-source.tar.gz', 'checksums.json', 'SOURCE.txt')
 MANIFEST_REQUIRED = {
     'rereflect-app-source.tar.gz', 'private/saved-ai-records.json', 'restore.py',
@@ -50,6 +50,8 @@ APP_MARKERS = (
     'services/backend-api/src/services/surveys.py',
     'services/backend-api/src/services/ask_genius_surveys.py',
     'services/backend-api/src/survey_demo.py',
+    'services/backend-api/src/survey_preview.py',
+    'services/frontend-web/components/reviews/GeniusSurveyEvidence.tsx',
     'services/frontend-web/app/survey/[token]/page.tsx',
     'services/frontend-web/app/survey/[token]/unsubscribe/page.tsx',
     'services/frontend-web/app/(dashboard)/surveys/[id]/page.tsx',
@@ -166,7 +168,7 @@ def update(root: Path, bundle: Path) -> bool:
         replacements = {
             'rereflect-app-source.tar.gz': archive_bytes,
             'checksums.json': (json.dumps(updated_checksums, indent=2) + '\n').encode(),
-            'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: feat/maintenance-survey-integration\n'
+            'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: fix/survey-genius-continuity\n'
                            f"Commit: {meta['commit']}\nMaintenance survey integration updated; private data and AI setup unchanged. Startup applies pending additive migrations.\n").encode(),
         }
         moved_old = installed_new = created_backup = False

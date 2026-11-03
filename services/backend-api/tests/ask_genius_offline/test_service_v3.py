@@ -62,7 +62,7 @@ def test_topic_quotation_selector_preserves_exact_quote_and_saved_sentiment(flow
     flow['db'].commit()
     flow['model'].update(answer='The saved analysis includes a negative repair experience.', evidence=[
         {'review_id': row.id, 'kind': 'analysis', 'topic': 'Staff', 'quotation_index': 1}])
-    response = flow['ask']('Show the saved analysis', period=ALL)
+    response = flow['ask']('Show the saved review analysis', period=ALL)
     assert response.status_code == 200
     source = response.json()['structured_data']['sources'][0]
     assert source['excerpt'] == 'Repairs took two weeks.'
@@ -78,7 +78,7 @@ def test_analysis_text_not_in_original_is_never_shown_as_resident_quote(flow):
     flow['db'].commit()
     flow['model'].update(answer='The saved analysis identifies maintenance concerns.', evidence=[
         {'review_id': row.id, 'kind': 'analysis', 'topic': 'Maintenance', 'quotation_index': 0}])
-    response = flow['ask']('Show the saved analysis', period=ALL)
+    response = flow['ask']('Show the saved review analysis', period=ALL)
     assert response.status_code == 200
     source = response.json()['structured_data']['sources'][0]
     assert source['excerpt'] == row.text

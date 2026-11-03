@@ -12,18 +12,51 @@ SHARING_REASON = 'Sharing is unavailable for chats using private survey answers 
 MAX_SURVEYS = 100
 
 
-def source_scope(question: str, previous: str | None = None) -> str:
-    """Explicit source changes replace the previous source; short follow-ups retain it."""
-    review = bool(re.search(r'\breviews?\b', question, re.I))
-    survey = bool(re.search(r'\b(?:surveys?|submissions?|questionnaires?)\b', question, re.I)
-                  or not review and re.search(r'maintenance experience', question, re.I))
-    if survey and review:
+def source_scope(question: str, previous: str | None = None) -> str | None:
+    """Resolve named sources, never infer a source from the subject (e.g. maintenance).
+
+    Exclusions take precedence over mentions. An ambiguous choice is clarified rather
+    than silently reading a different source. Conversation scope is the fallback.
+    """
+    groups = {'reviews': r'reviews?', 'surveys': r'(?:surveys?|submissions?|questionnaires?)'}
+    included, excluded = set(), set()
+    for name, pattern in groups.items():
+        for match in re.finditer(r'\b' + pattern + r'\b', question, re.I):
+            before = question[:match.start()].lower()
+            if re.search(r"(?:\bnot|\bexcluding|\bexclude|\bwithout|\bignore|\binstead of|\brather than|\bdon['’]t (?:use|include))\s+(?:the\s+)?$", before):
+                excluded.add(name)
+            else:
+                included.add(name)
+    included -= excluded
+    if len(included) == 2 and re.search(r'\b(?:reviews?\s+or\s+(?:surveys?|submissions?)|(?:surveys?|submissions?)\s+or\s+reviews?)\b', question, re.I):
+        return None
+    if len(included) == 2:
         return 'mixed'
-    if survey:
-        return 'surveys'
-    if review:
-        return 'reviews'
-    return previous if previous in {'reviews', 'surveys', 'mixed'} else 'reviews'
+    if included:
+        return included.pop()
+    if excluded:
+        return ({'reviews', 'surveys'} - excluded).pop() if len(excluded) == 1 else None
+    if re.fullmatch(r'(?:use |include )?both(?: sources)?[.! ]*', question.strip(), re.I):
+        return 'mixed'
+    return previous if previous in {'reviews', 'surveys', 'mixed'} else None
+
+
+def source_choice(question: str) -> bool:
+    """A short clarification reply resumes the original question, not a new task."""
+    return bool(re.fullmatch(r'(?:use |include |just |only )?(?:reviews?|surveys?|both)(?: only| sources)?(?:,? not (?:reviews?|surveys?))?(?:,? please)?[.! ]*', question.strip(), re.I))
+
+
+def topic_lines(answer: str, references: list[dict], previous: dict | None = None) -> dict:
+    """Retain concise finding text alongside its references through count follow-ups."""
+    result = {}
+    for topic in dict.fromkeys(item.get('topic') for item in references if item.get('topic')):
+        line = next((line for line in answer.splitlines() if re.match(
+            r'^\s*[-*+]\s+(?:\*\*)?' + re.escape(topic) + r'(?:\*\*)?:', line)), None)
+        if line:
+            result[topic] = line
+        elif topic in (previous or {}):
+            result[topic] = previous[topic]
+    return result
 
 
 def _iso(value):
@@ -82,11 +115,19 @@ def build_evidence(org_id, db, period) -> dict:
     }, 'survey_coverage_note': 'Finalized maintenance survey submissions only. Periods use survey submission time in the community timezone; ticket completion is separate. Each submission is counted once. Saved survey analysis has not been generated.'}
 
 
-def source(record: dict, excerpt: str | None = None) -> dict:
+def source(record: dict, excerpt: str | None = None, topic: str | None = None,
+           question_id: str | None = None) -> dict:
+    if question_id is not None and not any(q['id'] == question_id for q in record['questions']):
+        raise ValueError('Unknown survey question')
     if excerpt is not None and not any(isinstance(q.get('answer'), str) and excerpt in q['answer'] for q in record['questions']):
         raise ValueError('Survey excerpt does not match an original submitted answer')
+    if question_id is not None and excerpt is not None and not any(
+            q['id'] == question_id and isinstance(q.get('answer'), str) and excerpt in q['answer']
+            for q in record['questions']):
+        raise ValueError('Survey excerpt does not match the selected question')
     return {'source': 'survey', 'survey_id': record['survey_id'], 'kind': 'survey',
-            'label': excerpt or 'View original survey answers', 'excerpt': excerpt or 'View original survey answers',
+            'topic': topic, 'question_id': question_id,
+            'label': excerpt or 'View original survey answers', 'excerpt': excerpt,
             'excerpt_truncated': False, 'href': f"/surveys/{record['survey_id']}", 'survey': record}
 
 
@@ -128,8 +169,8 @@ def _simple_request_text(question: str) -> str:
 def _supported_count(question: str) -> bool:
     text = _simple_request_text(question)
     prefix = r'(?:how many|(?:what is )?(?:the )?(?:count|number) of) '
-    unit = r'(?:(?:completed|submitted|maintenance) )*(?:surveys?|submissions?|survey submissions?|(?:distinct )?residents?)'
-    completion = r'(?: (?:are there|were submitted|were completed|are completed|are submitted|(?:have )?(?:submitted|completed) (?:a survey|surveys)|responded))?'
+    unit = r'(?:(?:completed|submitted|maintenance) )*(?:surveys?|submissions?|survey (?:submissions?|responses?)|responses?|(?:distinct |unique )?residents?)'
+    completion = r'(?: (?:are there|did we (?:receive|get)|have we received|were received|were submitted|were completed|are completed|are submitted|(?:have )?(?:submitted|completed) (?:a survey|surveys)|responded))?'
     status = r"(?: (?:are|were|report|reported|say|said|show|have)(?: that)?(?: the issue is| the issue was| issues are| issues were)?)? (?:still )?(?:unresolved|(?:fully |partially )?resolved|not_checked|not checked|haven[’']t checked(?: yet)?|have not checked(?: yet)?)"
     return bool(re.fullmatch(prefix + unit + '(?:' + completion + '|' + status + ')', text))
 
@@ -164,11 +205,20 @@ def local_answer(question: str, evidence: dict, previous_metadata: dict | None =
     records = evidence['surveys']
     if re.search(r'\b(?:saved|stored|automatic|classified)\b.{0,35}\b(?:analysis|sentiment|topics?|themes?)\b|\b(?:sentiment|classifications?)\b', lowered):
         return ('Saved survey analysis, topics and sentiment are not available. I can explain the original submitted answers on demand.', [], None)
-    original_followup = bool(re.fullmatch(r'(?:please )?(?:show(?: me)?|open|give me) (?:the )?(?:original )?(?:answers?|sources?|evidence)(?: behind (?:that|those|this))?[.!? ]*', lowered))
+    original_followup = bool(re.fullmatch(r'(?:please )?(?:show(?: me)?|let me see|open|give me) (?:the |each |all (?:the )?)?(?:original )?(?:answers?|sources?|evidence|surveys?|responses?)(?: behind (?:that|those|this)| for each)?[.!? ]*', lowered))
     prior_ids = (previous_metadata or {}).get('survey_match_ids')
     if original_followup and isinstance(prior_ids, list):
         wanted = set(prior_ids)
         selected = [record for record in records if record['survey_id'] in wanted]
+        prior_context = (previous_metadata or {}).get('survey_context', [])
+        if prior_context:
+            by_id = {record['survey_id']: record for record in selected}
+            sources = [source(by_id[item['survey_id']], item.get('excerpt'), item.get('topic'), item.get('question_id'))
+                       for item in prior_context if item.get('survey_id') in by_id]
+            topics = list(dict.fromkeys(s['topic'] for s in sources if s.get('topic')))
+            lines = (previous_metadata or {}).get('survey_topic_lines', {})
+            answer = '\n'.join(lines.get(topic, f'- **{topic}:** Supporting survey answers.') for topic in topics) if topics else 'Here are the original questions and submitted answers.'
+            return answer, sources, [record['survey_id'] for record in selected]
         return ('Here are the original questions and submitted answers.', [source(record) for record in selected], [record['survey_id'] for record in selected])
     status_filter = positive_resolution(question)
     is_list = bool(re.search(r'\b(?:show|list|which|display|open)\b', lowered))
@@ -190,7 +240,18 @@ def local_answer(question: str, evidence: dict, previous_metadata: dict | None =
               'partially_resolved': ' report that the issue is partially resolved',
               'resolved': ' report that the issue is fully resolved',
               'not_checked': ' report that the resident has not checked yet'}.get(status_filter, '')
-    answer = f'{len(selected)} submitted maintenance survey(s) from {resident_count} distinct resident(s){suffix} in {evidence["period"]["label"]}.'
+    if re.search(r'\bresidents?\b', lowered):
+        answer = f'{resident_count} unique resident(s){suffix} in {evidence["period"]["label"]}.'
+    else:
+        answer = f'{len(selected)} completed maintenance survey response(s){suffix} in {evidence["period"]["label"]}.'
     if status_filter:
         answer += ' Ticket completion does not change the resident’s reported resolution status.'
-    return answer, [source(record) for record in selected] if is_list else [], [record['survey_id'] for record in selected]
+    references = [source(record, topic='Issue resolution' if status_filter else None,
+                         question_id='issue_resolution' if status_filter else None) for record in selected]
+    if not status_filter and not broad_list and (previous_metadata or {}).get('survey_context'):
+        by_id = {record['survey_id']: record for record in selected}
+        references = [source(by_id[item['survey_id']], item.get('excerpt'), item.get('topic'), item.get('question_id'))
+                      for item in previous_metadata['survey_context'] if item.get('survey_id') in by_id]
+    # Counts retain their verified cohort internally; the route hides references
+    # unless the manager actually requested original evidence.
+    return answer, references, [record['survey_id'] for record in selected]

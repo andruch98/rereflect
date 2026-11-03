@@ -43,7 +43,9 @@ If evidence_requested is false, evidence and selections must be empty. If true:
   quotation_index (zero-based saved quotation index) OR excerpt (exact contiguous source text).
   Omit optional fields when not needed. References are technical IDs, not display labels.
 - For surveys, evidence selects {"survey_id": "existing UUID", "kind": "survey"},
-  optionally excerpt matching exact original submitted text. Never use review_id for surveys.
+  with topic matching the topic label in the answer and question_id identifying the
+  relevant original question. Optionally excerpt exact original submitted text.
+  Never use review_id for surveys. These are on-demand findings, not saved analysis.
 - survey_selections selects finalized submissions: {} means the established entire survey
   cohort, or {"issue_resolution":"unresolved"} (also resolved, partially_resolved, not_checked).
   Preserve prior restrictions. Use verified survey IDs for narrower narrative findings.
@@ -63,6 +65,12 @@ Sources, controls and popups are constructed by the application; do not transcri
 records into JSON or add URLs/Markdown links/images/raw HTML. Topic bullets start with the
 exact saved label and colon; put qualifiers after the colon. Supply all relevant references
 when all matching reviews were requested. Do not add a second offer to provide them.
+
+For survey findings also return survey_context: a list with the same fields as survey
+evidence identifying ALL submissions/questions supporting each finding, even when
+evidence_requested is false. This internal context is not a displayed attachment.
+It preserves topic-specific follow-ups. Use current original answers, never prior claims
+as factual authority. Do not attach unrelated survey questions to a narrow finding.
 
 The preceding WRITING AND LENGTH section defines allowances; metadata links/popups do not
 qualify for expanded written detail. For requested source wording written inline, include
@@ -234,9 +242,9 @@ def history_message(message) -> dict:
     """
     content = message.content
     metadata = message.structured_data if isinstance(message.structured_data, dict) else {}
-    sources = metadata.get('sources')
+    sources = [*(metadata.get('sources') or []), *(metadata.get('survey_context') or [])]
     if message.role == 'assistant' and isinstance(sources, list):
-        attached = [{key: source[key] for key in ('review_id', 'survey_id', 'excerpt', 'kind', 'topic') if key in source}
+        attached = [{key: source[key] for key in ('review_id', 'survey_id', 'excerpt', 'kind', 'topic', 'question_id') if key in source}
                     for source in sources if isinstance(source, dict) and (isinstance(source.get('review_id'), int) or isinstance(source.get('survey_id'), str))]
         if attached:
             content += '\n\nAttached source cards: ' + json.dumps(attached, ensure_ascii=False)
@@ -280,6 +288,8 @@ class SurveyEvidenceItem(BaseModel):
     survey_id: str = Field(min_length=36, max_length=36)
     kind: Literal['survey']
     excerpt: str | None = Field(default=None, min_length=1, max_length=2500)
+    topic: str | None = Field(default=None, min_length=1, max_length=120, pattern=r'^[^\n\r*<>\[\]]+$')
+    question_id: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class SurveySelection(BaseModel):
@@ -314,6 +324,7 @@ class ModelAnswer(BaseModel):
     evidence: list[EvidenceItem | SurveyEvidenceItem] = Field(default_factory=list, max_length=200)
     selections: list[ReviewSelection] = Field(default_factory=list, max_length=20)
     survey_selections: list[SurveySelection] = Field(default_factory=list, max_length=4)
+    survey_context: list[SurveyEvidenceItem] = Field(default_factory=list, max_length=200)
 
 
 def _source_preview(text: str) -> tuple[str, bool]:
@@ -389,7 +400,7 @@ def _explanation_length(answer: str, items: list[EvidenceItem]) -> int:
     return len(answer) - covered
 
 
-def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list[dict]]:
+def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context: list | None = None) -> tuple[str, list[dict]]:
     """Validate the explanation and create cards from authorized stored source material.
 
     Never chop the explanation or drop source cards to fit. Full records are available only
@@ -418,6 +429,13 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
     for selection in result.selections:
         items.extend(selection_items(selection, evidence['reviews']))
     surveys = {record['survey_id']: record for record in evidence.get('surveys', [])}
+    for item in result.survey_context:
+        record = surveys.get(item.survey_id)
+        if record is None:
+            raise ValueError('Unknown survey context record')
+        selected = survey_service.source(record, item.excerpt, item.topic, item.question_id)
+        if survey_context is not None:
+            survey_context.append(selected)
     for selection in result.survey_selections:
         items.extend(SurveyEvidenceItem(kind='survey', survey_id=record['survey_id'])
                      for record in surveys.values() if selection.issue_resolution is None or any(
@@ -427,9 +445,12 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
             record = surveys.get(item.survey_id)
             if record is None:
                 raise ValueError('Unknown survey evidence record')
-            key = ('survey', item.survey_id)
+            key = ('survey', item.survey_id, item.topic, item.question_id)
             if key not in seen:
-                sources.append(survey_service.source(record, item.excerpt))
+                selected = survey_service.source(record, item.excerpt, item.topic, item.question_id)
+                sources.append(selected)
+                if survey_context is not None and not result.survey_context:
+                    survey_context.append(selected)
                 seen.add(key)
             continue
         record = reviews.get(item.review_id)

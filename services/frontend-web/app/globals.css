@@ -1,11 +1,5 @@
 @import '@rereflect/ui/styles/globals.css';
-
-/* Keep typography available without build-time or browser font downloads. */
-:root {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-serif: Georgia, "Times New Roman", serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-}
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Ubuntu+Mono:wght@400;700&display=swap');
 
 /* React Grid Layout - Theme overrides */
 .react-grid-item > .react-resizable-handle {

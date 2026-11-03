@@ -68,12 +68,14 @@ class UpdateTests(unittest.TestCase):
                 for path in self.root.rglob('*') if path.is_file() and not path.is_symlink()}
 
     def test_source_update_preserves_private_state_configuration_and_prior_backups(self):
+        (self.root / 'backup-before-maintenance-survey-update').mkdir()
+        (self.root / 'backup-before-maintenance-survey-update/keep').write_text('first survey update backup')
         (self.root / 'backup-before-genius-context-update').mkdir()
         (self.root / 'backup-before-genius-context-update/keep').write_text('previous backup')
         before = self.snapshot()
         self.assertTrue(updater.update(self.root, self.bundle))
         for name, data in before.items():
-            if name.startswith(('private/', 'backup-before-genius-')) or name in (
+            if name.startswith(('private/', 'backup-before-genius-', 'backup-before-maintenance-survey-update/')) or name in (
                 'configure.py', 'compose.json', 'start-local.sh',
             ):
                 self.assertEqual((self.root / name).read_bytes(), data)

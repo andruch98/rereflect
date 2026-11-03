@@ -52,7 +52,7 @@ export const GENIUS_QUESTION_GROUPS = [
     'How many survey responses did we receive during this period?',
     'Show the completed maintenance surveys for this period.',
     'Which survey submissions say the issue is still unresolved?',
-    'What did residents say about their maintenance experience?',
+    'What did residents say in surveys about their maintenance experience?',
     'Show the original answers behind that.',
   ] },
   { source: 'management_responses', title: 'Management responses', questions: [

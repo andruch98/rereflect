@@ -1,0 +1,82 @@
+[
+  {
+    "path": "services/frontend-web/app/(dashboard)/customers/churn-suggestions/page.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/app/(dashboard)/settings/api-keys/page.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/copilot/actionsContract.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/feedbacks/FeedbackDeleteRoleGate.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsAIPage.accuracyTab.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsEmbeddings.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.categoryClassifier.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.classifier.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.urgencyClassifier.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsProviders.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsProvidersLocalLLM.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/AISettingsSentiment.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/__tests__/settings/NotificationsSettingsPage.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/app/(dashboard)/settings/integrations/salesforce/__tests__/SalesforcePage.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/components/__tests__/OidcSignInButton.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/components/__tests__/SamlSignInButton.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/contexts/__tests__/AuthContext.test.tsx",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/lib/__tests__/api-client.test.ts",
+    "identical_to_survey_base": true
+  },
+  {
+    "path": "services/frontend-web/lib/api/__tests__/outreach.bulk.test.ts",
+    "identical_to_survey_base": true
+  }
+]

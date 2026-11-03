@@ -71,7 +71,7 @@ class BuildTests(unittest.TestCase):
         with zipfile.ZipFile(self.output) as bundle:
             names = bundle.namelist()
             self.assertEqual(len(names), 4 + len(builder.HANDOFF_FILES))
-            prefix = 'boomsay-maintenance-survey-update/'
+            prefix = builder.BUNDLE_NAME + '/'
             for source, destination in builder.HANDOFF_FILES.items():
                 expected = subprocess.check_output(['git', 'show', self.commit + ':' + source], cwd=self.root)
                 self.assertEqual(bundle.read(prefix + destination), expected)
@@ -100,7 +100,7 @@ class BuildTests(unittest.TestCase):
         with patch('builtins.print'):
             builder.build(self.commit, self.output)
         with zipfile.ZipFile(self.output) as bundle:
-            prefix = 'boomsay-maintenance-survey-update/'
+            prefix = builder.BUNDLE_NAME + '/'
             for source, destination in builder.HANDOFF_FILES.items():
                 expected = subprocess.check_output(['git', 'show', self.commit + ':' + source], cwd=self.root)
                 self.assertEqual(bundle.read(prefix + destination), expected)

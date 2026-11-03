@@ -1,3 +1,5 @@
+> Current Mac workflow: use the existing port-53004 preview and [the update instructions](preview_updates/README.txt). The separate demo below is optional developer documentation, not the manager installation path. Current corrections and verification limits are in [HANDOFF.md](HANDOFF.md).
+
 # Maintenance survey integration
 
 The first survey workflow uses the existing Next.js frontend, FastAPI API,
@@ -142,7 +144,7 @@ In a separately configured local application, open `/ask-genius` and ask:
 
 - “Show the completed maintenance surveys for this period.”
 - “Which submissions say the issue is still unresolved?”
-- “What did residents say about their maintenance experience?”
+- “What did residents say in surveys about their maintenance experience?”
 - “Show the original answers behind that.”
 
 Survey evidence opens `/surveys/{public_id}` under manager authentication. Survey
