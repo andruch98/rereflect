@@ -92,6 +92,20 @@ class UpdateTests(unittest.TestCase):
         self.assertFalse(updater.update(self.root, self.bundle))
         self.assertEqual(self.snapshot(), before)
 
+    def test_published_email_release_with_blank_lines_preserves_private_state(self):
+        installed = '4cea583fa5f0b98d50c7ad97bf54c84aca31dccf'
+        (self.root / 'SOURCE.txt').write_text(
+            f'Application: andruch98/rereflect\n\nBranch: feat/survey-email-preview\n\nCommit: {installed}\n')
+        meta_path = self.bundle / 'update.json'
+        meta = json.loads(meta_path.read_text())
+        meta['bases'].append(installed)
+        meta_path.write_text(json.dumps(meta))
+        before = self.snapshot()
+        self.assertTrue(updater.update(self.root, self.bundle))
+        for name, data in before.items():
+            if name.startswith('private/') or name in ('compose.json', 'configure.py', 'start-local.sh'):
+                self.assertEqual((self.root / name).read_bytes(), data)
+
     def test_unknown_startup_or_source_is_rejected_before_mutation(self):
         for kind in ('startup', 'commit'):
             with self.subTest(kind=kind):
