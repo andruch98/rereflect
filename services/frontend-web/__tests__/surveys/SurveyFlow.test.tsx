@@ -37,6 +37,55 @@ it('resumes the saved original questionnaire and draft including Not sure', asyn
   expect(screen.getByRole('radio', { name: 'Not sure' })).toBeChecked();
   expect(screen.getByRole('textbox', { name: 'Your comment?' })).toHaveValue('The leak remains.');
   expect(api.resident).toHaveBeenCalledWith('private-token');
+  expect(screen.getByRole('status')).toHaveTextContent('Draft saved.');
+});
+it('does not claim a blank untouched survey is saved; confirms an explicit successful save', async () => {
+  api.resident.mockResolvedValue({ ...survey, status: 'pending', draft_answers: {} });
+  render(<ResidentSurvey token="private-token" />);
+  await screen.findByRole('heading', { name: survey.questionnaire.title });
+  expect(screen.queryByText(/Draft saved/)).not.toBeInTheDocument();
+  expect(api.saveDraft).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+  expect(await screen.findByText(/Draft saved/)).toBeInTheDocument();
+});
+it('clears the saved confirmation when answers change and ignores a stale save completion', async () => {
+  let finishDraft!: (value: SurveyInstance) => void;
+  api.saveDraft.mockImplementationOnce(() => new Promise(resolve => { finishDraft = resolve; }));
+  render(<ResidentSurvey token="private-token" />);
+  await screen.findByRole('heading', { name: survey.questionnaire.title });
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(() => expect(api.saveDraft).toHaveBeenCalledTimes(1));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'New unsaved text.' } });
+  expect(screen.queryByText(/Draft saved/)).not.toBeInTheDocument();
+  await act(async () => { finishDraft(survey); });
+  expect(screen.queryByText(/Draft saved/)).not.toBeInTheDocument();
+  expect(screen.getByRole('textbox')).toHaveValue('New unsaved text.');
+});
+it.each([
+  ['email_test_accepted', false, 'Test email sent'],
+  ['simulated', true, 'Simulated invitation — no email sent'],
+  ['email_test_reserved', false, 'Test email sending not confirmed'],
+  ['email_test_failed', false, 'Test email send failed'],
+  ['suppressed_opt_out', true, 'Invitation suppressed — opted out'],
+  ['unrecognized', false, 'Sending history unavailable'],
+] as const)('shows truthful invitation state %s in both list and detail', async (status, is_simulated, expected) => {
+  const row = { ...completed, invitation: { ...survey.invitation!, status, is_simulated } };
+  api.list.mockResolvedValue({ surveys: [row], total: 1 }); api.get.mockResolvedValue(row);
+  const list = mountDashboard(<SurveyDashboard />);
+  expect(await screen.findByText(expected)).toBeInTheDocument();
+  expect(screen.getByText('submitted')).toBeInTheDocument();
+  list.unmount();
+  mountDashboard(<SurveyDetail id={row.public_id} />);
+  await screen.findByRole('heading', { name: 'Original questions and answers' });
+  expect(screen.getAllByText(expected)).toHaveLength(2);
+  expect(screen.queryByText(/No email was sent\./)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Delivered/)).not.toBeInTheDocument();
+});
+it('shows unavailable sending history without an invitation record', async () => {
+  api.get.mockResolvedValue({ ...completed, invitation: undefined });
+  mountDashboard(<SurveyDetail id={survey.public_id} />);
+  expect(await screen.findByText('Sending history unavailable')).toBeInTheDocument();
+  expect(screen.getByText('submitted')).toBeInTheDocument();
 });
 it('persists edits as a draft using numeric ratings and the actual private token', async () => {
   render(<ResidentSurvey token="private-token" />); await screen.findByRole('heading', { name: survey.questionnaire.title });

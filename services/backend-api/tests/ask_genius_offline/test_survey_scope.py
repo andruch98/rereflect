@@ -4,8 +4,10 @@ Routes/auth/storage/evidence are real; narrative model outputs are deliberate mo
 These tests assess selected original records, not live-model factual accuracy.
 """
 import pytest
+import json
 
 from test_surveys import ALL, PERIOD, context, mixed_surveys, survey_flow
+from src.services import ask_genius_surveys
 
 
 def nine_surveys(flow):
@@ -121,3 +123,61 @@ def test_users_fourteen_turn_sequence_selects_correct_types(survey_flow):
         if index == 0:
             assert response.json()['answer'] == '9 completed survey response(s) in All available history.'
             assert metadata['survey_counts']['survey_type_counts']['maintenance_completed'] == 3
+
+
+def test_broad_summary_receives_mixed_ratings_and_all_original_concerns(survey_flow):
+    """Synthetic mixed feedback: verify model INPUT, not mocked prose quality."""
+    f = survey_flow
+    rows = nine_surveys(f)
+    # Use the actual saved records, without inventing a narrative classifier.
+    from src.models.survey import SurveyInstance
+    maintenance = [r for r in f['db'].query(SurveyInstance).all()
+                   if r.questionnaire_snapshot['id'] == 'maintenance_v1']
+    for row, rating, resolution, response_time, comment in zip(maintenance,
+            [2, 3, 4], ['unresolved', 'partially_resolved', 'resolved'],
+            ['not_sure', 3, 4], ['Water remains on the floor; I nearly slipped.',
+                                'The repair helped but the leak continues.', '']):
+        row.answers = {'maintenance_overall': rating, 'issue_resolution': resolution,
+                       'maintenance_response_time': response_time, 'maintenance_comment': comment}
+    move_in = rows['move_in_completed']
+    move_in.answers = {**move_in.answers, 'move_in_overall': 3, 'apartment_condition': 2,
+                       'move_in_comment': 'Everything is fine.'}
+    f['db'].commit()
+    first = f['ask']('what about the 6-month survey?', period=ALL)
+    # A wrong earlier assistant message must not replace current original evidence.
+    f['model'].update(answer='No concerns were reported.', evidence=[])
+    f['ask']('Are there concerns?', conversation_id=first.json()['conversation_id'])
+    response = f['ask']('What are the main improvements suggested by all surveys?',
+                       conversation_id=first.json()['conversation_id'])
+    payload = assert_selection(f, response, [], 9)
+    serialized = json.dumps(payload)
+    assert 'Water remains on the floor; I nearly slipped.' in serialized
+    assert 'The repair helped but the leak continues.' in serialized
+    ratings = payload['survey_calculated']['rating_counts_by_type']
+    assert ratings['maintenance_completed']['maintenance_overall'] == {
+        '2 — Bad': 1, '3 — Okay': 1, '4 — Good': 1}
+    assert ratings['maintenance_completed']['maintenance_response_time'] == {
+        'Not sure': 1, '3 — Okay': 1, '4 — Good': 1}
+    assert ratings['move_in_completed']['move_in_overall'] == {'3 — Okay': 1}
+    assert ratings['move_in_completed']['apartment_condition'] == {'2 — Bad': 1}
+    assert payload['survey_calculated']['issue_resolution_counts'] == {
+        'unresolved': 1, 'resolved': 1, 'partially_resolved': 1}
+    narrowed = f['ask']('What do the maintenance surveys say?',
+                       conversation_id=first.json()['conversation_id'])
+    assert narrowed.status_code == 200
+    assert set(context(f)['survey_calculated']['rating_counts_by_type']) == {'maintenance_completed'}
+
+
+def test_rating_statistics_do_not_classify_text_or_merge_questionnaire_types():
+    records = [
+        {'survey_id': 'a', 'event_type': 'lease_month_3', 'context': {'resident_id': 'r'},
+         'questions': [{'id': 'overall', 'type': 'rating', 'answer': 5, 'answer_label': '5 — Excellent'},
+                       {'id': 'comment', 'type': 'text', 'answer': 'bad', 'answer_label': 'bad'}]},
+        {'survey_id': 'b', 'event_type': 'lease_month_6', 'context': {'resident_id': 'r'},
+         'questions': [{'id': 'overall', 'type': 'rating', 'answer': 2, 'answer_label': '2 — Bad'},
+                       {'id': 'optional_rating', 'type': 'rating', 'answer': None, 'answer_label': None}]},
+    ]
+    assert ask_genius_surveys.calculated(records)['rating_counts_by_type'] == {
+        'lease_month_3': {'overall': {'5 — Excellent': 1}},
+        'lease_month_6': {'overall': {'2 — Bad': 1}},
+    }

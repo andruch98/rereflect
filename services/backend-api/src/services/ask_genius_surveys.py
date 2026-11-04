@@ -77,6 +77,14 @@ def _context(record):
 
 
 def calculated(records):
+    rating_counts = {}
+    for record in records:
+        for question in record['questions']:
+            if question.get('type') != 'rating' or question.get('answer') is None:
+                continue
+            counts = rating_counts.setdefault(record.get('event_type', 'maintenance_completed'), {}).setdefault(question['id'], {})
+            label = question['answer_label']
+            counts[label] = counts.get(label, 0) + 1
     maintenance = [r for r in records if r.get('event_type', 'maintenance_completed') == 'maintenance_completed']
     resolutions = {r['survey_id']: next((q['answer'] for q in r['questions'] if q['id'] == 'issue_resolution'), None)
                    for r in maintenance}
@@ -85,6 +93,7 @@ def calculated(records):
         'submission_count': len(records),
         'distinct_resident_count': len({_context(r)['resident_id'] for r in records}),
         'survey_type_counts': dict(Counter(r.get('event_type', 'maintenance_completed') for r in records)),
+        'rating_counts_by_type': rating_counts,
         'issue_resolution_counts': dict(Counter(values)),
         'issue_resolution_submission_ids': {value: [key for key, answer in resolutions.items() if answer == value]
                                            for value in dict.fromkeys(values)},

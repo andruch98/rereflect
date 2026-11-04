@@ -1,54 +1,62 @@
-# Point 1: survey selection
+# Survey corrections — combined PR #12
 
-November 4, 2026. Branch: `fix/ask-genius-survey-selection`, based on PR #11's
-verified head `2498bb591c55acec9f45c16e8688dd80933161c2`.
-Merge and deployment remain pending approval.
+November 4, 2026. Branch `fix/ask-genius-survey-selection`, stacked on
+`feat/lifecycle-email-preview` (#11). The four discussed corrections are now
+implemented together. Merge and deployment require separate authorization.
 
-## Problem and resulting behavior
+## Behavior and diagnosis
 
-After maintenance, “what does the move in completed say” retained maintenance.
-After 6-month, “which are the bad surveys, summarize them in a list” retained
-6-month. Ordinary named-type descriptions now select that questionnaire's
-original answers. Broad unqualified evaluations clear the prior questionnaire
-filter, within the selected period. Explicit named types take precedence.
-Short follow-ups retain the current subject; topic mentions such as “all
-surveys about maintenance” do not select a questionnaire type.
+1. Named survey descriptions select that questionnaire's originals. Broad,
+   unqualified evaluations cover all types in the chosen period; short
+   follow-ups retain their subject. Previously, the preceding type could stick.
+2. The model receives rating counts grouped by questionnaire and question,
+   alongside all original answers. The shared evidence rules and existing
+   survey section now preserve low ratings, mixed feedback, unresolved issues
+   and reported safety concerns. Individual aspect ratings are distinct from
+   overall experience. Missing saved analysis does not mean missing originals.
+   Current source inspection and route tests confirm broad inputs contain the
+   original records; the exact requests from the user's Mac were not available.
+3. Invitation status distinguishes accepted test sends, simulations, missing
+   history, unconfirmed sends, failures and opt-outs in both list and detail.
+   Submission status remains separate. Provider acceptance is not proof of
+   inbox delivery. The previous detail paragraph always said no email was sent.
+4. An untouched blank form no longer starts as saved. A reopened draft or a
+   successful save confirms saving; editing clears that confirmation. Existing
+   revision guards, failure messages and editable answers are preserved.
 
-Only the survey selection parser changes in production. Original answers,
-period filters, source authorization and existing records use the existing
-reader. No summary instruction, model/provider, email/draft status, property
-name, database schema or infrastructure change is included.
+The prompt was reread in full with its unchanged output contract. Changes are
+integrated into the shared core and survey section, without adding duplicate
+examples or hardcoded test answers. Full instructions live at
+`services/backend-api/src/services/ask_genius_instructions.txt`.
 
-## Validation
+## Verification
 
-| Check | Observed result |
-| --- | --- |
-| New targeted cases on unchanged published parser | 11 failed, 2 passed |
-| Targeted cases after correction | 13 passed |
-| Existing Ask Genius route/service suite plus new cases | 247 passed |
-| Survey workflow suite | 84 passed, 4 PostgreSQL-specific skips |
-| Strengthened maintenance switch from 6-month, after full run | 1 passed |
-| Whitespace/diff check | Passed |
+- Ask Genius offline routes/services: 249 passed.
+- Survey workflow: 84 passed, four PostgreSQL-specific skips.
+- Frontend reviews, Ask Genius and surveys: 155 passed, one existing skip.
+- Affected frontend files: ESLint passed; whitespace check passed.
+- Full frontend TypeScript check: 87 errors, byte-identical diagnostics on the
+  unchanged branch. No added errors; this is not a passing project-wide check.
+- Before these changes, the two new rating-input tests failed and 13 scope
+  cases passed. The expanded frontend flow suite had eight failures and ten
+  passes; after the correction all 18 passed.
 
-The exact 14-question user sequence is included in the tests. It selects nine
-fictional submissions in all-history scope, three in maintenance scope and one
-for each other type. Model generation is mocked; routes, auth, saved chats,
-record selection and original-answer payloads are real. The first count is
-application-calculated. Neutral mocked prose does not establish live model
-factual accuracy. The maintenance-switch parameter was strengthened after the
-full run, then verified separately; the other cases were unchanged.
+The exact 14-question conversation is replayed against nine synthetic
+submissions to verify scope and original-answer inputs. Model generation is
+mocked. This establishes software behavior, not live-model factual accuracy.
+Full captured inputs, outputs, rejected cases, baseline failures and logs are
+kept in the user's private test record; no private capture archive is committed.
+No live model/email calls, Mac installation, merge or deployment occurred.
+Property naming remains a separately queued decision.
 
-Full raw test inputs/outputs, rejection diagnostics, failed baseline and logs
-are retained privately for the user. This public change contains no capture
-archive or model-request logs. No live model/email calls, Mac installation,
-merge or deployment occurred. Full repository CI is separate from these local
-checks and is not yet claimed as passed.
+## Next action and stopping rule
 
-## Next action
-
-Review Point 1 and arrange the guarded Mac preview update/manual check before
-treating it as accepted. The original move-in response should remain overall
-3, apartment condition 2, unresolved No, comment “all good.” A broad request
-after 6-month must include the older maintenance submissions. Actual model
-summarization can still fail independently. Address broad-summary omissions
-and overstatement as the next separate point.
+Update the local preview through a guarded update, then replay the original
+14 questions against the user's nine existing responses in all-history scope.
+Check nine responses (three maintenance, one per other type), original move-in
+answers, low-rated aspects, unresolved maintenance and the reported slip risk,
+parking, rent-payment follow-up and renewal uncertainty. Check a date period
+excluding the two older submissions. Do not resubmit surveys or resend emails.
+Stop at the first factual failure, capture the actual input/output and diagnose
+it before changing instructions again. Human acceptance of the new live
+answers remains pending; software passes do not substitute for that review.
