@@ -42,6 +42,9 @@ def _reload_auth_with(env: dict):
     """
     from unittest.mock import patch
 
+    parent = importlib.import_module("src.api")
+    missing = object()
+    saved_attribute = getattr(parent, "auth", missing)
     saved = {k: os.environ.get(k) for k in env}
     saved_module = sys.modules.pop("src.api.auth", None)
     os.environ.update({k: v for k, v in env.items() if v is not None})
@@ -60,6 +63,13 @@ def _reload_auth_with(env: dict):
                 os.environ[k] = v
         if saved_module is not None:
             sys.modules["src.api.auth"] = saved_module
+        # Python also caches submodules on their parent package. Restore both
+        # references so later tests patch the same module that callers import.
+        if saved_attribute is missing:
+            if hasattr(parent, "auth"):
+                delattr(parent, "auth")
+        else:
+            parent.auth = saved_attribute
 
 
 class TestJwtSecretIsRequired:
@@ -94,6 +104,13 @@ class TestJwtSecretIsRequired:
     def test_a_real_secret_imports_cleanly(self):
         module = _reload_auth_with({"JWT_SECRET": "a-genuinely-random-value-xyz"})
         assert module.JWT_SECRET == "a-genuinely-random-value-xyz"
+
+    def test_reload_restores_both_module_references(self):
+        original = importlib.import_module("src.api.auth")
+        _reload_auth_with({"JWT_SECRET": "another-isolated-test-secret"})
+        from src.api import auth
+        assert auth is original
+        assert importlib.import_module("src.api.auth") is original
 
     def test_source_contains_no_default_literal(self):
         """Guards against the default being reintroduced by a merge."""

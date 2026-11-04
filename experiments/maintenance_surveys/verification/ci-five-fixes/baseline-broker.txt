@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-7.4.3, pluggy-1.7.0
+rootdir: /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api
+configfile: pytest.ini
+plugins: anyio-4.15.1, asyncio-0.21.1
+asyncio: mode=Mode.AUTO
+collected 1 item
+
+tests/test_broker_dependency_compatibility.py F                          [100%]
+
+=================================== FAILURES ===================================
+_________ test_installed_redis_client_is_supported_by_broker_transport _________
+tests/test_broker_dependency_compatibility.py:11: in test_installed_redis_client_is_supported_by_broker_transport
+    assert issubclass(channel._get_client(), redis.Redis)
+../../../tmp/genius-venv/lib/python3.12/site-packages/kombu/transport/redis.py:2072: in _get_client
+    raise VersionMismatch(
+E   kombu.exceptions.VersionMismatch: Redis transport requires redis-py versions 6.1.0 or later. You have 5.0.1
+=========================== short test summary info ============================
+FAILED tests/test_broker_dependency_compatibility.py::test_installed_redis_client_is_supported_by_broker_transport
+============================== 1 failed in 0.09s ===============================

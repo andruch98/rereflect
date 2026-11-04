@@ -1,0 +1,32 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-7.4.3, pluggy-1.7.0
+rootdir: /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api
+configfile: pytest.ini
+plugins: anyio-4.15.1, asyncio-0.21.1
+asyncio: mode=Mode.AUTO
+collected 6 items
+
+tests/test_jwt_secret_required.py .....                                  [ 83%]
+tests/surveys_offline/test_demo_guard.py F                               [100%]
+
+=================================== FAILURES ===================================
+_ test_demo_init_retains_existing_credentials_and_creates_no_completed_fixture _
+tests/surveys_offline/test_demo_guard.py:48: in test_demo_init_retains_existing_credentials_and_creates_no_completed_fixture
+    assert user.password_hash == 'synthetic-hash-for-isolated-test'
+E   AssertionError: assert '$2b$12$3AsVL...LbX6xEAwfVW6.' == 'synthetic-ha...isolated-test'
+E     - synthetic-hash-for-isolated-test
+E     + $2b$12$3AsVL8epRMHvRCANKibTgOyP7vUIrcWUfN4XMRRCLbX6xEAwfVW6.
+=============================== warnings summary ===============================
+src/models/base.py:3
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/models/base.py:3: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+tests/surveys_offline/test_demo_guard.py::test_demo_init_retains_existing_credentials_and_creates_no_completed_fixture
+tests/surveys_offline/test_demo_guard.py::test_demo_init_retains_existing_credentials_and_creates_no_completed_fixture
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3594: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/surveys_offline/test_demo_guard.py::test_demo_init_retains_existing_credentials_and_creates_no_completed_fixture
+=================== 1 failed, 5 passed, 3 warnings in 0.89s ====================

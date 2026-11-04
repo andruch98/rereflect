@@ -101,6 +101,17 @@ correction does not change application behavior, schema, prompts or records.
 
 ## What remains outside this correction
 
+Follow-up authorized 3 November: run 41740736434 completed collection and
+passed 5,665 backend tests, but failed five. Four failures came from unpinned
+Kombu 5.7.0 requiring redis-py >=6.1.0 while the backend pins 5.0.1. The backend
+now pins Kombu 5.3.4, matching the existing worker. The fifth was test pollution:
+the JWT re-import helper restored sys.modules but left src.api.auth pointing at
+the temporary module. Both references are now restored; application auth is
+unchanged. Regression tests cover the actual transport version gate and import
+identity. Local combined checks: 42 passed, four PostgreSQL-only skips. Full
+GitHub CI must still pass. See verification/ci-five-fixes/README.md for failures,
+commands, captured logs and limitations. No new preview package is required yet.
+
 Real PMS/review-source connections, real survey email delivery, text messaging,
 reminders/scheduling, automatic survey analysis, other survey types, survey public
 sharing, cloud deployment and live AI quality evaluation remain separate work.
@@ -115,7 +126,7 @@ at a time before implementation. Save agreed decisions without repeating or
 contradicting prompt rules. Preserve existing records and the familiar preview
 workflow. Ask about unresolved product choices; do not invent them.
 
-Next: review the complete GitHub checks after the test filename correction.
+Next: review the complete GitHub checks after the dependency/test-isolation fix.
 Stop and report any new unrelated blocker before expanding scope. Merging this
 correction or the underlying survey branch, and deployment, need explicit
 approval. PR #5's e1d7352fa043 migration pin is already superseded by the survey

@@ -1,0 +1,14 @@
+Collecting kombu==5.7.0
+  Using cached kombu-5.7.0-py3-none-any.whl.metadata (17 kB)
+Requirement already satisfied: amqp>=5.4.2 in ./tmp/genius-venv/lib/python3.12/site-packages (from kombu==5.7.0) (5.4.2)
+Requirement already satisfied: vine==5.1.0 in ./tmp/genius-venv/lib/python3.12/site-packages (from kombu==5.7.0) (5.1.0)
+Using cached kombu-5.7.0-py3-none-any.whl (266 kB)
+Installing collected packages: kombu
+  Attempting uninstall: kombu
+    Found existing installation: kombu 5.3.4
+    Uninstalling kombu-5.3.4:
+      Successfully uninstalled kombu-5.3.4
+Successfully installed kombu-5.7.0
+
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: python -m pip install --upgrade pip
