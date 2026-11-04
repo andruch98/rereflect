@@ -44,6 +44,11 @@ ENV NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=$NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE
 # https://nextjs.org/telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Keep the build heap bounded on small self-hosted servers. Compose can override
+# this at build time; it does not change the production runner's heap settings.
+ARG NODE_OPTIONS=--max-old-space-size=2048
+ENV NODE_OPTIONS=$NODE_OPTIONS
+
 WORKDIR /app/services/frontend-web
 RUN pnpm build
 

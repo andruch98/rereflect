@@ -216,7 +216,12 @@ def run_migrations():
 async def lifespan(app: FastAPI):
     """Application lifespan - runs on startup and shutdown."""
     # Startup: run migrations, seed admin user, sync changelog
-    run_migrations()
+    # A Compose deployment can run a single, fail-closed migration gate before
+    # starting the API. Other installs retain the existing startup behavior.
+    if os.getenv("BOOMSAY_SKIP_STARTUP_MIGRATIONS", "").lower() != "true":
+        run_migrations()
+    else:
+        logger.info("Startup migrations handled by the deployment migration gate")
     if os.getenv("APARTMENT_EXPERIMENT_ORG_ID"):
         # The isolated experiment is provisioned explicitly. Normal startup can
         # embed Copilot templates and seed provider keys; neither belongs in its
