@@ -1,7 +1,28 @@
 import type { Metadata } from "next";
+import { Montserrat, Merriweather, Ubuntu_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { REVIEW_PREVIEW_ENABLED } from '@/lib/review-preview';
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const merriweather = Merriweather({
+  subsets: ["latin"],
+  weight: ["300", "400", "700", "900"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+const ubuntuMono = Ubuntu_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = REVIEW_PREVIEW_ENABLED ? {
   title: 'BoomSay — Reviews',
@@ -42,7 +63,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="antialiased font-sans">
+      <body className={`${montserrat.variable} ${merriweather.variable} ${ubuntuMono.variable} antialiased font-sans`}>
         <Providers>
           {children}
         </Providers>

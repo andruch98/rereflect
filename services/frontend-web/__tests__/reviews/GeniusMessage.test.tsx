@@ -18,12 +18,30 @@ function show(content = 'Residents reported communication concerns.', data: Chat
   return render(<GeniusMessage message={{ id: 1, role: 'assistant', content, created_at: '', structured_data: data }} publicSnapshot={publicSnapshot} />);
 }
 
-it('opens validated survey originals with a source-specific identifier and never trusts a supplied URL', () => {
+it('opens a topic-specific survey answer in a popup and expands only that submission', () => {
   const surveyId = '11111111-1111-4111-8111-111111111111';
-  show('The issue remains unresolved.', { kind: 'ask_genius', sources: [{ source: 'survey', survey_id: surveyId, label: 'Maintenance survey', excerpt: 'Is the issue fully resolved? No, still unresolved', href: 'https://untrusted.invalid' }] });
-  expect(screen.getByRole('link', { name: /View original answers/ })).toHaveAttribute('href', `/surveys/${surveyId}`);
-  expect(screen.getByText('Is the issue fully resolved? No, still unresolved')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'View review' })).not.toBeInTheDocument();
+  const original = { questions: [
+    { id: 'resolution', text: 'Is the issue fully resolved?', answer_label: 'No, still unresolved' },
+    { id: 'comment', text: 'Anything else?', answer_label: 'The faucet still leaks.' },
+  ] };
+  show('- **Resolution:** The issue remains unresolved.\n- **Leaks:** The faucet still leaks.', { kind: 'ask_genius', sources: [
+    { source: 'survey', survey_id: surveyId, topic: 'Resolution', question_id: 'resolution', survey: original, href: 'https://untrusted.invalid' },
+    { source: 'survey', survey_id: surveyId, topic: 'Leaks', question_id: 'comment', survey: original },
+  ] });
+  const group = screen.getByLabelText('Survey answers for Resolution');
+  expect(group.closest('li')).toHaveTextContent('Resolution: The issue remains unresolved.');
+  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  fireEvent.click(within(group).getByRole('button', { name: 'View original answers' }));
+  const modal = screen.getByRole('dialog');
+  expect(within(modal).getByText('Is the issue fully resolved?')).toBeInTheDocument();
+  expect(within(modal).getByText('No, still unresolved')).toBeInTheDocument();
+  expect(within(modal).queryByText('Anything else?')).not.toBeInTheDocument();
+  fireEvent.click(within(modal).getByRole('button', { name: 'View all answers from this survey' }));
+  expect(within(modal).getByText('The faucet still leaks.')).toBeInTheDocument();
+  fireEvent.click(within(modal).getByRole('button', { name: 'Close' }));
+  fireEvent.click(within(screen.getByLabelText('Survey answers for Leaks')).getByRole('button', { name: 'View original answers' }));
+  expect(within(screen.getByRole('dialog')).getByText('Anything else?')).toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).queryByText('Is the issue fully resolved?')).not.toBeInTheDocument();
   expect(get).not.toHaveBeenCalled();
 });
 

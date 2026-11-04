@@ -6,7 +6,7 @@ from src.models.conversation_message import ConversationMessage
 
 def test_failed_first_question_returns_persisted_chat_and_retry_is_not_duplicated(flow):
     request_id = str(uuid4())
-    payload = {'question': 'What are the main staff themes?', 'request_id': request_id, 'period': {'preset': 'all_time'}}
+    payload = {'question': 'What are the main staff themes in reviews?', 'request_id': request_id, 'period': {'preset': 'all_time'}}
     flow['model']['finish_reason'] = 'length'
     first = flow['client'].post('/api/v1/ask-genius/questions', headers=flow['headers'], json=payload)
     assert first.status_code == 502

@@ -11,6 +11,7 @@ import { feedbackAPI } from '@/lib/api/feedback';
 import { readSavedApartmentAnalysis } from '@/lib/apartment-analysis';
 import { ApartmentAnalysis } from './ApartmentAnalysis';
 import { ReviewAnalysisStatus, ReviewRating, ReviewSentiment } from './ReviewFields';
+import { readSurveySources, SurveyCollection, type SurveySource } from './GeniusSurveyEvidence';
 
 interface ReviewSnapshot {
   original_review: string;
@@ -24,12 +25,6 @@ interface Source {
   excerpt?: string;
   excerpt_truncated?: boolean;
   review?: ReviewSnapshot;
-}
-
-interface SurveySource {
-  survey_id: string;
-  label: string;
-  excerpt?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,26 +42,6 @@ function readSources(metadata: ChatMessage['structured_data']): Source[] {
         saved_analysis: value.review.saved_analysis } : undefined;
     return [{ review_id: value.review_id, topic: typeof value.topic === 'string' ? value.topic : undefined, excerpt: typeof value.excerpt === 'string' ? value.excerpt : undefined, excerpt_truncated: value.excerpt_truncated === true, review }];
   });
-}
-
-function readSurveySources(metadata: ChatMessage['structured_data']): SurveySource[] {
-  if (!metadata || metadata.kind !== 'ask_genius' || !Array.isArray(metadata.sources)) return [];
-  const rows = metadata.sources.flatMap((value: unknown) => {
-    if (!isRecord(value) || value.source !== 'survey' || typeof value.survey_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.survey_id)) return [];
-    return [{ survey_id: value.survey_id, label: typeof value.label === 'string' ? value.label : 'Maintenance survey', excerpt: typeof value.excerpt === 'string' ? value.excerpt : undefined }];
-  });
-  return [...new Map(rows.map(row => [row.survey_id, row])).values()];
-}
-
-function SurveyCollection({ sources }: { sources: SurveySource[] }) {
-  const [pages, setPages] = useState(1);
-  const shown = Math.min(pages * 50, sources.length);
-  return <section aria-label="Supporting survey answers" className="space-y-3 rounded-xl border p-4">
-    <h3 className="font-semibold">Original survey answers</h3>
-    {sources.length > 50 && <p className="text-sm text-muted-foreground">Showing {shown} of {sources.length} submissions.</p>}
-    <ul className="divide-y">{sources.slice(0, shown).map(source => <li key={source.survey_id} className="space-y-2 py-3 first:pt-0 last:pb-0"><p className="text-sm font-medium">{source.label}</p>{source.excerpt && source.excerpt !== source.label && <p className="whitespace-pre-wrap break-words text-sm leading-6">{source.excerpt}</p>}<a href={`/surveys/${encodeURIComponent(source.survey_id)}`} className="inline-block text-sm text-primary underline underline-offset-4">View original answers<span className="sr-only"> — {source.label}</span></a></li>)}</ul>
-    {shown < sources.length && <Button type="button" variant="outline" size="sm" onClick={() => setPages(value => value + 1)}>{sources.length - shown <= 50 ? `Show remaining ${sources.length - shown}` : 'Show next 50 submissions'}</Button>}
-  </section>;
 }
 
 function savedAnalysisForDisplay(snapshot: unknown): unknown {
@@ -192,12 +167,18 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
     if (source.topic) topicGroups.set(source.topic, [...(topicGroups.get(source.topic) ?? []), source]);
     else ungrouped.push(source);
   }
+  const surveyGroups = new Map<string, SurveySource[]>();
+  const ungroupedSurveys: SurveySource[] = [];
+  for (const source of surveySources) {
+    if (source.topic) surveyGroups.set(source.topic, [...(surveyGroups.get(source.topic) ?? []), source]);
+    else ungroupedSurveys.push(source);
+  }
   const matchedTopics = new Set<string>();
   // Match exact topic labels at the start of Markdown list items; source text cannot
   // create links. Unmatched legacy metadata remains accessible under a labeled group.
   const bulletLines = message.content.split('\n').filter(line => /^\s*(?:[-*+] |\d+\. )/.test(line));
   for (const line of bulletLines) {
-    const topic = topicAtStart(line.replace(/^\s*(?:[-*+] |\d+\. )/, '').replace(/\*\*/g, ''), topicGroups.keys());
+    const topic = topicAtStart(line.replace(/^\s*(?:[-*+] |\d+\. )/, '').replace(/\*\*/g, ''), [...topicGroups.keys(), ...surveyGroups.keys()]);
     if (topic) matchedTopics.add(topic);
   }
   const content = assistant
@@ -206,13 +187,15 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
   const markdownComponents = useMemo(() => {
     const groups = new Map<string, Source[]>();
     for (const source of sources) if (source.topic) groups.set(source.topic, [...(groups.get(source.topic) ?? []), source]);
+    const surveyGroups = new Map<string, SurveySource[]>();
+    for (const source of surveySources) if (source.topic) surveyGroups.set(source.topic, [...(surveyGroups.get(source.topic) ?? []), source]);
     return { a: ({ children }: { children?: ReactNode }) => <span>{children}</span>, img: () => null,
       li: ({ children }: { children?: ReactNode }) => {
         const text = textOf(children).trim();
-        const topic = topicAtStart(text, groups.keys());
-        return <li>{children}{topic && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}</li>;
+        const topic = topicAtStart(text, [...groups.keys(), ...surveyGroups.keys()]);
+        return <li>{children}{topic && groups.has(topic) && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}{topic && surveyGroups.has(topic) && <SurveyCollection sources={surveyGroups.get(topic)!} topic={topic} />}</li>;
       } };
-  }, [sources, publicSnapshot]);
+  }, [sources, surveySources, publicSnapshot]);
   const copied = copiedContent === content;
   useEffect(() => {
     if (copiedContent === undefined) return;
@@ -238,7 +221,8 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
     </div>
     {[...topicGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><ReviewCollection sources={records} topic={topic} publicSnapshot={publicSnapshot} /></section>)}
     {!!ungrouped.length && <ReviewCollection sources={ungrouped} publicSnapshot={publicSnapshot} />}
-    {!!surveySources.length && <SurveyCollection key={surveySources.map(source => source.survey_id).join(':')} sources={surveySources} />}
+    {[...surveyGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><SurveyCollection sources={records} topic={topic} /></section>)}
+    {!!ungroupedSurveys.length && <SurveyCollection sources={ungroupedSurveys} />}
     <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="ghost" size="sm" className="h-8 gap-2 px-2 text-muted-foreground" onClick={() => { void copyAnswer(); }}>{copied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />}{copied ? 'Copied' : 'Copy'}</Button>
       {copyError && <p role="status" className="text-xs text-muted-foreground">Could not copy. Select the answer text to copy it.</p>}

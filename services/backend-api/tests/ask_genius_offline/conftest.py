@@ -6,6 +6,7 @@ This avoids importing unrelated application integrations and startup workers.
 import json
 import os
 from datetime import date
+from pathlib import Path
 from uuid import uuid4
 
 os.environ.setdefault('JWT_SECRET', 'ask-genius-offline-test-not-for-production')
@@ -24,6 +25,7 @@ from src.api.routes import ask_genius as routes
 from src.database.session import get_db
 from src.models.base import Base
 from src.models.feedback import FeedbackItem
+from src.models.conversation_message import ConversationMessage
 from src.models.organization import Organization
 from src.models.user import User
 from src.services import ask_genius as service
@@ -40,7 +42,11 @@ def saved(sentiment, topic, quote):
 
 
 @pytest.fixture
-def flow(monkeypatch):
+def flow(monkeypatch, request):
+    def capture(kind, **values):
+        if path := os.getenv('BOOMSAY_TEST_CAPTURE'):
+            with Path(path).open('a') as output:
+                output.write(json.dumps({'test': request.node.nodeid, 'kind': kind, 'mocked': True, **values}, default=str) + '\n')
     monkeypatch.setenv('BOOMSAY_REVIEW_PREVIEW', 'true')
     monkeypatch.setenv('ASK_GENIUS_ENABLED', 'true')
     monkeypatch.setenv('ASK_GENIUS_PROVIDER', 'openai')
@@ -69,17 +75,28 @@ def flow(monkeypatch):
     async def generate(messages, config):
         calls.append(messages)
         if model.get('exception'):
+            capture('model', input=messages, output=None, failure=type(model['exception']).__name__)
             raise model['exception']
         content = model.get('raw', json.dumps(model))
+        capture('model', input=messages, output=content, finish_reason=model.get('finish_reason', 'stop'),
+                live_requests=0, usage='Synthetic fixture token values; not real usage', cost='No live model request')
         return service.AnswerResult(content, {'simulated': True, 'content': content}, 100, 30, model.get('finish_reason','stop'))
     monkeypatch.setattr(service, 'generate_answer', generate)
     app = FastAPI(); app.include_router(routes.router)
     app.dependency_overrides[get_db] = lambda: db
     with TestClient(app) as client:
-        def ask(question='What are the main complaints?', **extra):
+        def ask(question='What are the main complaints in reviews?', **extra):
             headers = extra.pop('headers', headers_for(user))
-            return client.post('/api/v1/ask-genius/questions', headers=headers, json={
-                'question': question, 'request_id': str(uuid4()), **extra})
+            request_id = str(uuid4())
+            result = client.post('/api/v1/ask-genius/questions', headers=headers, json={
+                'question': question, 'request_id': request_id, **extra})
+            attempted = db.query(ConversationMessage).filter_by(role='user').order_by(ConversationMessage.id.desc()).first()
+            audit = attempted.raw_request if attempted and isinstance(attempted.raw_request, dict) else {}
+            diagnostic = {k: audit[k] for k in ('status', 'error', 'validation_reason', 'validation_detail',
+                         'normalizations', 'finish_reason') if k in audit} if audit.get('request_id') == request_id else {}
+            capture('application', question=question, options=extra, http_status=result.status_code,
+                    output=result.json(), diagnostic=diagnostic)
+            return result
         yield {'db':db,'user':user,'other_user':other_user,'org':org,'rows':rows,'client':client,
                'headers':headers_for(user),'ask':ask,'model':model,'calls':calls}
     db.close(); engine.dispose()

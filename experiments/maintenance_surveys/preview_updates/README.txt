@@ -1,50 +1,57 @@
-BOOMSAY — MAINTENANCE SURVEY SOURCE UPDATE
+BOOMSAY — ASK GENIUS ANSWER RECOVERY UPDATE
 
-This package replaces application source only. It preserves the existing preview
-database volume, credentials, login, review analysis, conversations, AI settings,
-Compose configuration and startup scripts. It neither starts Docker nor sends an
-email nor makes a model request. It does not access your private credential files.
+Update your existing BoomSay preview on port 53004. Keep Docker Desktop running.
+Unzip this package in Downloads; keep your existing preview folder in place.
 
-1. Unzip boomsay-maintenance-survey-update.zip beside your existing preview.
-2. In Terminal, change to your EXISTING preview folder, normally:
-   cd "$HOME/Downloads/boomsay-dashboard-preview"
-3. Run the updater from the unzipped package, for example:
-   python3 ../boomsay-maintenance-survey-update/update-preview.py
-4. Run your existing startup command:
+1. Paste into Terminal:
+
+   cd "$HOME/Downloads/boomsay-dashboard-preview" &&
+   python3 "$HOME/Downloads/boomsay-answer-recovery-update/update-preview.py" &&
    bash start-local.sh
-5. Open http://127.0.0.1:53004/surveys and use your existing login.
 
-Normal startup rebuilds source and runs Alembic upgrade head against the EXISTING
-database. Do not reset the database, remove Docker volumes, rerun a fresh installer
-or recreate credentials. The source backup is backup-before-maintenance-survey-update;
-previous update backups remain untouched. Repeating a completed update is safe.
+2. After startup succeeds, open:
+   http://127.0.0.1:53004/ask-genius
+   Use your existing login. Open your survey conversation, with All available
+   history selected. Your already-submitted fictional survey remains available.
 
-The updater accepts recognized source releases and known startup scripts only.
-An unsupported version or modified manifest is rejected before any write. Keep the
-preview and error message for review; do not edit checksums to bypass a rejection.
+3. Retry the question that failed, or send:
+   What did residents say in surveys about their maintenance experience?
 
-Read handoff/HANDOFF.md for verification results and handoff/README.md
-for simulation and questionnaire use. Readable fictional events and answers are
-included under handoff/fixtures/. These documents come from the exact feature
-commit recorded in update.json; uncommitted local edits are never packaged.
+   Then ask:
+   Show each answer.
 
-The independent fictional Docker Compose demo must run from the FULL feature
-checkout, which contains experiments/maintenance_surveys/compose.yml. The installed
-preview's source-only app/ folder and this update ZIP are not a full checkout.
-Use the accompanying feature repository/bundle for that separate demo; do not run
-its initializer against the installed preview database or copy private credentials.
+   The summary should answer your question without an error or unwanted evidence
+   controls. The follow-up should open the relevant original answers in a popup.
+   Check the summary against those answers. A software test cannot establish the
+   factual accuracy of a new live model response.
 
-Simulation calls the real ingestion workflow and records a simulated invitation.
-It never contacts Resend, even when a real API key exists. Ask Genius itself uses
-your existing AI configuration when you explicitly ask it a question; offline
-tests use mocked model responses and do not establish live AI answer quality.
+You do not need to create or submit another survey. Narrative questions use your
+existing configured model and can incur its normal usage costs. This update does
+not change that configuration or replace your model with a mock. Automated tests
+used fictional data and mocked/reconstructed responses; live AI quality remains
+unverified.
 
-Rollback during updater file failures restores the original source. This backup
-contains source metadata, not a database backup. Once startup applies new additive
-migrations, restoring older application source alone is unsupported because its
-migration tree does not know the new database revision. Keep all backups and the
-migration chain for recovery. Never remove the database to undo an update.
+The fix accepts valid extra supporting references while hiding their controls
+until requested, preserves them for follow-ups, and normalizes only unambiguous
+JSON string line breaks. It continues rejecting invalid references, invented
+quotations and broken output that would require guessing. Failures now have a
+specific stored reason and a plain-English message. No automatic retry is added.
+Shared instructions remain in one core, with a short survey-specific section.
 
-The updater's automated checks use a synthetic preview skeleton. Installed Mac
-preview compatibility and Docker startup must be verified on the user's Mac;
-the preparation environment has no access to that installation.
+The updater preserves database storage, saved reviews/analysis, chats/defaults,
+login, private configuration, Compose and startup scripts. It backs up application
+source to backup-before-genius-answer-recovery-update. Earlier backups remain
+intact. A repeated completed update is a no-op. Unsupported versions are rejected
+before changes; do not edit checksums or remove backups to bypass checks.
+
+Startup uses your existing migration command. No new migration is added by this
+fix. The source backup is NOT a database backup; restoring older source after
+applying migrations is not a supported rollback. Never use down -v or reset data.
+
+This package has not been installed on your Mac. Mac/ARM startup and live AI
+responses still need your walkthrough. Earlier reports of production-build and
+browser limitations are historical; this fix does not claim to resolve them.
+
+Exact commit and checksum: update.json. Current scope and verification:
+handoff/verification/answer-recovery/README.md and verification/offline-checks.txt.
+Older reports bundled under handoff are historical, not freshly repeated tests.

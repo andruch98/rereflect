@@ -1,108 +1,183 @@
-Maintenance-survey integration — final changed-file inventory
+BoomSay surveys — current changed-file inventory
 Repository: andruch98/rereflect
-Base: 59dfd9122b20d0098eceedf8e1d1296e86b6f0a3 (master)
-Branch: feat/maintenance-survey-integration
-Verified implementation: 6306996ff6ae3df98d58f087d7c0f2dddffaeb33
-Final documentation/package commit: recorded in update.json, bundle ref and chat receipt.
-Changed paths against base: 100
+Branch: fix/survey-genius-continuity
+Underlying survey base: ccb53d4122a76ffd6045d2bf188d20dfdb712d2d
+Answer-recovery starting commit: 6dd7827360d1a370d59537a0c7407bf5ad5faeff
+Comparison master: 59dfd9122b20d0098eceedf8e1d1296e86b6f0a3
+Exact delivery commit: update.json
 
-experiments/maintenance_surveys/CHANGED_FILES.txt | Inventory every path changed against master, with its purpose; includes font follow-up evidence.
-experiments/maintenance_surveys/Dockerfile | Demo setup: build the isolated fictional FastAPI preview with application dependencies and survey fixtures, omitting optional large ML packages.
-experiments/maintenance_surveys/Dockerfile.dockerignore | Demo setup: limit the backend image build context to required application inputs and exclude private files, environment settings and local databases.
-experiments/maintenance_surveys/HANDOFF.md | Final full-stack result, revision state, fresh artifact process and database-preserving Mac walkthrough.
-experiments/maintenance_surveys/README.md | Integration guide; correct the fictional manager address to pass real login validation.
-experiments/maintenance_surveys/VERIFICATION.txt | Step-by-step real application verification, actual inputs/results, resolved retries and remaining limitations.
-experiments/maintenance_surveys/compose.yml | Demo setup: run a separate fictional PostgreSQL, Redis, API and frontend preview on loopback ports with live provider settings disabled.
-experiments/maintenance_surveys/fixtures/maintenance-completed.json | Synthetic fixture: supply a readable timezone-qualified maintenance-completed event for ingestion without real resident data.
-experiments/maintenance_surveys/fixtures/unresolved-answers.json | Synthetic fixture: supply example final answers reporting an unresolved issue and an uncertain response-time rating.
-experiments/maintenance_surveys/preview_updates/PACKAGING.md | Documentation: describe exact-commit updater packaging, required handoff files, preservation guarantees and verification limits.
-experiments/maintenance_surveys/preview_updates/README.txt | Documentation: give database-preserving Mac preview update commands and distinguish the source update from the separate fictional demo.
-experiments/maintenance_surveys/preview_updates/build-update.py | Packaging tool: create an update ZIP from the exact committed application tree, verified metadata and committed handoff documents and fixtures.
-experiments/maintenance_surveys/preview_updates/update-preview.py | Packaging tool: validate a recognized preview and replace application source and metadata with rollback while preserving credentials, configuration and database storage.
-experiments/maintenance_surveys/preview_updates/verification/test_build.py | Packaging test: check exact-commit source and document packaging, required files, optional committed manifests and rejection of invalid inputs.
-experiments/maintenance_surveys/preview_updates/verification/test_update.py | Packaging test: check source-update preservation, checksum and path validation, idempotence and failure rollback using a synthetic preview.
-experiments/maintenance_surveys/verification/font-build/README.md | Preserve font/type evidence and mark the sidebar issue as resolved by the later full-stack pass.
-experiments/maintenance_surveys/verification/font-build/browser-font-check.json | Record production font stacks and mobile/desktop viewport checks with mocked resident API.
-experiments/maintenance_surveys/verification/font-build/comparison.json | Preserve recomputed 87-error equality and hashes of 18 unchanged diagnostic test files.
-experiments/maintenance_surveys/verification/font-build/current-tsc.log | Preserve full-project TypeScript output after the system-font change: 87 existing test errors.
-experiments/maintenance_surveys/verification/font-build/master-tsc.log | Preserve the original 87-error capture from unchanged master at the verified base commit.
-experiments/maintenance_surveys/verification/font-build/original-comparison.json | Retain the original master-versus-feature TypeScript comparison record.
-experiments/maintenance_surveys/verification/font-build/pre-font-feature-tsc.log | Preserve the original feature TypeScript diagnostics before the font follow-up.
-experiments/maintenance_surveys/verification/font-build/production-build.log | Record the successful default Turbopack production build using pinned pnpm.
-experiments/maintenance_surveys/verification/full-stack/README.md | Reproducible real-stack method, exact outcomes, environment adaptations and limits.
-experiments/maintenance_surveys/verification/full-stack/Worker.Dockerfile | Build the actual idle worker with CI-style optional ML omissions and no Beat scheduler.
-experiments/maintenance_surveys/verification/full-stack/browser_flow.py | Exercise real browser login, event/form/dashboard/Ask/evidence/restart without route interception.
-experiments/maintenance_surveys/verification/full-stack/compose.mock.yml | Overlay a separate test project with local model endpoint, loopback ports and blank live keys.
-experiments/maintenance_surveys/verification/full-stack/dashboard-check.json | Record actual resident/unit/ticket/status/date and all four original headings checked in the UI.
-experiments/maintenance_surveys/verification/full-stack/model_mock.cjs | Test-only OpenAI-compatible HTTP provider; validate finalized evidence and return marked mock replies.
-experiments/maintenance_surveys/verification/full-stack/production-build.log | Successful final default Turbopack production build; console whitespace normalized.
-experiments/maintenance_surveys/verification/full-stack/provenance.json | Compare real main/auth/survey/Ask runtime source hashes and record database counts and idle worker.
-experiments/maintenance_surveys/verification/full-stack/provider-observations.json | Preserve the two actual SDK requests received by the mock with original fictional evidence.
-experiments/maintenance_surveys/verification/full-stack/results.json | Capture actual successful browser/API sequence, source IDs, questions, answers and preservation results.
-experiments/maintenance_surveys/verification/full-stack/sentinels.py | Guard fictional storage and verify pre-existing review/analysis, credentials and settings; never insert survey answers.
-experiments/maintenance_surveys/verification/full-stack/type-comparison.json | Confirm the same 87 baseline diagnostics with no new or removed errors.
-services/backend-api/alembic/versions/f2e8463ab154_add_maintenance_surveys.py | Migration: add six survey-specific tables and durable identity constraints without altering existing reviews or conversations.
-services/backend-api/src/api/main.py | Production backend: register the survey router in the existing FastAPI application.
-services/backend-api/src/api/routes/ask_genius.py | Production backend: retrieve authorized survey evidence with source-aware conversation context and expose survey-sharing restrictions.
-services/backend-api/src/api/routes/surveys.py | Production backend: provide guarded simulation, community-scoped manager inspection and private-token resident draft, submission and unsubscribe routes.
-services/backend-api/src/models/__init__.py | Production backend: register and export the six survey ORM models with the existing model collection.
-services/backend-api/src/models/survey.py | Production backend: define community-scoped resident, unit, occurrence, survey, invitation and invited-email opt-out records separately from reviews.
-services/backend-api/src/services/ask_genius.py | Production backend: incorporate original survey evidence into Ask Genius context and validate survey-specific references and selectors alongside review evidence.
-services/backend-api/src/services/ask_genius_instructions.txt | Production prompt: define original survey answers as evidence and distinguish unavailable saved survey analysis from on-demand explanation.
-services/backend-api/src/services/ask_genius_sharing.py | Production backend: reject public snapshots of conversations containing survey-backed content, references or audited survey evidence.
-services/backend-api/src/services/ask_genius_surveys.py | Production backend: retrieve finalized survey originals by community and submission period, calculate counts and preserve supported resolution and follow-up scopes.
-services/backend-api/src/services/data/maintenance_survey_catalog.json | Production questionnaire data: preserve the original maintenance template, four questions, required rules, answer choices, rating labels and comment limit.
-services/backend-api/src/services/survey_catalog.py | Production backend: bind frozen questionnaire snapshots, validate draft and final answers and render readable answer labels.
-services/backend-api/src/services/survey_delivery.py | Production backend: prepare survey invitation content and define the simulated sender plus a guarded adapter to the existing Resend transport.
-services/backend-api/src/services/surveys.py | Production backend: ingest events idempotently, persist simulated invitations and opt-outs, serialize originals and save drafts or immutable final answers transactionally.
-services/backend-api/src/survey_demo.py | Use a login-valid fictional manager address without relaxing auth or rewriting accounts.
-services/backend-api/tests/ask_genius_offline/test_flow.py | Backend regression test: update the Ask Genius status expectation to include submitted surveys among available sources.
-services/backend-api/tests/ask_genius_offline/test_migration.py | Backend regression test: retain the historical chat migration in the revision chain without incorrectly requiring it to remain the newest head.
-services/backend-api/tests/ask_genius_offline/test_surveys.py | Backend integration test: verify authorized survey retrieval, exact counts, original evidence, follow-ups, unavailable analysis, review isolation and blocked public sharing with mocked models.
-services/backend-api/tests/surveys_offline/conftest.py | Backend test support: provide isolated fictional storage, authenticated route clients and blocked email and background-job boundaries.
-services/backend-api/tests/surveys_offline/test_demo_guard.py | Keep isolated bootstrap guards and verify the fictional address against the real login schema.
-services/backend-api/tests/surveys_offline/test_demo_verify_ask.py | Backend test: verify mocked Ask Genius handoff uses actual submitted originals and routes, restores configuration and rejects drafts or foreign storage.
-services/backend-api/tests/surveys_offline/test_journey.py | Backend integration test: cover event replay, invitation simulation, bound questionnaires, resident persistence, failures, dashboard authorization, opt-outs and the mocked Resend boundary.
-services/backend-api/tests/surveys_offline/test_migration.py | Backend migration test: verify additive survey schema upgrade and downgrade, ORM agreement, preserved existing records and one final migration head.
-services/backend-api/tests/surveys_offline/test_postgres_concurrency.py | Backend concurrency test: use disposable PostgreSQL schemas to check replay deduplication, final-answer immutability and merging of simultaneous partial drafts.
-services/backend-api/tests/test_mutation_route_rbac_sweep.py | Backend regression test configuration: identify resident capability-authenticated survey mutations as explicit exceptions to the manager JWT mutation sweep.
-services/backend-api/tests/test_outreach_migration.py | Backend regression test: move the existing single-head expectation to the new maintenance survey migration.
-services/frontend-web/Dockerfile | Give public assets the established nextjs ownership so the non-root production frontend starts.
-services/frontend-web/__tests__/reviews/GeniusAnalytics.test.ts | Frontend regression test: verify private resident survey paths skip analytics initialization and explicit event tracking.
-services/frontend-web/__tests__/reviews/GeniusChatHistory.test.tsx | Frontend regression test: verify survey-backed chat sharing is disabled with an explanation and no share request.
-services/frontend-web/__tests__/reviews/GeniusMessage.test.tsx | Frontend regression test: verify survey evidence uses validated source-specific local links and stays hidden in public snapshots.
-services/frontend-web/__tests__/reviews/GeniusPublicAuth.test.tsx | Frontend regression test: verify a resident survey capability link renders without a manager login redirect or identity lookup.
-services/frontend-web/__tests__/reviews/GeniusTelemetry.test.ts | Frontend regression test: verify direct private survey navigation does not initialize client telemetry or record a route trace.
-services/frontend-web/__tests__/reviews/ReviewPreviewLayout.test.tsx | Frontend regression test: verify Surveys navigation appears and authorized original-answer detail routes remain accessible in the preview layout.
-services/frontend-web/__tests__/settings/AppSidebar.test.tsx | Regression cases for survey/customer list/detail routes and a lookalike path.
-services/frontend-web/__tests__/surveys/SurveyFlow.test.tsx | Frontend component test: cover draft resumption and save errors, confirmed submissions, dashboard originals and explicit unsubscribe confirmation with mocked APIs.
-services/frontend-web/app/(dashboard)/layout.tsx | Production frontend: label the authenticated Surveys list and original-answer detail pages in the existing dashboard layout.
-services/frontend-web/app/(dashboard)/surveys/[id]/page.tsx | Production frontend route: render the authenticated survey detail component for a source-specific survey identifier.
-services/frontend-web/app/(dashboard)/surveys/page.tsx | Production frontend route: render the basic community Surveys dashboard.
-services/frontend-web/app/globals.css | Replace remote font CSS import with frontend system sans, serif and mono stacks.
-services/frontend-web/app/layout.tsx | Remove Google font loading and generated font classes; retain root layout and antialiasing.
-services/frontend-web/app/providers.tsx | Production frontend: let resident survey routes use theme and query providers without manager authentication or Google OAuth wrappers.
-services/frontend-web/app/survey/[token]/page.tsx | Production frontend route: render the occurrence-specific resident form with private-token binding and no-index and no-referrer metadata.
-services/frontend-web/app/survey/[token]/unsubscribe/page.tsx | Production frontend route: render the explicit resident survey unsubscribe confirmation for a private token.
-services/frontend-web/app/survey/layout.tsx | Production frontend: apply no-index and no-referrer metadata throughout the public survey route tree.
-services/frontend-web/components/AppSidebar.tsx | Match Surveys and Customers details against their own href; prevent cross-highlighting.
-services/frontend-web/components/reviews/AskGenius.tsx | Production frontend: describe submitted survey availability and propagate survey-sharing restrictions into the current chat history controls.
-services/frontend-web/components/reviews/GeniusChatHistory.tsx | Production frontend: disable sharing of survey-backed conversations and display the server-provided restriction reason.
-services/frontend-web/components/reviews/GeniusMessage.tsx | Production frontend: render paginated source-specific survey evidence links while excluding private survey cards from public snapshots.
-services/frontend-web/components/reviews/ReviewPreviewLayout.tsx | Production frontend: add Surveys navigation and permit authenticated original survey detail routes within the existing review preview shell.
-services/frontend-web/components/surveys/ResidentSurvey.tsx | Production frontend: display the frozen maintenance questionnaire, resume and save drafts and confirm final submission only after persistence succeeds.
-services/frontend-web/components/surveys/SurveyDashboard.tsx | Production frontend: show community survey instances, simulated invitation status, maintenance context and original draft or final answers with readable labels.
-services/frontend-web/components/surveys/SurveyUnsubscribe.tsx | Production frontend: require an explicit action to save survey email opt-out and report confirmation or failure.
-services/frontend-web/contexts/AuthContext.tsx | Production frontend: recognize private resident survey routes as public pages that do not require manager authentication.
-services/frontend-web/instrumentation-client.ts | Production frontend privacy: exclude private survey URLs from initial Sentry client setup and route transition tracing.
-services/frontend-web/instrumentation.ts | Production frontend privacy: skip server request-error capture for survey and shared-chat capability paths.
-services/frontend-web/lib/analytics.ts | Production frontend privacy: skip analytics initialization and explicit analytics calls when the current path is a private survey URL.
-services/frontend-web/lib/api-client.ts | Production frontend: exempt resident survey routes from authenticated API unauthorized-response login redirects.
-services/frontend-web/lib/api/ask-genius.ts | Production frontend type: expose an optional survey-sharing restriction reason on conversation records.
-services/frontend-web/lib/api/surveys.ts | Production frontend API: define survey data contracts, authenticated manager calls, unauthenticated resident calls and readable answer and date formatting.
-services/frontend-web/lib/ask-genius-options.ts | Production frontend: add maintenance survey, unresolved-submission and original-answer follow-up starter questions.
-services/frontend-web/middleware.ts | Production frontend privacy: return no-store, no-referrer and no-index headers for private survey pages.
-services/frontend-web/sentry.client.config.ts | Production frontend privacy: prevent initial Sentry client recording setup on private resident survey paths.
-services/frontend-web/sentry.edge.config.ts | Production frontend privacy: drop Sentry edge error and transaction events whose request URL contains a survey or shared-chat capability path.
-services/frontend-web/sentry.server.config.ts | Production frontend privacy: drop Sentry server error and transaction events whose request URL contains a survey or shared-chat capability path.
-services/frontend-web/tailwind.config.ts | Bind existing frontend font utilities to system-font variables without changing shared UI themes.
+ANSWER RECOVERY PATHS (latest round)
+experiments/maintenance_surveys/CHANGED_FILES.txt
+experiments/maintenance_surveys/HANDOFF.md
+experiments/maintenance_surveys/VERIFICATION.txt
+experiments/maintenance_surveys/preview_updates/PACKAGING.md
+experiments/maintenance_surveys/preview_updates/README.txt
+experiments/maintenance_surveys/preview_updates/build-update.py
+experiments/maintenance_surveys/preview_updates/update-preview.py
+experiments/maintenance_surveys/preview_updates/verification/replay_delivery.py
+experiments/maintenance_surveys/verification/answer-recovery/README.md
+services/backend-api/src/api/routes/ask_genius.py
+services/backend-api/src/services/ask_genius.py
+services/backend-api/src/services/ask_genius_instructions.txt
+services/backend-api/tests/ask_genius_offline/conftest.py
+services/backend-api/tests/ask_genius_offline/test_answer_recovery.py
+services/backend-api/tests/ask_genius_offline/test_flow.py
+services/backend-api/tests/ask_genius_offline/test_review_collections.py
+services/frontend-web/__tests__/reviews/AskGenius.test.tsx
+services/frontend-web/components/reviews/AskGenius.tsx
+services/frontend-web/lib/api/ask-genius.ts
+
+ALL CORRECTION PATHS AGAINST SURVEY BASE
+experiments/maintenance_surveys/CHANGED_FILES.txt
+experiments/maintenance_surveys/HANDOFF.md
+experiments/maintenance_surveys/README.md
+experiments/maintenance_surveys/VERIFICATION.txt
+experiments/maintenance_surveys/preview_updates/PACKAGING.md
+experiments/maintenance_surveys/preview_updates/README.txt
+experiments/maintenance_surveys/preview_updates/build-update.py
+experiments/maintenance_surveys/preview_updates/update-preview.py
+experiments/maintenance_surveys/preview_updates/verification/replay_delivery.py
+experiments/maintenance_surveys/preview_updates/verification/test_build.py
+experiments/maintenance_surveys/preview_updates/verification/test_update.py
+experiments/maintenance_surveys/verification/answer-recovery/README.md
+experiments/maintenance_surveys/verification/continuity/README.md
+experiments/maintenance_surveys/verification/continuity/type-error-provenance.json
+services/backend-api/src/api/routes/ask_genius.py
+services/backend-api/src/services/ask_genius.py
+services/backend-api/src/services/ask_genius_instructions.txt
+services/backend-api/src/services/ask_genius_surveys.py
+services/backend-api/src/services/surveys.py
+services/backend-api/src/survey_preview.py
+services/backend-api/tests/ask_genius_offline/conftest.py
+services/backend-api/tests/ask_genius_offline/test_answer_recovery.py
+services/backend-api/tests/ask_genius_offline/test_flow.py
+services/backend-api/tests/ask_genius_offline/test_retry_history.py
+services/backend-api/tests/ask_genius_offline/test_review_collections.py
+services/backend-api/tests/ask_genius_offline/test_service_v3.py
+services/backend-api/tests/ask_genius_offline/test_surveys.py
+services/frontend-web/__tests__/reviews/AskGenius.test.tsx
+services/frontend-web/__tests__/reviews/GeniusMessage.test.tsx
+services/frontend-web/app/globals.css
+services/frontend-web/app/layout.tsx
+services/frontend-web/components/reviews/AskGenius.tsx
+services/frontend-web/components/reviews/GeniusMessage.tsx
+services/frontend-web/components/reviews/GeniusSurveyEvidence.tsx
+services/frontend-web/lib/api/ask-genius.ts
+services/frontend-web/lib/ask-genius-options.ts
+services/frontend-web/next.config.ts
+services/frontend-web/tailwind.config.ts
+
+ALL SURVEY + CORRECTION PATHS AGAINST MASTER
+experiments/maintenance_surveys/CHANGED_FILES.txt
+experiments/maintenance_surveys/Dockerfile
+experiments/maintenance_surveys/Dockerfile.dockerignore
+experiments/maintenance_surveys/HANDOFF.md
+experiments/maintenance_surveys/README.md
+experiments/maintenance_surveys/VERIFICATION.txt
+experiments/maintenance_surveys/compose.yml
+experiments/maintenance_surveys/fixtures/maintenance-completed.json
+experiments/maintenance_surveys/fixtures/unresolved-answers.json
+experiments/maintenance_surveys/preview_updates/PACKAGING.md
+experiments/maintenance_surveys/preview_updates/README.txt
+experiments/maintenance_surveys/preview_updates/build-update.py
+experiments/maintenance_surveys/preview_updates/update-preview.py
+experiments/maintenance_surveys/preview_updates/verification/replay_delivery.py
+experiments/maintenance_surveys/preview_updates/verification/test_build.py
+experiments/maintenance_surveys/preview_updates/verification/test_update.py
+experiments/maintenance_surveys/verification/answer-recovery/README.md
+experiments/maintenance_surveys/verification/continuity/README.md
+experiments/maintenance_surveys/verification/continuity/type-error-provenance.json
+experiments/maintenance_surveys/verification/font-build/README.md
+experiments/maintenance_surveys/verification/font-build/browser-font-check.json
+experiments/maintenance_surveys/verification/font-build/comparison.json
+experiments/maintenance_surveys/verification/font-build/current-tsc.log
+experiments/maintenance_surveys/verification/font-build/master-tsc.log
+experiments/maintenance_surveys/verification/font-build/original-comparison.json
+experiments/maintenance_surveys/verification/font-build/pre-font-feature-tsc.log
+experiments/maintenance_surveys/verification/font-build/production-build.log
+experiments/maintenance_surveys/verification/full-stack/README.md
+experiments/maintenance_surveys/verification/full-stack/Worker.Dockerfile
+experiments/maintenance_surveys/verification/full-stack/browser_flow.py
+experiments/maintenance_surveys/verification/full-stack/compose.mock.yml
+experiments/maintenance_surveys/verification/full-stack/dashboard-check.json
+experiments/maintenance_surveys/verification/full-stack/model_mock.cjs
+experiments/maintenance_surveys/verification/full-stack/production-build.log
+experiments/maintenance_surveys/verification/full-stack/provenance.json
+experiments/maintenance_surveys/verification/full-stack/provider-observations.json
+experiments/maintenance_surveys/verification/full-stack/results.json
+experiments/maintenance_surveys/verification/full-stack/sentinels.py
+experiments/maintenance_surveys/verification/full-stack/type-comparison.json
+services/backend-api/alembic/versions/f2e8463ab154_add_maintenance_surveys.py
+services/backend-api/src/api/main.py
+services/backend-api/src/api/routes/ask_genius.py
+services/backend-api/src/api/routes/surveys.py
+services/backend-api/src/models/__init__.py
+services/backend-api/src/models/survey.py
+services/backend-api/src/services/ask_genius.py
+services/backend-api/src/services/ask_genius_instructions.txt
+services/backend-api/src/services/ask_genius_sharing.py
+services/backend-api/src/services/ask_genius_surveys.py
+services/backend-api/src/services/data/maintenance_survey_catalog.json
+services/backend-api/src/services/survey_catalog.py
+services/backend-api/src/services/survey_delivery.py
+services/backend-api/src/services/surveys.py
+services/backend-api/src/survey_demo.py
+services/backend-api/src/survey_preview.py
+services/backend-api/tests/ask_genius_offline/conftest.py
+services/backend-api/tests/ask_genius_offline/test_answer_recovery.py
+services/backend-api/tests/ask_genius_offline/test_flow.py
+services/backend-api/tests/ask_genius_offline/test_migration.py
+services/backend-api/tests/ask_genius_offline/test_retry_history.py
+services/backend-api/tests/ask_genius_offline/test_review_collections.py
+services/backend-api/tests/ask_genius_offline/test_service_v3.py
+services/backend-api/tests/ask_genius_offline/test_surveys.py
+services/backend-api/tests/surveys_offline/conftest.py
+services/backend-api/tests/surveys_offline/test_demo_guard.py
+services/backend-api/tests/surveys_offline/test_demo_verify_ask.py
+services/backend-api/tests/surveys_offline/test_journey.py
+services/backend-api/tests/surveys_offline/test_survey_migration.py
+services/backend-api/tests/surveys_offline/test_postgres_concurrency.py
+services/backend-api/tests/test_mutation_route_rbac_sweep.py
+services/backend-api/tests/test_outreach_migration.py
+services/frontend-web/Dockerfile
+services/frontend-web/__tests__/reviews/AskGenius.test.tsx
+services/frontend-web/__tests__/reviews/GeniusAnalytics.test.ts
+services/frontend-web/__tests__/reviews/GeniusChatHistory.test.tsx
+services/frontend-web/__tests__/reviews/GeniusMessage.test.tsx
+services/frontend-web/__tests__/reviews/GeniusPublicAuth.test.tsx
+services/frontend-web/__tests__/reviews/GeniusTelemetry.test.ts
+services/frontend-web/__tests__/reviews/ReviewPreviewLayout.test.tsx
+services/frontend-web/__tests__/settings/AppSidebar.test.tsx
+services/frontend-web/__tests__/surveys/SurveyFlow.test.tsx
+services/frontend-web/app/(dashboard)/layout.tsx
+services/frontend-web/app/(dashboard)/surveys/[id]/page.tsx
+services/frontend-web/app/(dashboard)/surveys/page.tsx
+services/frontend-web/app/globals.css
+services/frontend-web/app/layout.tsx
+services/frontend-web/app/providers.tsx
+services/frontend-web/app/survey/[token]/page.tsx
+services/frontend-web/app/survey/[token]/unsubscribe/page.tsx
+services/frontend-web/app/survey/layout.tsx
+services/frontend-web/components/AppSidebar.tsx
+services/frontend-web/components/reviews/AskGenius.tsx
+services/frontend-web/components/reviews/GeniusChatHistory.tsx
+services/frontend-web/components/reviews/GeniusMessage.tsx
+services/frontend-web/components/reviews/GeniusSurveyEvidence.tsx
+services/frontend-web/components/reviews/ReviewPreviewLayout.tsx
+services/frontend-web/components/surveys/ResidentSurvey.tsx
+services/frontend-web/components/surveys/SurveyDashboard.tsx
+services/frontend-web/components/surveys/SurveyUnsubscribe.tsx
+services/frontend-web/contexts/AuthContext.tsx
+services/frontend-web/instrumentation-client.ts
+services/frontend-web/instrumentation.ts
+services/frontend-web/lib/analytics.ts
+services/frontend-web/lib/api-client.ts
+services/frontend-web/lib/api/ask-genius.ts
+services/frontend-web/lib/api/surveys.ts
+services/frontend-web/lib/ask-genius-options.ts
+services/frontend-web/middleware.ts
+services/frontend-web/next.config.ts
+services/frontend-web/sentry.client.config.ts
+services/frontend-web/sentry.edge.config.ts
+services/frontend-web/sentry.server.config.ts
+services/frontend-web/tailwind.config.ts

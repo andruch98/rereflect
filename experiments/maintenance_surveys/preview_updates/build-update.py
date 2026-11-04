@@ -21,6 +21,8 @@ SOURCE_PATHS = (
     'LICENSE', 'NOTICE',
 )
 SUPPORTED_BASES = (
+    '6dd7827360d1a370d59537a0c7407bf5ad5faeff',
+    'ccb53d4122a76ffd6045d2bf188d20dfdb712d2d',
     '59dfd9122b20d0098eceedf8e1d1296e86b6f0a3',
     'b28bf174078fcb94438fb5f806321cc49a99c7f4',
     '051d06fa9d5e81108c3ea01366e2b24f2ec86a48',
@@ -33,14 +35,16 @@ SUPPORTED_BASES = (
     '724ca86b0de00c59ade1c8c54fac17ec9bacbc71',
     '5bba1ce0c502c074d481a4b2228091ec5873c72d',
 )
-BUNDLE_NAME = 'boomsay-maintenance-survey-update'
+BUNDLE_NAME = 'boomsay-answer-recovery-update'
 HANDOFF_FILES = {
+    'experiments/maintenance_surveys/verification/answer-recovery/README.md': 'handoff/verification/answer-recovery/README.md',
     'experiments/maintenance_surveys/README.md': 'handoff/README.md',
     'experiments/maintenance_surveys/HANDOFF.md': 'handoff/HANDOFF.md',
     'experiments/maintenance_surveys/fixtures/maintenance-completed.json': 'handoff/fixtures/maintenance-completed.json',
     'experiments/maintenance_surveys/fixtures/unresolved-answers.json': 'handoff/fixtures/unresolved-answers.json',
     'experiments/maintenance_surveys/preview_updates/README.txt': 'handoff/preview_updates/README.txt',
     'experiments/maintenance_surveys/preview_updates/PACKAGING.md': 'handoff/preview_updates/PACKAGING.md',
+    'experiments/maintenance_surveys/verification/continuity/README.md': 'handoff/verification/continuity/README.md',
 }
 OPTIONAL_HANDOFF_FILES = {
     'experiments/maintenance_surveys/CHANGED_FILES.txt': 'handoff/CHANGED_FILES.txt',

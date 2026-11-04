@@ -1,182 +1,135 @@
-# BoomSay maintenance surveys — final update handoff
+# BoomSay survey integration — current handoff
 
-## Result and revision
+Updated 3 November 2026. This supersedes the earlier handoff's system-font,
+separate-page evidence, unsupported-count and unpublished-branch statements.
 
-The complete initial maintenance-survey flow worked in the full application with
-fictional data and mocked email/model responses. The general sidebar now marks
-Surveys on list/detail routes and leaves it inactive on customer routes.
+## Current work
 
-- Repository: andruch98/rereflect.
-- Branch: feat/maintenance-survey-integration.
-- Original master base: 59dfd9122b20d0098eceedf8e1d1296e86b6f0a3.
-- Starting checkout: b1fe329596620dbdba11cc28171103ed546876c4, clean.
-- Verified implementation/evidence: 6306996ff6ae3df98d58f087d7c0f2dddffaeb33.
-- The subsequent documentation-only commit is the final package commit. Its SHA
-  is recorded in the delivered filenames, update.json, bundle ref and chat receipt.
-- CHANGED_FILES.txt is the complete inventory against the original base.
-- Nothing was pushed, merged, deployed or installed into the Mac preview.
+Repository: andruch98/rereflect. Correction branch: fix/survey-genius-continuity.
+Base: published survey branch at ccb53d4122a76ffd6045d2bf188d20dfdb712d2d,
+which builds on master 59dfd9122b20d0098eceedf8e1d1296e86b6f0a3.
+The delivered ZIP's update.json identifies its exact committed source.
+Implementation and testing were authorized. Merge and deployment were not.
+No Mac installation, real email delivery or paid model request was performed by
+this work session. Andres tested the corrections on his Mac: survey counts and
+the original-answer popup worked. After the answer-recovery update, he supplied
+a successful narrative-answer screenshot and confirmed "Show each answer" passes.
+Optional wording polish is deferred.
 
-## Changes in this pass
+## Agreed behavior implemented
 
-1. One sidebar expression now uses each item's own href for detail-route matching.
-   Existing navigation, groups and visual design are preserved.
-2. The demo manager uses manager@survey-demo.example.com because .invalid is
-   rejected by the real login validator. Authentication validation is unchanged;
-   no existing manager account or credentials were rewritten.
-3. Frontend Docker COPY gives public assets the same nextjs ownership as its
-   other assets, fixing non-root startup on the tested build context.
-4. Added reproducible full-stack verification with a test-only HTTP model mock,
-   real main API/auth/database, production frontend and actual idle Celery worker.
+- Source follows explicit choice or the established chat. Maintenance alone does
+  not switch reviews to surveys. Exclusions such as “reviews, not surveys” apply.
+  An ambiguous new chat asks “Reviews, surveys, or both?”; a short answer resumes
+  its original question and retains the selected period.
+- Survey findings retain validated submission/question references, topic links
+  and concise topic text for evidence/count follow-ups. They are interpretation
+  of original answers, not a claim of saved survey analysis.
+- Survey evidence opens an in-chat popup under the relevant topic. The original
+  relevant question/answer appears first; “View all answers from this survey”
+  expands that same submission. Existing saved sources can load through the
+  authenticated survey endpoint. Public snapshots never fetch private surveys.
+- The survey-response count starter works without a model call. It counts
+  finalized submissions by submission date; drafts/invitations are excluded.
+  Two surveys from one resident count as two responses. Unique residents are
+  counted only when requested.
+- Restored Montserrat, Merriweather and Ubuntu Mono exactly as in master.
+  Local preview builds skip Sentry upload/instrumentation; production setup is
+  unchanged. Runtime preview telemetry was already disabled.
+- Survey-backed chats remain unshareable publicly. Review-only sharing remains.
+- Existing-preview ZIP delivery uses port 53004, existing credentials, private
+  configuration, database and startup script. A guarded CLI adds one fictional
+  maintenance event and simulated invitation; repeating it preserves answers.
+  No separate clone, replacement credentials or model mock is required on Mac.
 
-The system-font fix remains intact. Survey questionnaire wording/options,
-occurrence links, snapshots, drafts, immutable completion, opt-outs, authorization,
-review separation and public-sharing restrictions are preserved. No count-wording
-fix, scheduler, reminder, analysis job, other survey type or visual redesign was added.
+## Answer recovery follow-up — current correction
 
-## Verification
+The failure report named InvalidModelAnswer with the generic invalid_output
+reason. Code inspection and replay identified rejection of valid supporting
+references on a summary question. The pasted response also showed apparent
+invalid JSON line breaks; original provider bytes are unavailable. The fix
+replays valid escapes, literal newlines and backslash/newline variants.
 
-See VERIFICATION.txt for the step-by-step actual results and resolved retries.
-The full stack was not a route scaffold: it used src.api.main:app and real
-email/password login. The existing BoomSay preview startup flags skipped unrelated
-seed/model jobs. Only invitation delivery and the model-provider HTTP boundary
-were mocked. The model received the actual finalized four questions and answers.
+Approved and implemented: validate and retain extra references internally while
+hiding evidence controls until requested; normalize only unambiguous JSON string
+line breaks; preserve raw output; store specific rejection reasons and explain
+them plainly; add no automatic model retry. Invalid references and ambiguous or
+incomplete output still fail. One shared instruction core plus a short survey
+section replaces scattered survey rules, preserving the existing product rules.
 
-Passed: event ingestion; immediate simulated invitation; replay deduplication;
-public form draft/reload/submit; dashboard status; original questions/labels;
-Ask Genius list/narrative/follow-up; evidence navigation; blocked public sharing;
-anonymous access denial; API restart and fictional prior-data preservation.
-Database totals were one occurrence, survey, invitation and submission. Worker
-received no tasks; queue length was zero. No live email or model call occurred.
+Fresh checks: 219 Ask Genius, 35 survey workflow, 122 related interface and 16
+updater/packager tests passed; five existing tests skipped. Changed frontend lint
+passed. These are mocked/reconstructed software checks, not live AI quality proof.
+See verification/answer-recovery/README.md and the downloadable complete record.
+The new boomsay-answer-recovery-update ZIP supports the installed 6dd7827360d1a370d59537a0c7407bf5ad5faeff
+version as well as previous supported bases. It preserves earlier backups using
+a separate backup-before-genius-answer-recovery-update folder. The delivery
+manifest identifies the published commit; actual ZIP replay is reported outside
+Git after packaging.
 
-New checks: production build passed with default Turbopack and 60 static pages;
-42 focused frontend tests and 7 backend demo checks passed; lint had 0 errors and
-42 existing warnings. Standalone tsc still returns the same 87 test diagnostics,
-with no additions. No validation was suppressed. Prior baseline evidence is
-preserved; the full unrelated suites were not rerun.
+## Verification and limits
 
-Resolved during testing: invalid fictional manager address, Docker public-asset
-ownership, test-network port exposure, lowercase proxy exclusions, and managed
-Docker disk exhaustion. Database volumes were retained throughout. The completed
-flow used the same submission after the mock-provider retry, without resetting it.
+Current tests use fictional data and mocked/reconstructed model responses. They test software
+behavior, validation and data preservation, not a real model's factual judgment.
+The continuity report describes the earlier round; the answer-recovery report
+describes this round. Both distinguish software checks from human review.
+Earlier full-stack reports under verification/full-stack are historical only;
+this pass did not reproduce that Docker run.
 
-## Remaining limits
+Earlier continuity verification could not run Docker or Chromium (environment
+restrictions). Its frontend build compiled but failed on existing unrelated
+TypeScript errors, including invalid Next page exports; the 20 error-bearing
+files then matched the survey base. Those build/browser checks were not repeated
+for answer recovery. Andres's subsequent Mac walkthrough passed the reported
+summary and evidence follow-up. This is limited human verification, not a broad
+live-model evaluation. Do not label this release production-ready or fully
+browser-tested.
 
-- The survey-count starter 'How many survey responses did we receive during this
-  period?' remains unsupported. Use the supported wording below.
-- The 87 TypeScript test-fixture errors and 42 lint warnings remain for later.
-- Live AI answer quality and real email/PMS operation were not evaluated.
-- Mac preview installation/startup and ARM builds remain unverified.
-- Timing, reminders/quiet hours, automatic survey analysis/classification, other
-  survey types, wording/visual refinement and approved survey sharing are deferred.
-- The earlier ZIP/bundle are outdated. Use only the newly generated artifacts
-  whose filename and metadata match the final commit in the delivery receipt.
+## Combined-test collection correction
 
-## Fresh artifacts
+GitHub CI for f4c6c222 passed frontend, worker and clean database-migration
+checks, but backend pytest stopped before running: both offline suites had a
+top-level test_migration module. Separate earlier suite runs did not expose it.
+Andres approved renaming the survey test, updating this PR and rerunning CI.
 
-The preview-update ZIP is produced by the existing exact-commit build-update.py.
-It contains committed application source, its checksum/commit manifest, updater,
-handoff, fixtures and verification report. It contains no private preview data,
-credentials or uncommitted code. Its source-only updater preserves the established
-preview process.
+The survey test is now test_survey_migration.py; its contents are byte-for-byte
+unchanged. The changed-file inventory uses the new path. The same two migration
+files reproduced the import collision before the rename and passed all three
+tests together afterward. See verification/test-collection/README.md. GitHub's
+complete checks must finish successfully before recommending a merge. This
+correction does not change application behavior, schema, prompts or records.
 
-The Git bundle includes the feature branch and original master/base history, with
-no prerequisite repository required. Bundle heads, import into an empty repository,
-base ancestry, commit identity, object integrity and changed paths are checked.
-Text copies HANDOFF.txt and VERIFICATION.txt accompany the package. Full text is
-also pasted in chat because download access in the user's client is not assumed.
+## What remains outside this correction
 
-## Get a clean full checkout on the Mac
+Follow-up authorized 3 November: run 41740736434 completed collection and
+passed 5,665 backend tests, but failed five. Four failures came from unpinned
+Kombu 5.7.0 requiring redis-py >=6.1.0 while the backend pins 5.0.1. The backend
+now pins Kombu 5.3.4, matching the existing worker. The fifth was test pollution:
+the JWT re-import helper restored sys.modules but left src.api.auth pointing at
+the temporary module. Both references are now restored; application auth is
+unchanged. Regression tests cover the actual transport version gate and import
+identity. Local combined checks: 42 passed, four PostgreSQL-only skips. Full
+GitHub CI must still pass. See verification/ci-five-fixes/README.md for failures,
+commands, captured logs and limitations. No new preview package is required yet.
 
-Download/export the fresh bundle identified in the delivery receipt. From its
-folder, substitute the real commit suffix in the filename:
+Real PMS/review-source connections, real survey email delivery, text messaging,
+reminders/scheduling, automatic survey analysis, other survey types, survey public
+sharing, cloud deployment and live AI quality evaluation remain separate work.
+Do not enable them implicitly. Existing review analysis records are preserved;
+survey data is stored separately. No new database migration is needed for these
+corrections; the underlying survey branch has its original additive migration.
 
-```bash
-git clone --branch feat/maintenance-survey-integration ./maintenance-survey-feature-COMMIT.bundle boomsay-survey-final-source
-cd boomsay-survey-final-source
-git log -2 --oneline
-git status --short
-```
+## Working relationship and next action
 
-Confirm the full HEAD matches the receipt before continuing. Do not use the older
-bundle; it does not contain these changes. No source branch has been pushed online.
+Andres prefers plain English, brief updates and reviewing one product decision
+at a time before implementation. Save agreed decisions without repeating or
+contradicting prompt rules. Preserve existing records and the familiar preview
+workflow. Ask about unresolved product choices; do not invent them.
 
-## Simple isolated Mac walkthrough — no live provider calls
-
-Run from that complete checkout, with Docker Desktop. Use a new project name to
-preserve older isolated demos, including ones with the old .invalid manager.
-
-```bash
-compose=(docker compose -p boomsay-survey-final-test -f experiments/maintenance_surveys/compose.yml -f experiments/maintenance_surveys/verification/full-stack/compose.mock.yml)
-"${compose[@]}" build api web worker
-"${compose[@]}" up -d --no-build
-"${compose[@]}" logs --tail=30 api web worker
-"${compose[@]}" exec -T api python -m src.survey_demo simulate survey-demo-fixtures/maintenance-completed.json
-"${compose[@]}" exec -T api python -m src.survey_demo inspect fictional-maintenance-event-001
-SURVEY_URL="$("${compose[@]}" exec -T api python -m src.survey_demo link fictional-maintenance-event-001)"
-open "$SURVEY_URL"
-```
-
-The source build can take several minutes. This is a separate PostgreSQL volume,
-Redis, API, web, idle worker and mock endpoint. Published web/API/model ports are
-loopback-only 53204/53205/53206. No real model/email keys are loaded.
-
-1. Select 2 Bad, No still unresolved, Not sure and an optional comment. Let the
-   draft save, reload, then submit and wait for confirmation.
-2. Open http://127.0.0.1:53204/surveys. Sign in as
-   manager@survey-demo.example.com / fictional-survey-demo-login.
-3. Confirm resident Jamie Example, unit 204, ticket DEMO-WO-1001, simulated
-   invitation status and submission date. Choose View answers and inspect all
-   four original questions and readable answers.
-4. Open /ask-genius, select All available history, and ask:
-   - Show the completed maintenance surveys for this period.
-   - What did residents say about their maintenance experience?
-   - Show the original answers behind that.
-5. The narrative is explicitly MOCKED MODEL output. Follow View original answers
-   to the same submission. Ticket completion must not erase its unresolved answer.
-6. Repeat simulate: it must retain the survey/link. Restart only the API and
-   reopen the submission to check persistence:
-
-```bash
-"${compose[@]}" restart api
-"${compose[@]}" stop
-```
-
-Stop preserves storage. Never use down -v or run the demo initializer against the
-installed preview database. These published fictional credentials are for this
-isolated local test only. The ordinary demo without this overlay keeps its normal
-AI composer disabled; the overlay is what supplies a local HTTP model mock.
-
-## Update the existing Mac preview without resetting data
-
-This optional installation was NOT performed here. First keep the old preview
-folder and all existing backups. Unzip the fresh update package into a new folder
-beside the existing preview; do not replace private configuration or the database.
-The folder/port below are historical documented values, not a new Mac inspection.
-
-For example, if the fresh ZIP is in Downloads, choose an unused extraction folder:
-
-```bash
-mkdir "$HOME/Downloads/boomsay-survey-final-update"
-python3 -m zipfile -e "$HOME/Downloads/boomsay-maintenance-survey-update-COMMIT.zip" "$HOME/Downloads/boomsay-survey-final-update"
-cd "$HOME/Downloads/boomsay-dashboard-preview"
-python3 "$HOME/Downloads/boomsay-survey-final-update/boomsay-maintenance-survey-update/update-preview.py"
-bash start-local.sh
-open http://127.0.0.1:53004/surveys
-```
-
-Substitute the exact fresh ZIP filename from the receipt. The updater validates
-supported source releases, archive/manifest checksums and known startup hashes
-before writes. It changes source/archive metadata and preserves database volume,
-Compose/network/startup files, credentials/login, AI settings, reviews/saved
-analysis, preferences and Ask Genius history. Normal startup applies additive
-migrations to the existing database; no reset or analysis backfill is needed.
-
-Verify the existing login, one original review with saved analysis, an existing
-chat and AI connection status. Do not send a live-model question merely to test
-installation; use the separate mocked stack for the walkthrough above.
-
-Keep backup-before-maintenance-survey-update and older backups. The backup is
-source/metadata, not a database backup. After migration, restoring old source alone
-is unsupported. On rejection/startup failure, keep the installation, error and
-backups for recovery. Do not force checksums, reset/restamp/drop the database,
-remove volumes, recreate credentials or rerun a fresh installer.
+Next: review the complete GitHub checks after the dependency/test-isolation fix.
+Stop and report any new unrelated blocker before expanding scope. Merging this
+correction or the underlying survey branch, and deployment, need explicit
+approval. PR #5's e1d7352fa043 migration pin is already superseded by the survey
+branch's f2e8463ab154 pin; propose closing #5 as superseded when integrating the
+survey branch, rather than replacing the newer pin. Gmail invitation testing
+remains a later workflow milestone; do not enable real sending implicitly.

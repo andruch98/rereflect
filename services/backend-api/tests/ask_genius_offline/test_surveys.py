@@ -1,5 +1,6 @@
 """Survey evidence integration with real ingestion/routes/storage and mocked models."""
 import json
+import os
 from datetime import datetime, timezone
 
 import pytest
@@ -63,7 +64,7 @@ def test_survey_lists_use_submission_time_and_counts_distinguish_residents(surve
     result = f['ask']('Show the completed maintenance surveys for this period.', period=PERIOD)
     assert result.status_code == 200, result.text
     body = result.json()
-    assert '3 submitted maintenance survey(s) from 2 distinct resident(s)' in body['answer']
+    assert '3 completed maintenance survey response(s)' in body['answer']
     assert not f['calls']
     metadata = body['structured_data']
     assert metadata['survey_counts']['submission_count'] == 3
@@ -80,7 +81,7 @@ def test_unresolved_report_survives_completed_ticket_and_original_followup(surve
     result = f['ask']('Which submissions say the issue is still unresolved?', period=PERIOD)
     assert result.status_code == 200, result.text
     body = result.json()
-    assert '1 submitted maintenance survey(s)' in body['answer']
+    assert '1 completed maintenance survey response(s)' in body['answer']
     assert 'Ticket completion does not change' in body['answer']
     assert [source['survey_id'] for source in body['structured_data']['sources']] == [unresolved.public_id]
     followup = f['ask']('Show the original answers behind that.', conversation_id=body['conversation_id'])
@@ -97,7 +98,7 @@ def test_original_question_context_options_labels_and_final_answers_reach_model(
     foreign = Organization(name='Foreign community'); f['db'].add(foreign); f['db'].commit()
     f['create_survey'](org=foreign, resident='foreign-r', comment='FOREIGN PRIVATE SURVEY')
     f['model'].update(answer='One resident reports that the faucet still leaks.', evidence=[])
-    result = f['ask']('What did residents say about their maintenance experience?', period=PERIOD)
+    result = f['ask']('What did residents say in surveys about their maintenance experience?', period=PERIOD)
     assert result.status_code == 200, result.text
     payload = context(f)
     assert payload['reviews'] == []
@@ -182,7 +183,7 @@ def test_saved_survey_analysis_is_unavailable_without_jobs_or_model_calls(survey
     assert result.status_code == 200
     assert 'not available' in result.json()['answer'] and not f['calls']
     empty = f['ask']('Show completed maintenance surveys.', period={'preset': 'custom', 'start_date': '2025-01-01', 'end_date': '2025-01-31'})
-    assert empty.json()['answer'].startswith('0 submitted maintenance survey(s)')
+    assert empty.json()['answer'].startswith('0 completed maintenance survey response(s)')
 
 
 def test_wrong_community_account_cannot_retrieve_survey_context(survey_flow):
@@ -206,7 +207,7 @@ def test_count_questions_use_exact_resolution_values(survey_flow, wording, resol
     result = f['ask'](f'How many surveys {wording}?', period=ALL)
     assert result.status_code == 200, result.text
     expected = 2 if resolution == 'resolved' else 1
-    assert result.json()['answer'].startswith(f'{expected} submitted maintenance survey(s)')
+    assert result.json()['answer'].startswith(f'{expected} completed maintenance survey response(s)')
     assert not f['calls']
 
 
@@ -234,7 +235,7 @@ def test_narrow_survey_summary_keeps_verified_scope_for_original_answer_followup
     assert [source['survey_id'] for source in followup.json()['structured_data']['sources']] == [unresolved.public_id]
     assert len(f['calls']) == 1
     count = f['ask']('How many surveys?', conversation_id=first.json()['conversation_id'])
-    assert count.json()['answer'].startswith('1 submitted maintenance survey(s)')
+    assert count.json()['answer'].startswith('1 completed maintenance survey response(s)')
 
 
 def test_review_only_maintenance_experience_question_keeps_surveys_out(survey_flow):
@@ -281,6 +282,129 @@ def test_zero_matching_resolution_is_counted_without_claiming_period_has_no_subm
     f['create_survey']('resolved')
     result = f['ask']('Which submissions say the issue is still unresolved?', period=ALL)
     assert result.status_code == 200
-    assert result.json()['answer'].startswith('0 submitted maintenance survey(s)')
+    assert result.json()['answer'].startswith('0 completed maintenance survey response(s)')
     assert not result.json()['structured_data']['sources']
     assert not f['calls']
+
+
+def test_source_clarification_resumes_original_question_and_keeps_period(survey_flow):
+    f = survey_flow
+    f['create_survey']()
+    question = 'What did residents say about their maintenance experience?'
+    first = f['ask'](question, period=PERIOD)
+    assert first.json()['answer'] == 'Reviews, surveys, or both?'
+    assert not f['calls']
+    chat = first.json()['conversation_id']
+    result = f['ask']('Surveys', conversation_id=chat)
+    assert result.status_code == 200, result.text
+    assert f['calls'][-1][-1]['content'] == question
+    assert context(f)['source_scope'] == 'surveys'
+    assert result.json()['period'] == PERIOD
+    detail = f['client'].get(f'/api/v1/ask-genius/conversations/{chat}', headers=f['headers']).json()
+    assert [m['content'] for m in detail['messages'] if m['role'] == 'user'] == [question, 'Surveys']
+
+
+@pytest.mark.parametrize('correction,expected', [
+    ('Reviews, not surveys', 'reviews'), ('Surveys, not reviews', 'surveys'),
+    ('Use reviews instead of surveys', 'reviews'), ('Both', 'mixed'),
+])
+def test_explicit_source_corrections_and_maintenance_followup(survey_flow, correction, expected):
+    f = survey_flow
+    f['create_survey']()
+    first = f['ask']('Summarize the reviews.', period=ALL).json()
+    chat = first['conversation_id']
+    followup = f['ask']('What did residents say about their maintenance experience?', conversation_id=chat)
+    assert followup.json()['structured_data']['source_scope'] == 'reviews'
+    assert 'surveys' not in context(f)
+    result = f['ask'](correction, conversation_id=chat)
+    assert result.json()['structured_data']['source_scope'] == expected
+    assert ('surveys' in context(f)) == (expected != 'reviews')
+    if expected == 'surveys':
+        assert not context(f)['reviews']
+
+
+def test_count_starter_counts_submissions_and_residents_only_when_asked(survey_flow):
+    f = survey_flow
+    f['create_survey']()
+    f['create_survey']('resolved')
+    f['create_survey'](submitted=None, resident='draft-only')
+    f['create_survey'](submitted='2026-10-27T03:59:59+00:00', resident='outside-period')
+    result = f['ask']('How many survey responses did we receive during this period?', period=PERIOD)
+    assert result.status_code == 200
+    assert result.json()['answer'].startswith('2 completed maintenance survey response(s)')
+    assert 'resident' not in result.json()['answer']
+    residents = f['ask']('How many unique residents responded?', conversation_id=result.json()['conversation_id'])
+    assert residents.json()['answer'].startswith('1 unique resident(s)')
+    assert not f['calls']
+
+
+def test_survey_topic_context_attaches_only_relevant_original_questions(survey_flow):
+    f = survey_flow
+    leak = f['create_survey']()
+    f['create_survey']('resolved', comment='The repair was excellent.')
+    reference = {'survey_id': leak.public_id, 'kind': 'survey', 'topic': 'Ongoing leak',
+                 'question_id': 'maintenance_comment', 'excerpt': 'The faucet still leaks after the visit.'}
+    f['model'].update(answer='- **Ongoing leak:** One resident reports that the faucet still leaks.',
+                      evidence=[], survey_context=[reference])
+    first = f['ask']('What problems did residents describe in surveys?', period=ALL)
+    assert first.status_code == 200, first.text
+    assert first.json()['structured_data']['sources'] == []
+    result = f['ask']('Let me see each answer.', conversation_id=first.json()['conversation_id'])
+    assert result.status_code == 200, result.text
+    sources = result.json()['structured_data']['sources']
+    assert len(sources) == 1
+    assert sources[0]['survey_id'] == leak.public_id
+    assert sources[0]['topic'] == 'Ongoing leak'
+    assert sources[0]['question_id'] == 'maintenance_comment'
+    assert result.json()['answer'] == first.json()['answer']
+    assert len(sources[0]['survey']['questions']) == 4  # Full submission stays in popup.
+    assert len(f['calls']) == 1
+    count = f['ask']('How many surveys?', conversation_id=first.json()['conversation_id'])
+    assert count.json()['structured_data']['sources'] == []
+    repeated = f['ask']('Show each answer.', conversation_id=first.json()['conversation_id'])
+    assert repeated.json()['structured_data']['sources'][0]['topic'] == 'Ongoing leak'
+    assert len(f['calls']) == 1
+
+
+@pytest.mark.parametrize('reference', [
+    {'question_id': 'invented'},
+    {'question_id': 'issue_resolution', 'excerpt': 'The faucet still leaks after the visit.'},
+    {'question_id': 'maintenance_comment', 'excerpt': 'Everything was fixed.'},
+])
+def test_survey_question_context_is_validated_against_original(survey_flow, reference):
+    f = survey_flow
+    row = f['create_survey']()
+    f['model'].update(survey_context=[{'survey_id': row.public_id, 'kind': 'survey', 'topic': 'Resolution', **reference}])
+    result = f['ask']('Summarize the surveys.', period=ALL)
+    assert result.status_code == 502
+    assert result.json()['detail']['reason'] == 'InvalidModelAnswer'
+
+
+def test_preview_simulation_is_idempotent_and_preserves_existing_records(survey_flow, monkeypatch):
+    from src.survey_preview import simulate_preview
+    from src.models.survey import SurveyInstance
+    f = survey_flow
+    monkeypatch.delenv('SURVEY_PUBLIC_BASE_URL')
+    monkeypatch.setenv('BOOMSAY_SURVEY_SIMULATION', 'false')
+    monkeypatch.setenv('APP_URL', 'http://localhost:3000')
+    snapshots = [(row.id, row.text, row.apartment_analysis) for row in f['rows']]
+    user_before = (f['user'].email, f['user'].password_hash, f['user'].ask_genius_default_period)
+    row = simulate_preview(f['db'])
+    assert row.invitation.status == 'simulated'
+    assert row.context_snapshot['resident_name'] == 'Jamie Example (fictional)'
+    assert row.invitation.survey_url.startswith('http://127.0.0.1:53004/survey/')
+    response = f['client'].put(f'/api/v1/resident-surveys/{row.token}/draft',
+        headers={'Origin': 'http://127.0.0.1:53004'}, json={'answers': {'maintenance_overall': 2}})
+    assert response.status_code == 200
+    again = simulate_preview(f['db'])
+    f['db'].refresh(again)
+    assert again.public_id == row.public_id and again.draft_answers == {'maintenance_overall': 2}
+    assert f['db'].query(SurveyInstance).count() == 1
+    assert snapshots == [(r.id, r.text, r.apartment_analysis) for r in f['rows']]
+    assert user_before == (f['user'].email, f['user'].password_hash, f['user'].ask_genius_default_period)
+    assert os.environ['ASK_GENIUS_API_KEY'] == 'synthetic-never-sent'
+    assert not f['calls']
+    monkeypatch.setenv('BOOMSAY_REVIEW_PREVIEW', 'false')
+    with pytest.raises(ValueError, match='requires the configured'):
+        simulate_preview(f['db'])
+    assert f['db'].query(SurveyInstance).count() == 1

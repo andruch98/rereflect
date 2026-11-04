@@ -174,6 +174,19 @@ def answer_payload(conversation, message):
             'preference_updated': metadata.get('preference_updated', False)}
 
 
+def failure_message(audit: dict) -> str:
+    """Explain the recorded cause, both immediately and after reopening a chat."""
+    if audit.get('error') == 'InvalidModelAnswer':
+        return service.validation_message(audit.get('validation_reason', 'invalid_output'))
+    if audit.get('error') == 'ProviderTimeout':
+        return 'The AI connection took too long to respond. Click Retry to try again.'
+    if audit.get('http_status') in (401, 403):
+        return 'BoomSay’s AI connection needs attention. Ask your administrator to check the AI connection settings.'
+    if audit.get('http_status') == 429:
+        return 'The AI service is limiting requests. Try again later; if this continues, ask your administrator to check the AI account.'
+    return 'BoomSay couldn’t connect to its AI service. Please wait a moment, then click Retry.'
+
+
 @router.get('/status')
 def status(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     authorize(user)
@@ -216,7 +229,8 @@ def get_conversation(public_id: UUID, user: User = Depends(get_current_user), db
             'sharing_unavailable_reason': sharing.unavailable_reason(messages),
             'messages': [{'id': m.id, 'role': m.role, 'content': m.content,
                           'structured_data': m.structured_data, 'created_at': m.created_at,
-                          'status': (m.raw_request or {}).get('status') if m.role == 'user' else 'completed'} for m in messages]}
+                          'status': (m.raw_request or {}).get('status') if m.role == 'user' else 'completed',
+                          'error_message': failure_message(m.raw_request) if m.role == 'user' and (m.raw_request or {}).get('status') == 'failed' else None} for m in messages]}
 
 
 @router.patch('/conversations/{public_id}', response_model=ConversationSummary)
@@ -280,6 +294,7 @@ def shared_conversation(token: str, response: Response, db: Session = Depends(ge
 async def ask_question(body: Question, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     authorize(user)
     question = body.question.strip()
+    submitted_question = question
     if not question:
         raise HTTPException(422, 'Enter a question first')
     requested_period = period_dict(body.period)
@@ -306,7 +321,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 return answer_payload(prior_conversation, response)
             if previous_state.get('status') == 'failed':
                 prior = owned_conversation(db.get(Conversation, previous.conversation_id).public_id, user, db)
-                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': 'This answer could not be completed. Retry to start a new attempt.',
+                raise HTTPException(502, {'code': 'ask_genius_failed', 'message': failure_message(previous_state),
                                           'conversation_id': prior.public_id, 'request_id': str(body.request_id),
                                           'period': previous_state.get('period'),
                                           'reason': previous_state.get('error', 'ProviderRequestFailed')})
@@ -323,7 +338,13 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             history = [service.history_message(m) for m in reversed(recent)]
             prior_answer = next((m for m in recent if m.role == 'assistant'), None)
             prior_metadata = (prior_answer.structured_data or {}) if prior_answer else {}
-        source_scope = survey_service.source_scope(question, prior_metadata.get('source_scope'))
+        previous_scope = prior_metadata.get('source_scope')
+        # Old review-only chats predate source_scope. A clarification is not a review chat.
+        if previous_scope is None and prior_metadata and 'pending_question' not in prior_metadata:
+            previous_scope = 'reviews'
+        source_scope = survey_service.source_scope(question, previous_scope)
+        if prior_metadata.get('pending_question') and source_scope and survey_service.source_choice(question):
+            question = prior_metadata['pending_question']
         prior_period = conversation_period(conversation, db)
         saved_default = default_period_for(user)
         try:
@@ -358,7 +379,14 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
 
         evidence = None
         local_sources = []
+        survey_context = []
+        review_context = []
+        normalizations = []
         survey_match_ids = None
+        pending_question = None
+        if local_answer is None and source_scope is None:
+            pending_question = prior_metadata.get('pending_question') or question
+            local_answer = 'Reviews, surveys, or both?'
         expanded = service.evidence_requested(question, history)
         if local_answer is None:
             try:
@@ -367,9 +395,10 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
             if local_answer is None:
-                direct = survey_service.local_answer(question, evidence, prior_metadata if selected == prior_period else None)
+                direct = survey_service.local_answer(question, evidence, prior_metadata if selected == prior_period and source_scope == previous_scope else None)
                 if direct is not None:
                     local_answer, local_sources, survey_match_ids = direct
+                    survey_context = [s for s in local_sources if s.get('kind') == 'survey']
                     if not expanded:
                         local_sources = []
             if local_answer is None:
@@ -408,7 +437,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                  'source_scope': source_scope,
                  'model': config.model if config else None, 'provider': config.provider if config else None,
                  'max_completion_tokens': 1200 if config else 0, 'max_retries': 0}
-        user_message = ConversationMessage(conversation_id=conversation.id, role='user', content=question,
+        user_message = ConversationMessage(conversation_id=conversation.id, role='user', content=submitted_question,
                                            context_scope=service.SCOPE, raw_request=audit,
                                            llm_provider=config.provider if config else None,
                                            llm_model=config.model if config else None)
@@ -423,25 +452,25 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 user_message.raw_response = result.raw_response
                 user_message.tokens_in = result.tokens_in
                 user_message.tokens_out = result.tokens_out
-                if not result.answer or result.finish_reason != 'stop':
+                if result.finish_reason != 'stop':
                     raise ValueError('IncompleteModelAnswer')
-                answer_text, sources = service.validate_answer(result.answer, evidence, expanded)
+                if not result.answer:
+                    raise ValueError('EmptyModelAnswer')
+                answer_text, sources = service.validate_answer(result.answer, evidence, expanded,
+                    survey_context=survey_context, review_context=review_context, normalizations=normalizations)
             except Exception as exc:
                 safe_error = ('InvalidModelAnswer' if isinstance(exc, ValueError) else
                               'ProviderTimeout' if isinstance(exc, openai.APITimeoutError) else
                               'ProviderHTTPError' if isinstance(exc, openai.APIStatusError) else 'ProviderRequestFailed')
-                user_message.raw_request = {**audit, 'status': 'failed', 'error': safe_error,
-                                            'validation_reason': ('incomplete_output' if result and result.finish_reason != 'stop' else 'invalid_output')
-                                                if safe_error == 'InvalidModelAnswer' else None,
+                validation = service.validation_failure(exc) if safe_error == 'InvalidModelAnswer' else {
+                    'validation_reason': None, 'validation_detail': None}
+                user_message.raw_request = {**audit, 'status': 'failed', 'error': safe_error, **validation,
+                                            'normalizations': normalizations,
                                             'finish_reason': result.finish_reason if result else None,
                                             'http_status': exc.status_code if isinstance(exc, openai.APIStatusError) else None}
                 user_message.latency_ms = int((time.monotonic() - started) * 1000)
                 db.commit()
-                message = ('Ask Genius could not return a complete answer within its format and length limits. Please try a narrower question.'
-                           if safe_error == 'InvalidModelAnswer' else
-                           'The AI connection timed out. Please try your question again.'
-                           if safe_error == 'ProviderTimeout' else
-                           'Ask Genius could not reach its AI connection. Please try your question again.')
+                message = failure_message(user_message.raw_request)
                 raise HTTPException(502, {'code': 'ask_genius_failed', 'message': message,
                                           'conversation_id': conversation.public_id, 'request_id': str(body.request_id),
                                           'period': period_dict(selected),
@@ -453,15 +482,24 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                     'default_period': period_dict(default_period_for(user)),
                     'preference_updated': preference_updated, 'sources': sources,
                     'source_scope': source_scope}
+        if pending_question is not None:
+            metadata['pending_question'] = pending_question
+        if review_context:
+            metadata['review_context'] = [{key: s[key] for key in ('review_id', 'kind', 'topic', 'excerpt') if s.get(key) is not None}
+                                          for s in review_context]
         if source_scope in {'surveys', 'mixed'}:
             metadata['sharing_unavailable_reason'] = survey_service.SHARING_REASON
             metadata['survey_counts'] = evidence.get('survey_calculated', {}) if evidence else {}
             selected_ids = survey_match_ids if survey_match_ids is not None else [
-                source['survey_id'] for source in sources if source.get('kind') == 'survey']
+                source['survey_id'] for source in [*sources, *survey_context] if source.get('kind') == 'survey']
             if survey_match_ids is None and not selected_ids and evidence and evidence.get('survey_resolution_filter'):
                 selected_ids = [record['survey_id'] for record in evidence['surveys']]
             if survey_match_ids is not None or selected_ids:
-                metadata['survey_match_ids'] = selected_ids
+                metadata['survey_match_ids'] = list(dict.fromkeys(selected_ids))
+            if survey_context:
+                metadata['survey_context'] = [{key: s[key] for key in ('survey_id', 'kind', 'topic', 'question_id', 'excerpt') if s.get(key) is not None} for s in survey_context]
+                metadata['survey_topic_lines'] = survey_service.topic_lines(answer_text, survey_context,
+                    prior_metadata.get('survey_topic_lines') if selected == prior_period and source_scope == previous_scope else None)
         answer = ConversationMessage(conversation_id=conversation.id, role='assistant', content=answer_text,
                                      structured_data=metadata, context_scope=service.SCOPE, query_type='analysis',
                                      llm_provider=config.provider if config else None, llm_model=config.model if config else None,
@@ -469,7 +507,8 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                                      cost_cents=None, latency_ms=int((time.monotonic() - started) * 1000))
         db.add(answer)
         db.flush()
-        user_message.raw_request = {**audit, 'status': 'completed', 'answer_message_id': answer.id}
+        user_message.raw_request = {**audit, 'status': 'completed', 'answer_message_id': answer.id,
+                                    'normalizations': normalizations}
         user_message.tokens_in = None
         user_message.tokens_out = None
         conversation.updated_at = datetime.utcnow()
