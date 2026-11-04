@@ -6,4 +6,4 @@ case "${1:-}" in
 esac
 helper_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HOME/Downloads/boomsay-dashboard-preview"
-exec python3 "$helper_dir/survey-email-test.py" send --test-id "lifecycle-review-$1" --event-type "$1"
+exec python3 "$helper_dir/survey-email-test.py" send --test-id "lifecycle-review-${1//_/-}" --event-type "$1"
