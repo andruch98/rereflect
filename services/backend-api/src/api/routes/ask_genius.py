@@ -387,15 +387,21 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
         if local_answer is None and source_scope is None:
             pending_question = prior_metadata.get('pending_question') or question
             local_answer = 'Reviews, surveys, or both?'
+        try:
+            survey_event_types = survey_service.survey_types(question,
+                prior_metadata.get('survey_event_types') if source_scope == previous_scope else None)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
         expanded = service.evidence_requested(question, history)
         if local_answer is None:
             try:
-                evidence = service.build_authorized_evidence(user.organization_id, db, selected, source_scope)
+                evidence = service.build_authorized_evidence(user.organization_id, db, selected, source_scope, survey_event_types)
                 evidence = survey_service.filter_resolution(evidence, question)
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
             if local_answer is None:
-                direct = survey_service.local_answer(question, evidence, prior_metadata if selected == prior_period and source_scope == previous_scope else None)
+                direct = survey_service.local_answer(question, evidence, prior_metadata if selected == prior_period and source_scope == previous_scope
+                    and survey_event_types == prior_metadata.get('survey_event_types', []) else None)
                 if direct is not None:
                     local_answer, local_sources, survey_match_ids = direct
                     survey_context = [s for s in local_sources if s.get('kind') == 'survey']
@@ -490,6 +496,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
         if source_scope in {'surveys', 'mixed'}:
             metadata['sharing_unavailable_reason'] = survey_service.SHARING_REASON
             metadata['survey_counts'] = evidence.get('survey_calculated', {}) if evidence else {}
+            metadata['survey_event_types'] = survey_event_types
             selected_ids = survey_match_ids if survey_match_ids is not None else [
                 source['survey_id'] for source in [*sources, *survey_context] if source.get('kind') == 'survey']
             if survey_match_ids is None and not selected_ids and evidence and evidence.get('survey_resolution_filter'):

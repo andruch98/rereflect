@@ -1,0 +1,151 @@
+[
+  {
+    "event": {
+      "event_id": "fictional-lifecycle-move_in_completed-001",
+      "occurrence_id": "fictional-lifecycle-move_in_completed-001",
+      "event_type": "move_in_completed",
+      "community_id": 1,
+      "occurred_at": "2026-11-04T12:00:00-05:00",
+      "resident_id": "fictional-lifecycle-resident-1",
+      "resident_name": "Fictional Resident 1",
+      "resident_email": "lifecycle-1@example.invalid",
+      "unit_id": "fictional-lifecycle-unit-1",
+      "unit_number": "DEMO-1",
+      "is_simulated": true
+    },
+    "final_answers": {
+      "move_in_overall": 4,
+      "apartment_condition": 3,
+      "move_in_unresolved": "yes",
+      "move_in_comment": "The fictional bedroom window still sticks."
+    }
+  },
+  {
+    "event": {
+      "event_id": "fictional-lifecycle-maintenance_completed-001",
+      "occurrence_id": "fictional-lifecycle-maintenance_completed-001",
+      "event_type": "maintenance_completed",
+      "community_id": 1,
+      "occurred_at": "2026-11-04T12:00:00-05:00",
+      "resident_id": "fictional-lifecycle-resident-2",
+      "resident_name": "Fictional Resident 2",
+      "resident_email": "lifecycle-2@example.invalid",
+      "unit_id": "fictional-lifecycle-unit-2",
+      "unit_number": "DEMO-2",
+      "is_simulated": true,
+      "ticket_id": "FICTIONAL-WO-1",
+      "request_description": "a fictional kitchen faucet repair"
+    },
+    "final_answers": {
+      "maintenance_overall": 2,
+      "issue_resolution": "unresolved",
+      "maintenance_response_time": "not_sure",
+      "maintenance_comment": "The fictional faucet still drips."
+    }
+  },
+  {
+    "event": {
+      "event_id": "fictional-lifecycle-lease_month_3-001",
+      "occurrence_id": "fictional-lifecycle-lease_month_3-001",
+      "event_type": "lease_month_3",
+      "community_id": 1,
+      "occurred_at": "2026-11-04T12:00:00-05:00",
+      "resident_id": "fictional-lifecycle-resident-3",
+      "resident_name": "Fictional Resident 3",
+      "resident_email": "lifecycle-3@example.invalid",
+      "unit_id": "fictional-lifecycle-unit-3",
+      "unit_number": "DEMO-3",
+      "is_simulated": true
+    },
+    "final_answers": {
+      "community_overall": 4,
+      "community_team_help": "no_help_needed",
+      "follow_up_requested": "no",
+      "lease_month_3_comment": ""
+    }
+  },
+  {
+    "event": {
+      "event_id": "fictional-lifecycle-lease_month_6-001",
+      "occurrence_id": "fictional-lifecycle-lease_month_6-001",
+      "event_type": "lease_month_6",
+      "community_id": 1,
+      "occurred_at": "2026-11-04T12:00:00-05:00",
+      "resident_id": "fictional-lifecycle-resident-4",
+      "resident_name": "Fictional Resident 4",
+      "resident_email": "lifecycle-4@example.invalid",
+      "unit_id": "fictional-lifecycle-unit-4",
+      "unit_number": "DEMO-4",
+      "is_simulated": true
+    },
+    "final_answers": {
+      "community_overall": 3,
+      "shared_spaces_upkeep": "not_applicable",
+      "improvement_priority": "parking",
+      "lease_month_6_comment": "The fictional visitor parking signs are unclear."
+    }
+  },
+  {
+    "event": {
+      "event_id": "fictional-lifecycle-lease_month_9-001",
+      "occurrence_id": "fictional-lifecycle-lease_month_9-001",
+      "event_type": "lease_month_9",
+      "community_id": 1,
+      "occurred_at": "2026-11-04T12:00:00-05:00",
+      "resident_id": "fictional-lifecycle-resident-5",
+      "resident_name": "Fictional Resident 5",
+      "resident_email": "lifecycle-5@example.invalid",
+      "unit_id": "fictional-lifecycle-unit-5",
+      "unit_number": "DEMO-5",
+      "is_simulated": true
+    },
+    "final_answers": {
+      "community_overall": 4,
+      "renewal_intent": "undecided",
+      "renewal_factor": "rent_fees",
+      "lease_month_9_comment": "Waiting for the fictional renewal offer."
+    }
+  },
+  {
+    "event": {
+      "event_id": "fictional-lifecycle-lease_renewed-001",
+      "occurrence_id": "fictional-lifecycle-lease_renewed-001",
+      "event_type": "lease_renewed",
+      "community_id": 1,
+      "occurred_at": "2026-11-04T12:00:00-05:00",
+      "resident_id": "fictional-lifecycle-resident-6",
+      "resident_name": "Fictional Resident 6",
+      "resident_email": "lifecycle-6@example.invalid",
+      "unit_id": "fictional-lifecycle-unit-6",
+      "unit_number": "DEMO-6",
+      "is_simulated": true
+    },
+    "final_answers": {
+      "community_overall": 5,
+      "renewal_process": 4,
+      "renewal_reason": "location",
+      "renewal_comment": "Keep the fictional package room organized."
+    }
+  },
+  {
+    "event": {
+      "event_id": "fictional-lifecycle-move_out_completed-001",
+      "occurrence_id": "fictional-lifecycle-move_out_completed-001",
+      "event_type": "move_out_completed",
+      "community_id": 1,
+      "occurred_at": "2026-11-04T12:00:00-05:00",
+      "resident_id": "fictional-lifecycle-resident-7",
+      "resident_name": "Fictional Resident 7",
+      "resident_email": "lifecycle-7@example.invalid",
+      "unit_id": "fictional-lifecycle-unit-7",
+      "unit_number": "DEMO-7",
+      "is_simulated": true
+    },
+    "final_answers": {
+      "move_out_overall": 3,
+      "move_out_reason": "relocation",
+      "move_out_instructions": "not_received",
+      "move_out_comment": "Moving to another fictional city."
+    }
+  }
+]

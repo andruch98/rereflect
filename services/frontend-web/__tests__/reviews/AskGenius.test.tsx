@@ -211,6 +211,24 @@ it('shows all category tabs while only connected questions can be selected', asy
   expect(mocks.saveDefaultPeriod).not.toHaveBeenCalled();
 });
 
+it('offers questions for the additional surveys without sending one until requested', async () => {
+  mocks.status.mockResolvedValue(connectedStatus({ available_sources: ['reviews', 'analysis', 'surveys'] }));
+  mount();
+  const browse = screen.getByRole('button', { name: 'Browse more questions' });
+  await waitFor(() => expect(browse).toBeEnabled());
+  fireEvent.click(browse);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Surveys' }), { button: 0, ctrlKey: false });
+  for (const question of [
+    'Show the completed surveys for this period.',
+    'What did residents say in surveys about their move-in experience?',
+    'What did residents say in surveys about their renewal plans?',
+    'What reasons did residents give in move-out surveys?',
+  ]) expect(await screen.findByRole('button', { name: question })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'What reasons did residents give in move-out surveys?' }));
+  expect(screen.getByRole('textbox', { name: 'Your question' })).toHaveValue('What reasons did residents give in move-out surveys?');
+  expect(mocks.ask).not.toHaveBeenCalled();
+});
+
 it('sends a calendar period distinctly from a rolling window', async () => {
   mount();
   const input = screen.getByRole('textbox', { name: 'Your question' });

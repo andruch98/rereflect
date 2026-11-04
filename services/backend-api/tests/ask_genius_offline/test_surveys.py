@@ -2,6 +2,7 @@
 import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -25,21 +26,23 @@ def survey_flow(flow, monkeypatch):
     monkeypatch.setattr(email_service, '_send_email', lambda *args, **kwargs: pytest.fail('Live email forbidden'))
     sequence = []
 
-    def create(resolution='unresolved', resident='fictional-r1', submitted='2026-10-27T12:00:00+00:00', org=None, comment='The faucet still leaks after the visit.'):
+    def create(resolution='unresolved', resident='fictional-r1', submitted='2026-10-27T12:00:00+00:00', org=None, comment='The faucet still leaks after the visit.', event_type='maintenance_completed'):
         index = len(sequence) + 1
-        event = survey_routes.MaintenanceCompletedEvent(
-            event_id=f'test-event-{index}', occurrence_id=f'test-occurrence-{index}',
-            event_type='maintenance_completed', community_id=(org or flow['org']).id,
-            ticket_id=f'fictional-ticket-{index}', request_description='a leaking kitchen faucet',
-            completed_at='2026-10-01T15:00:00-04:00', resident_id=resident,
-            resident_name='Fictional Resident', resident_email=f'{resident}@example.invalid',
-            unit_id='unit-201', unit_number='201', is_simulated=True)
+        fixture = next(item for item in json.loads((Path(__file__).parents[4] /
+            'experiments/lifecycle_surveys/fixtures.json').read_text()) if item['event']['event_type'] == event_type)
+        data = {**fixture['event'], 'event_id': f'test-event-{index}', 'occurrence_id': f'test-occurrence-{index}',
+                'community_id': (org or flow['org']).id, 'occurred_at': '2026-10-01T15:00:00-04:00',
+                'resident_id': resident, 'resident_name': 'Fictional Resident',
+                'resident_email': f'{resident}@example.invalid', 'unit_id': 'unit-201', 'unit_number': '201'}
+        if event_type == 'maintenance_completed':
+            data.update(ticket_id=f'fictional-ticket-{index}', request_description='a leaking kitchen faucet')
+        event = survey_routes.SimulatedSurveyEvent(**data)
         row = surveys.ingest_simulated_event(flow['db'], event)
         sequence.append(row)
         if submitted:
-            result = flow['client'].post(f'/api/v1/resident-surveys/{row.token}/submit', json={'answers': {
-                'maintenance_overall': 2, 'issue_resolution': resolution,
-                'maintenance_response_time': 'not_sure', 'maintenance_comment': comment}})
+            answers = {'maintenance_overall': 2, 'issue_resolution': resolution,
+                'maintenance_response_time': 'not_sure', 'maintenance_comment': comment} if event_type == 'maintenance_completed' else fixture['final_answers']
+            result = flow['client'].post(f'/api/v1/resident-surveys/{row.token}/submit', json={'answers': answers})
             assert result.status_code == 200, result.text
             row.submitted_at = datetime.fromisoformat(submitted)
             flow['db'].commit()
@@ -408,3 +411,128 @@ def test_preview_simulation_is_idempotent_and_preserves_existing_records(survey_
     with pytest.raises(ValueError, match='requires the configured'):
         simulate_preview(f['db'])
     assert f['db'].query(SurveyInstance).count() == 1
+
+
+LIFECYCLE_WORDING = [
+    ('move_in_completed', 'move-in'), ('maintenance_completed', 'maintenance'),
+    ('lease_month_3', '3-month'), ('lease_month_6', '6-month'),
+    ('lease_month_9', '9-month renewal intent'), ('lease_renewed', 'completed renewal'),
+    ('move_out_completed', 'move-out'),
+]
+
+
+def mixed_surveys(f):
+    return {kind: f['create_survey'](event_type=kind) for kind, _ in LIFECYCLE_WORDING}
+
+
+@pytest.mark.parametrize('kind,wording', LIFECYCLE_WORDING)
+def test_each_named_type_count_list_and_originals_are_separate(survey_flow, kind, wording):
+    f = survey_flow
+    rows = mixed_surveys(f)
+    result = f['ask'](f'How many {wording} surveys?', period=ALL)
+    assert result.status_code == 200, result.text
+    assert result.json()['answer'].startswith('1 completed ')
+    metadata = result.json()['structured_data']
+    assert metadata['survey_counts']['submission_count'] == 1
+    assert metadata['survey_counts']['survey_type_counts'] == {kind: 1}
+    assert metadata['survey_event_types'] == [kind]
+    assert metadata['sources'] == []  # Counts do not dump private answers.
+    listed = f['ask'](f'Show the {wording} surveys.', period=ALL)
+    assert listed.status_code == 200, listed.text
+    source = listed.json()['structured_data']['sources'][0]
+    assert source['survey_id'] == rows[kind].public_id
+    assert source['survey']['event_type'] == kind
+    assert source['survey']['title'] == rows[kind].questionnaire_snapshot['title']
+    assert [q['original_text'] for q in source['survey']['questions']] == [q['text'] for q in rows[kind].questionnaire_snapshot['questions']]
+    assert source['survey']['context']['event_type'] == kind
+    if kind != 'maintenance_completed':
+        assert source['survey']['context']['ticket_id'] is None
+        assert source['survey']['context'].get('ticket_completed_at') is None
+    assert not f['calls']
+
+
+def test_mixed_totals_keep_maintenance_resolution_and_renewal_semantics_separate(survey_flow):
+    f = survey_flow
+    rows = mixed_surveys(f)
+    f['create_survey']('resolved', resident='fictional-r2')
+    result = f['ask']('How many surveys?', period=ALL)
+    assert result.status_code == 200, result.text
+    metadata = result.json()['structured_data']
+    assert result.json()['answer'].startswith('8 completed survey response(s)')
+    assert metadata['survey_counts']['distinct_resident_count'] == 2
+    assert metadata['survey_counts']['issue_resolution_counts'] == {'unresolved': 1, 'resolved': 1}
+    assert metadata['survey_counts']['survey_type_counts']['lease_month_9'] == 1
+    assert metadata['survey_counts']['survey_type_counts']['lease_renewed'] == 1
+    ambiguous = f['ask']('How many surveys are unresolved?', period=ALL)
+    assert 'different questions' in ambiguous.json()['answer']
+    assert ambiguous.json()['structured_data']['sources'] == []
+    exact = f['ask']('How many maintenance surveys are unresolved?', period=ALL)
+    assert exact.json()['answer'].startswith('1 completed maintenance survey response(s)')
+    assert exact.json()['structured_data']['survey_match_ids'] == [rows['maintenance_completed'].public_id]
+    assert not f['calls']
+
+
+def test_type_change_discards_prior_cohort_and_preserves_new_type_followups(survey_flow):
+    f = survey_flow
+    rows = mixed_surveys(f)
+    extra = f['create_survey'](event_type='move_out_completed', resident='fictional-extra')
+    first = f['ask']('Show unresolved maintenance surveys.', period=ALL)
+    chat = first.json()['conversation_id']
+    second = f['ask']('How many move-out surveys?', conversation_id=chat)
+    assert second.json()['answer'].startswith('2 completed move-out survey response(s)')
+    followup = f['ask']('Show the original answers.', conversation_id=chat)
+    assert {s['survey_id'] for s in followup.json()['structured_data']['sources']} == {rows['move_out_completed'].public_id, extra.public_id}
+    all_types = f['ask']('How many all surveys?', conversation_id=chat)
+    assert all_types.json()['answer'].startswith('8 completed survey response(s)')
+    assert not f['calls']
+
+
+@pytest.mark.parametrize('question,expected', [
+    ('How many move-in and maintenance surveys?', {'move_in_completed', 'maintenance_completed'}),
+    ('How many all surveys except maintenance surveys?', {'move_in_completed','lease_month_3','lease_month_6','lease_month_9','lease_renewed','move_out_completed'}),
+    ('How many surveys excluding maintenance?', {'move_in_completed','lease_month_3','lease_month_6','lease_month_9','lease_renewed','move_out_completed'}),
+])
+def test_shared_nouns_and_exclusions_never_silently_drop_or_add_types(survey_flow, question, expected):
+    f = survey_flow
+    mixed_surveys(f)
+    result = f['ask'](question, period=ALL)
+    assert result.status_code == 200, result.text
+    assert result.json()['answer'].startswith(f'{len(expected)} completed ')
+    assert set(result.json()['structured_data']['survey_event_types']) == expected
+    assert not f['calls']
+
+
+def test_comparison_and_topics_use_authorized_originals_and_reject_wrong_type_evidence(survey_flow):
+    f = survey_flow
+    rows = mixed_surveys(f)
+    f['model'].update(answer='The original responses cover different stages of the resident experience.', evidence=[])
+    result = f['ask']('Compare move-in and maintenance surveys.', period=ALL)
+    assert result.status_code == 200, result.text
+    payload = context(f)
+    assert {row['event_type'] for row in payload['surveys']} == {'move_in_completed','maintenance_completed'}
+    f['ask']('What do all surveys say about maintenance?', period=ALL)
+    assert len(context(f)['surveys']) == 7  # Topic mentions do not narrow to one questionnaire.
+    f['model']['evidence'] = [{'kind': 'survey', 'survey_id': rows['maintenance_completed'].public_id}]
+    wrong_type = f['ask']('Explain the move-in surveys.', period=ALL)
+    assert wrong_type.status_code == 502
+    f['model']['evidence'] = [{'kind': 'survey', 'survey_id': rows['move_in_completed'].public_id,
+                              'excerpt': 'Everything was fixed.'}]
+    invented_quote = f['ask']('Explain the move-in surveys.', period=ALL)
+    assert invented_quote.status_code == 502
+
+
+def test_excluding_every_type_requires_a_new_selection(survey_flow):
+    f = survey_flow
+    mixed_surveys(f)
+    result = f['ask']('Show all surveys except move-in, maintenance, 3-month, 6-month, 9-month, renewal and move-out surveys.', period=ALL)
+    assert result.status_code == 422
+    assert 'No survey types remain' in result.json()['detail']
+    assert not f['calls']
+
+
+def test_or_between_survey_types_requests_clear_selection(survey_flow):
+    mixed_surveys(survey_flow)
+    result = survey_flow['ask']('How many move-in or maintenance surveys?', period=ALL)
+    assert result.status_code == 422
+    assert 'Choose one survey type' in result.json()['detail']
+    assert not survey_flow['calls']

@@ -1,15 +1,30 @@
-"""The maintenance_v1 questionnaire adapted from BoomSay's fixed catalog."""
+"""Seven fixed, approved BoomSay questionnaires; no generated questions."""
 from copy import deepcopy
 import json
 from pathlib import Path
 
-CATALOG = json.loads((Path(__file__).parent / 'data/maintenance_survey_catalog.json').read_text())
+CATALOG = json.loads((Path(__file__).parent / 'data/survey_catalog.json').read_text())
+EVENT_LABELS = {
+    'move_in_completed': 'Move-in', 'maintenance_completed': 'Maintenance',
+    'lease_month_3': '3-month', 'lease_month_6': '6-month',
+    'lease_month_9': '9-month renewal planning', 'lease_renewed': 'Lease renewal',
+    'move_out_completed': 'Move-out',
+}
+TEMPLATE_EVENTS = {item['id']: item['event_type'] for item in CATALOG['templates']}
 
 
-def bind_questionnaire(context: dict) -> dict:
-    template = deepcopy(CATALOG['templates'][0])
+def event_type_for(questionnaire: dict, context: dict) -> str:
+    # Old snapshots already identify their immutable maintenance template.
+    return questionnaire.get('event_type') or TEMPLATE_EVENTS.get(questionnaire['id']) or context.get('event_type', '')
+
+
+def bind_questionnaire(context: dict, event_type: str = 'maintenance_completed') -> dict:
+    template = next((deepcopy(item) for item in CATALOG['templates'] if item['event_type'] == event_type), None)
+    if template is None:
+        raise ValueError('Unsupported survey event type; no questionnaire was selected')
     template.update(version=1, catalog_version=CATALOG['catalog_version'],
                     rating_labels=deepcopy(CATALOG['rating_labels']))
+    template['title'] = template['title'].format(**context)
     for question in template['questions']:
         question['rendered_text'] = question['text'].format(**context)
     return template

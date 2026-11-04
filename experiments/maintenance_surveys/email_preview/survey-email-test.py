@@ -13,9 +13,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def backend(action, test_id):
+def backend(action, test_id, event_type='maintenance_completed'):
     result = subprocess.run(['docker', 'compose', '-f', 'compose.json', 'exec', '-T', 'api',
-        'python', '-m', 'src.survey_email_preview', action, test_id], capture_output=True, text=True)
+        'python', '-m', 'src.survey_email_preview', action, test_id, '--event-type', event_type], capture_output=True, text=True)
     if result.returncode:
         raise ValueError(result.stderr.strip() or 'The preview command failed. Nothing sent.')
     return json.loads(result.stdout)
@@ -50,11 +50,15 @@ def main():
     parser = argparse.ArgumentParser(description='One email per named fictional survey test.')
     parser.add_argument('action', choices=['prepare', 'send'])
     parser.add_argument('--test-id', default='first-test', help='Use a DIFFERENT name only to deliberately start another test.')
+    parser.add_argument('--event-type', choices=['move_in_completed', 'maintenance_completed', 'lease_month_3',
+        'lease_month_6', 'lease_month_9', 'lease_renewed', 'move_out_completed'], default='maintenance_completed')
     args = parser.parse_args()
     if not Path('compose.json').is_file() or not Path('private').is_dir():
         raise SystemExit('Run from ~/Downloads/boomsay-dashboard-preview.')
     try:
-        preview = backend('prepare', args.test_id)
+        def selected_backend(action, test_id):
+            return backend(action, test_id, args.event_type)
+        preview = selected_backend('prepare', args.test_id)
         payload = preview['payload']
         print('From:', payload['from'], '\nTo:', ', '.join(payload['to']))
         print('Subject:', payload['subject'], '\n\n' + payload['text'])
@@ -72,7 +76,7 @@ def main():
         key = getpass.getpass('Paste Resend API key (hidden, not saved): ').strip()
         if not key.startswith('re_') or any(c.isspace() for c in key):
             raise ValueError('Key format not recognized. Nothing sent.')
-        print(send_once(args.test_id, key))
+        print(send_once(args.test_id, key, call=selected_backend))
     except (ValueError, json.JSONDecodeError) as exc:
         raise SystemExit(str(exc)) from None
 

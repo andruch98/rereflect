@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { surveysAPI, type SurveyAnswers, type SurveyInstance, type SurveyQuestion } from '@/lib/api/surveys';
+import { surveysAPI, surveyType, surveyTypeLabel, type SurveyAnswers, type SurveyInstance, type SurveyQuestion } from '@/lib/api/surveys';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { BoomSayLogo } from '@/components/reviews/BoomSayLogo';
@@ -99,13 +99,15 @@ function ResidentSurveyForm({ token, initial }: { token: string; initial: Survey
     }
   }
 
-  if (survey.status === 'submitted' && survey.submitted_at) return <section className="space-y-4 rounded-xl border bg-card p-6 sm:p-8" aria-label="Survey confirmation"><h1 className="text-2xl font-semibold">Thank you for your feedback</h1><p>Your maintenance survey has been submitted.</p></section>;
+  const typeLabel = surveyTypeLabel(survey);
+  const isMaintenance = surveyType(survey.context.event_type, survey.questionnaire.id)?.eventType === 'maintenance_completed';
+  if (survey.status === 'submitted' && survey.submitted_at) return <section className="space-y-4 rounded-xl border bg-card p-6 sm:p-8" aria-label="Survey confirmation"><h1 className="text-2xl font-semibold">Thank you for your feedback</h1><p>Your survey has been submitted.</p><p className="text-sm text-muted-foreground">{typeLabel} · {survey.context.community_name}</p></section>;
 
   return <section className="space-y-6">
-    <header className="space-y-3"><h1 className="text-2xl font-semibold sm:text-3xl">{survey.questionnaire.title}</h1><p className="text-muted-foreground">{survey.context.community_name}</p><p className="rounded-lg bg-muted p-4 text-sm leading-6">Maintenance request: {survey.context.request_description}<br />Ticket: {survey.context.ticket_id}</p></header>
+    <header className="space-y-3"><p className="text-sm font-medium text-muted-foreground">{typeLabel}</p><h1 className="text-2xl font-semibold sm:text-3xl">{survey.questionnaire.title}</h1><p className="text-muted-foreground">{survey.context.community_name}</p>{isMaintenance && <p className="rounded-lg bg-muted p-4 text-sm leading-6">Maintenance request: {survey.context.request_description}<br />Ticket: {survey.context.ticket_id}</p>}</header>
     <form className="space-y-8" onSubmit={event => { event.preventDefault(); void submit(); }}>
       {survey.questionnaire.questions.map(question => <fieldset key={question.id} disabled={submitting} className="space-y-3">
-        <legend className="mb-3 text-base font-medium leading-7">{question.rendered_text || question.text}{!question.required && <span className="ml-1 font-normal text-muted-foreground">(optional)</span>}</legend>
+        <legend className="mb-3 text-base font-medium leading-7">{question.rendered_text || question.text}{!question.required && <> <span className="ml-1 font-normal text-muted-foreground">(optional)</span></>}</legend>
         {question.type === 'text' ? <Textarea aria-label={question.rendered_text || question.text} rows={5} maxLength={question.max_length} value={String(answers[question.id] ?? '')} onChange={event => change(question, event.target.value)} className="text-base" />
           : <div className="grid gap-2">{(question.type === 'rating' ? [...Object.entries(survey.questionnaire.rating_labels).map(([value, label]) => ({ value: Number(value), label: `${value} — ${label}` })), ...(question.special_options ?? [])] : question.options ?? []).map(option => <label key={option.value} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm ${answers[question.id] === option.value ? 'border-primary bg-primary/5' : 'hover:bg-muted'}`}>
             <input type="radio" name={question.id} value={option.value} checked={answers[question.id] === option.value} required={question.required} onChange={() => change(question, option.value)} className="h-4 w-4 accent-primary" /><span>{option.label}</span>

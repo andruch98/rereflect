@@ -1,3 +1,5 @@
+> The original six additional lifecycle surveys are now available in the controlled preview workflow. See [lifecycle survey setup and scope](../lifecycle_surveys/README.md). The maintenance-specific history and commands below remain valid.
+
 > Current Mac workflow: use the existing port-53004 preview and [the update instructions](preview_updates/README.txt). The separate demo below is optional developer documentation, not the manager installation path. Current corrections and verification limits are in [HANDOFF.md](HANDOFF.md).
 
 # Maintenance survey integration
@@ -198,7 +200,7 @@ verified sender domain/configuration and operational handling; no such mode is
 enabled here.
 
 Deferred: invitation timing, reminders/quiet hours, automatic survey analysis,
-survey topics/sentiment, other survey types, wording changes, visual refinement,
+survey topics/sentiment, wording changes, visual refinement,
 SMS, real PMS connections, public-review solicitation, hosting and deployment.
 The future timing remains 24 hours after ticket completion, with one reminder 24
 hours after provider acceptance if unanswered, in the property's 9 a.m.–6 p.m.

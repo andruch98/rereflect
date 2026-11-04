@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ResidentSurvey } from '@/components/surveys/ResidentSurvey';
 
 export const metadata: Metadata = {
-  title: 'Maintenance survey — BoomSay',
+  title: 'Resident survey — BoomSay',
   robots: { index: false, follow: false },
   referrer: 'no-referrer',
 };

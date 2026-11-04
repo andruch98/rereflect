@@ -41,15 +41,16 @@ class SurveyEmailOptOut(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
-class MaintenanceOccurrence(Base):
+class SurveyOccurrence(Base):
+    # Retain the physical table and IDs so existing tokens/FKs need no backfill.
     __tablename__ = 'maintenance_occurrences'
     id = Column(Integer, primary_key=True)
     organization_id = Column(Integer, ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False)
     event_id = Column(String(200), nullable=False)
     occurrence_id = Column(String(200), nullable=False)
     event_type = Column(String(50), nullable=False)
-    ticket_id = Column(String(200), nullable=False)
-    request_description = Column(String(1000), nullable=False)
+    ticket_id = Column(String(200), nullable=True)
+    request_description = Column(String(1000), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=False)
     resident_record_id = Column(Integer, ForeignKey('survey_residents.id'), nullable=False)
     unit_record_id = Column(Integer, ForeignKey('survey_units.id'), nullable=False)
@@ -86,7 +87,7 @@ class SurveyInstance(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
-    occurrence = relationship('MaintenanceOccurrence')
+    occurrence = relationship('SurveyOccurrence')
     invitation = relationship('SurveyInvitation', uselist=False, back_populates='survey')
     __table_args__ = (Index('ix_survey_instances_org_submitted', 'organization_id', 'submitted_at'),)
 
@@ -106,3 +107,7 @@ class SurveyInvitation(Base):
     survey_url = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     survey = relationship('SurveyInstance', back_populates='invitation')
+
+
+# Existing controlled maintenance preview/test imports keep their behavior.
+MaintenanceOccurrence = SurveyOccurrence

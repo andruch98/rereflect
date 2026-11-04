@@ -200,14 +200,14 @@ def build_evidence(org_id: int, db: Session, period: Period | None = None) -> di
     return evidence
 
 
-def build_authorized_evidence(org_id: int, db: Session, period: Period, scope: str) -> dict:
+def build_authorized_evidence(org_id: int, db: Session, period: Period, scope: str, survey_event_types=None) -> dict:
     if scope == 'surveys':
         evidence = {'period': resolve_period(period), 'reviews': [], 'calculated': {}}
     else:
         evidence = build_evidence(org_id, db, period)
     evidence['source_scope'] = scope
     if scope in {'surveys', 'mixed'}:
-        evidence.update(survey_service.build_evidence(org_id, db, period))
+        evidence.update(survey_service.build_evidence(org_id, db, period, survey_event_types))
     if len(json.dumps(evidence, ensure_ascii=False)) > MAX_EVIDENCE_CHARS:
         raise ValueError('The selected records are too large to read completely. Choose a shorter period.')
     return evidence
@@ -587,7 +587,7 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
 
 def no_data_answer(evidence: dict) -> str | None:
     if evidence.get('source_scope') == 'surveys':
-        return None if evidence.get('surveys') else f'There are no finalized maintenance survey submissions matching this request within {evidence["period"]["label"]}.'
+        return None if evidence.get('surveys') else f'There are no finalized survey submissions matching this request within {evidence["period"]["label"]}.'
     if evidence.get('source_scope') == 'mixed' and evidence.get('surveys'):
         return None
     if evidence['reviews']:

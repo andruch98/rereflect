@@ -2,6 +2,23 @@ import apiClient, { publicApiClient } from '../api-client';
 
 export type SurveyAnswers = Record<string, string | number | null>;
 
+export const SURVEY_TYPES = [
+  { eventType: 'move_in_completed', templateId: 'move_in_v1', label: 'Move-in', dateLabel: 'Move-in completed' },
+  { eventType: 'maintenance_completed', templateId: 'maintenance_v1', label: 'Maintenance', dateLabel: 'Ticket marked completed' },
+  { eventType: 'lease_month_3', templateId: 'lease_month_3_v1', label: '3-month', dateLabel: '3-month milestone' },
+  { eventType: 'lease_month_6', templateId: 'lease_month_6_v1', label: '6-month', dateLabel: '6-month milestone' },
+  { eventType: 'lease_month_9', templateId: 'lease_month_9_v1', label: '9-month renewal planning', dateLabel: '9-month milestone' },
+  { eventType: 'lease_renewed', templateId: 'lease_renewed_v1', label: 'Lease renewal', dateLabel: 'Lease renewed' },
+  { eventType: 'move_out_completed', templateId: 'move_out_v1', label: 'Move-out', dateLabel: 'Move-out completed' },
+] as const;
+export type SurveyEventType = typeof SURVEY_TYPES[number]['eventType'];
+
+/** Legacy survey snapshots have a template ID but no event type. */
+export function surveyType(eventType?: string, templateId?: string) {
+  return SURVEY_TYPES.find(type => type.eventType === eventType)
+    ?? SURVEY_TYPES.find(type => type.templateId === templateId);
+}
+
 export interface SurveyOption { value: string; label: string }
 export interface SurveyQuestion {
   id: string;
@@ -23,9 +40,12 @@ export interface SurveyQuestionnaire {
 }
 export interface SurveyContext {
   community_name: string;
-  request_description: string;
-  ticket_id: string;
-  ticket_completed_at: string;
+  event_type?: SurveyEventType;
+  survey_type_label?: string;
+  event_occurred_at?: string | null;
+  request_description?: string | null;
+  ticket_id?: string | null;
+  ticket_completed_at?: string | null;
   resident_id?: string;
   resident_name?: string;
   unit_id?: string;
@@ -54,9 +74,9 @@ export interface SurveyInstance {
 }
 
 export const surveysAPI = {
-  async list(page = 1, pageSize = 50) {
+  async list(page = 1, pageSize = 50, eventType?: SurveyEventType) {
     return (await apiClient.get<{ surveys: SurveyInstance[]; total: number }>('/api/v1/surveys', {
-      params: { page, page_size: pageSize },
+      params: { page, page_size: pageSize, ...(eventType ? { event_type: eventType } : {}) },
     })).data;
   },
   async get(id: string) {
@@ -85,7 +105,11 @@ export function surveyAnswerLabel(question: SurveyQuestion, value: string | numb
   return [...(question.options ?? []), ...(question.special_options ?? [])].find(option => option.value === value)?.label ?? String(value);
 }
 
-export function surveyDate(value: string | null): string {
+export function surveyTypeLabel(survey: SurveyInstance): string {
+  return survey.context.survey_type_label || surveyType(survey.context.event_type, survey.questionnaire.id)?.label || 'Survey';
+}
+
+export function surveyDate(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value.endsWith('Z') || /[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
