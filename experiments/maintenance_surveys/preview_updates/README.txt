@@ -1,57 +1,45 @@
-BOOMSAY — ASK GENIUS ANSWER RECOVERY UPDATE
+BoomSay: one real survey email from your existing Mac preview
 
-Update your existing BoomSay preview on port 53004. Keep Docker Desktop running.
-Unzip this package in Downloads; keep your existing preview folder in place.
+This update builds on the tested survey/Ask Genius corrections. It preserves the
+existing database, source backups, login, AI configuration and Compose networks.
+It adds a separate email test command. It does not enable automated delivery.
+The key is entered hidden in Terminal for a send, held in memory, never saved or
+passed to Docker. Keep your password-manager copy. Do not share the key in chat.
 
-1. Paste into Terminal:
+1. Unzip boomsay-survey-email-update.zip into Downloads. Keep Docker Desktop running.
+2. In Terminal:
+cd "$HOME/Downloads/boomsay-dashboard-preview" && python3 "$HOME/Downloads/boomsay-survey-email-update/update-preview.py" && bash start-local.sh
+3. Prepare the test (no email is sent):
+python3 "$HOME/Downloads/boomsay-survey-email-update/survey-email-test.py" prepare
 
-   cd "$HOME/Downloads/boomsay-dashboard-preview" &&
-   python3 "$HOME/Downloads/boomsay-answer-recovery-update/update-preview.py" &&
-   bash start-local.sh
+This creates one NEW fictional maintenance survey, not a duplicate of your existing
+completed test. It prints the agreed email and survey link. Repeating prepare
+returns the same survey. It does not overwrite answers. The manager dashboard
+shows Andres (fictional email test), unit EMAIL-TEST, ticket EMAIL-TEST-first-test.
 
-2. After startup succeeds, open:
-   http://127.0.0.1:53004/ask-genius
-   Use your existing login. Open your survey conversation, with All available
-   history selected. Your already-submitted fictional survey remains available.
+4. When ready to send the displayed email:
+python3 "$HOME/Downloads/boomsay-survey-email-update/survey-email-test.py" send
+Type SEND when asked. Paste your Resend key at the hidden prompt, then press Enter.
+Only andres.feuerberg.ch@gmail.com is permitted; sender is BoomSay <andres@boomsay.com>.
 
-3. Retry the question that failed, or send:
-   What did residents say in surveys about their maintenance experience?
+5. Check Gmail inbox/spam and open Take survey ON THIS MAC while Docker is running.
+Answer and submit, then check http://127.0.0.1:53004/surveys and Ask Genius.
+Both the survey and unsubscribe links are local for this test, not public links.
+Resend acceptance does not prove inbox delivery. No delivery webhook is included.
 
-   Then ask:
-   Show each answer.
+Duplicate protection: the database reserves the attempt BEFORE contacting Resend.
+Repeating send cannot resend, even after restarting Terminal or after a timeout.
+A crash/timeout is treated as uncertain: check Resend Emails before doing anything
+else. A reservation can remain if the email was never sent; this intentionally
+avoids guessing and duplicate sends. Do not reset statuses or delete records.
+A deliberate later test uses a new name with --test-id second-test on BOTH commands.
+Do not start another test to bypass an uncertain send or an unsubscribe.
 
-   The summary should answer your question without an error or unwanted evidence
-   controls. The follow-up should open the relevant original answers in a popup.
-   Check the summary against those answers. A software test cannot establish the
-   factual accuracy of a new live model response.
+The event remains fictional. The invitation starts simulated; an explicit send
+changes it to a real test attempt (email_test_reserved, email_test_accepted or
+email_test_failed). A failed/uncertain result is not a confirmed delivery failure.
+Production delivery and other application emails remain unchanged. Your key is
+not installed globally. No real email was sent during development verification.
 
-You do not need to create or submit another survey. Narrative questions use your
-existing configured model and can incur its normal usage costs. This update does
-not change that configuration or replace your model with a mock. Automated tests
-used fictional data and mocked/reconstructed responses; live AI quality remains
-unverified.
-
-The fix accepts valid extra supporting references while hiding their controls
-until requested, preserves them for follow-ups, and normalizes only unambiguous
-JSON string line breaks. It continues rejecting invalid references, invented
-quotations and broken output that would require guessing. Failures now have a
-specific stored reason and a plain-English message. No automatic retry is added.
-Shared instructions remain in one core, with a short survey-specific section.
-
-The updater preserves database storage, saved reviews/analysis, chats/defaults,
-login, private configuration, Compose and startup scripts. It backs up application
-source to backup-before-genius-answer-recovery-update. Earlier backups remain
-intact. A repeated completed update is a no-op. Unsupported versions are rejected
-before changes; do not edit checksums or remove backups to bypass checks.
-
-Startup uses your existing migration command. No new migration is added by this
-fix. The source backup is NOT a database backup; restoring older source after
-applying migrations is not a supported rollback. Never use down -v or reset data.
-
-This package has not been installed on your Mac. Mac/ARM startup and live AI
-responses still need your walkthrough. Earlier reports of production-build and
-browser limitations are historical; this fix does not claim to resolve them.
-
-Exact commit and checksum: update.json. Current scope and verification:
-handoff/verification/answer-recovery/README.md and verification/offline-checks.txt.
-Older reports bundled under handoff are historical, not freshly repeated tests.
+Mac installation, live Resend acceptance and actual Gmail delivery still require
+your test. Keep existing files/backups. Do not use Docker down -v or reset the DB.

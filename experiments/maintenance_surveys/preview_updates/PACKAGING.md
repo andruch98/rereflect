@@ -1,7 +1,7 @@
 # Maintenance survey preview update
 
 The dedicated updater selectively follows the existing Ask Genius source update
-protocol. It uses `backup-before-genius-answer-recovery-update`, retains existing
+protocol. It uses `backup-before-survey-email-test-update`, retains existing
 supported base commits plus the published survey base ccb53d4122a76ffd6045d2bf188d20dfdb712d2d and verified master `59dfd9122b20d0098eceedf8e1d1296e86b6f0a3`,
 plus the installed continuity update `6dd7827360d1a370d59537a0c7407bf5ad5faeff`,
 and retains the two approved startup-script hashes. It does not alter startup,
@@ -13,7 +13,7 @@ After committing the reviewed feature locally, package that exact commit:
 ```sh
 python3 experiments/maintenance_surveys/preview_updates/build-update.py \
   --commit FULL_40_CHARACTER_FEATURE_COMMIT \
-  --output /absolute/path/boomsay-answer-recovery-update.zip \
+  --output /absolute/path/boomsay-survey-email-update.zip \
   --verification-log /absolute/path/offline-checks.txt
 ```
 

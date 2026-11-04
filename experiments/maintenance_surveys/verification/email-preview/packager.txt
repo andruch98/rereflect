@@ -1,0 +1,12 @@
+test_exact_commit_excludes_uncommitted_source_and_private_files (__main__.BuildTests.test_exact_commit_excludes_uncommitted_source_and_private_files) ... ok
+test_existing_output_and_invalid_commit_are_rejected (__main__.BuildTests.test_existing_output_and_invalid_commit_are_rejected) ... ok
+test_handoff_and_fixtures_use_committed_bytes_and_optional_manifest_requires_commit (__main__.BuildTests.test_handoff_and_fixtures_use_committed_bytes_and_optional_manifest_requires_commit) ... ok
+test_missing_chat_migration_or_share_runtime_is_rejected (__main__.BuildTests.test_missing_chat_migration_or_share_runtime_is_rejected) ... ok
+test_missing_committed_handoff_document_or_fixture_is_rejected (__main__.BuildTests.test_missing_committed_handoff_document_or_fixture_is_rejected) ... ok
+test_missing_migration_in_committed_archive_is_rejected (__main__.BuildTests.test_missing_migration_in_committed_archive_is_rejected) ... ok
+test_uncommitted_updater_difference_is_rejected (__main__.BuildTests.test_uncommitted_updater_difference_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.979s
+
+OK

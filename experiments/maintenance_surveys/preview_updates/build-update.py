@@ -21,6 +21,8 @@ SOURCE_PATHS = (
     'LICENSE', 'NOTICE',
 )
 SUPPORTED_BASES = (
+    'f4c6c222097e1c5a3d7078018da8426695d6cc07',
+    '2b5ec7796da41a8cd9f558e53de9bb6d20ed0629',
     '6dd7827360d1a370d59537a0c7407bf5ad5faeff',
     'ccb53d4122a76ffd6045d2bf188d20dfdb712d2d',
     '59dfd9122b20d0098eceedf8e1d1296e86b6f0a3',
@@ -35,8 +37,11 @@ SUPPORTED_BASES = (
     '724ca86b0de00c59ade1c8c54fac17ec9bacbc71',
     '5bba1ce0c502c074d481a4b2228091ec5873c72d',
 )
-BUNDLE_NAME = 'boomsay-answer-recovery-update'
+BUNDLE_NAME = 'boomsay-survey-email-update'
 HANDOFF_FILES = {
+    'experiments/maintenance_surveys/email_preview/README.txt': 'EMAIL-TEST.txt',
+    'experiments/maintenance_surveys/email_preview/survey-email-test.py': 'survey-email-test.py',
+    'experiments/maintenance_surveys/verification/email-preview/README.md': 'handoff/verification/email-preview/README.md',
     'experiments/maintenance_surveys/verification/answer-recovery/README.md': 'handoff/verification/answer-recovery/README.md',
     'experiments/maintenance_surveys/README.md': 'handoff/README.md',
     'experiments/maintenance_surveys/HANDOFF.md': 'handoff/HANDOFF.md',

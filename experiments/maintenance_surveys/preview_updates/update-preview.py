@@ -14,7 +14,7 @@ import tarfile
 import tempfile
 
 
-BACKUP = 'backup-before-genius-answer-recovery-update'
+BACKUP = 'backup-before-survey-email-test-update'
 MUTATED_FILES = ('rereflect-app-source.tar.gz', 'checksums.json', 'SOURCE.txt')
 MANIFEST_REQUIRED = {
     'rereflect-app-source.tar.gz', 'private/saved-ai-records.json', 'restore.py',
@@ -51,6 +51,7 @@ APP_MARKERS = (
     'services/backend-api/src/services/ask_genius_surveys.py',
     'services/backend-api/src/survey_demo.py',
     'services/backend-api/src/survey_preview.py',
+    'services/backend-api/src/survey_email_preview.py',
     'services/frontend-web/components/reviews/GeniusSurveyEvidence.tsx',
     'services/frontend-web/app/survey/[token]/page.tsx',
     'services/frontend-web/app/survey/[token]/unsubscribe/page.tsx',
@@ -147,7 +148,7 @@ def update(root: Path, bundle: Path) -> bool:
         return False
     backup = root / BACKUP
     if backup.exists() or backup.is_symlink():
-        raise UpdateError('An answer-recovery update backup already exists. Keep it and ask for help before retrying.')
+        raise UpdateError('A survey-email update backup already exists. Keep it and ask for help before retrying.')
     originals = {name: (root / name).read_bytes() for name in MUTATED_FILES}
     modes = {name: stat.S_IMODE((root / name).stat().st_mode) for name in MUTATED_FILES}
     with tempfile.TemporaryDirectory(prefix='.maintenance-survey-update-', dir=root) as staging:
@@ -168,8 +169,8 @@ def update(root: Path, bundle: Path) -> bool:
         replacements = {
             'rereflect-app-source.tar.gz': archive_bytes,
             'checksums.json': (json.dumps(updated_checksums, indent=2) + '\n').encode(),
-            'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: fix/survey-genius-continuity\n'
-                           f"Commit: {meta['commit']}\nAsk Genius answer handling updated; private data and AI setup unchanged. Startup applies pending additive migrations.\n").encode(),
+            'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: feat/survey-email-preview\n'
+                           f"Commit: {meta['commit']}\nExplicit local survey email test added; private data and AI setup unchanged. Startup applies pending additive migrations.\n").encode(),
         }
         moved_old = installed_new = created_backup = False
         written: list[str] = []
