@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from copy import deepcopy
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -176,6 +177,31 @@ def original_record(row) -> dict:
             'title': snapshot.get('title', 'Survey'), 'context': row.context_snapshot,
             'maintenance_context': row.context_snapshot, 'questions': questions,
             'saved_analysis': {'status': 'not_generated'}}
+
+
+def model_record(record: dict) -> dict:
+    """Present each bound question and context once, without changing originals.
+
+    Source cards and validation retain the full record. Keep answer codes and
+    display labels, all choices, and rating scales; never summarize resident text.
+    """
+    result = deepcopy(record)
+    if result.get('maintenance_context') == result.get('context'):
+        result.pop('maintenance_context', None)
+    for question in result['questions']:
+        # text already contains the exact bound wording shown to the resident.
+        for key in ('rendered_text', 'original_text', 'required', 'max_length'):
+            question.pop(key, None)
+        if question.get('rating_labels') is None:
+            question.pop('rating_labels', None)
+        if question.get('type') == 'text' and question.get('answer_label') == question.get('answer'):
+            question.pop('answer_label', None)
+    scales = [q['rating_labels'] for q in result['questions'] if 'rating_labels' in q]
+    if scales and all(scale == scales[0] for scale in scales):
+        result['rating_labels'] = scales[0]
+        for question in result['questions']:
+            question.pop('rating_labels', None)
+    return result
 
 
 def build_evidence(org_id, db, period, event_types=None) -> dict:

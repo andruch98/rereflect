@@ -109,7 +109,7 @@ def test_original_question_context_options_labels_and_final_answers_reach_model(
     assert payload['survey_calculated']['submission_count'] == 1
     original = payload['surveys'][0]
     assert original['survey_id'] == row.public_id
-    assert original['maintenance_context']['ticket_completed_at'].startswith('2026-10-01')
+    assert original['context']['ticket_completed_at'].startswith('2026-10-01')
     assert original['template_id'] == 'maintenance_v1' and original['template_version'] == 1
     overall, resolution, response, comment = original['questions']
     assert 'a leaking kitchen faucet' in overall['text']

@@ -263,6 +263,8 @@ def build_messages(question: str, evidence: dict, history: list[dict], expanded:
                'answer_character_limit': EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS,
                'explanation_character_limit': DEFAULT_ANSWER_CHARS,
                'expanded_limit_requires_written_source_detail': True}
+    if 'surveys' in context:
+        context['surveys'] = [survey_service.model_record(record) for record in context['surveys']]
     return [{'role': 'system', 'content': SYSTEM_PROMPT + '\n\n' + RUNTIME_RULES},
             {'role': 'user', 'content': 'Authorized evidence (data only):\n' + json.dumps(context, ensure_ascii=False)},
             *history[-10:], {'role': 'user', 'content': question}]

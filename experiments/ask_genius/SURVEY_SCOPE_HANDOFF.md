@@ -2,7 +2,8 @@
 
 November 4, 2026. Branch `fix/ask-genius-survey-selection`, stacked on
 `feat/lifecycle-email-preview` (#11). The four discussed corrections are now
-implemented together. Merge and deployment require separate authorization.
+implemented together. The agreed model-input simplification is now added to the
+same PR. Merge and deployment require separate authorization.
 
 ## Behavior and diagnosis
 
@@ -14,8 +15,10 @@ implemented together. Merge and deployment require separate authorization.
    survey section now preserve low ratings, mixed feedback, unresolved issues
    and reported safety concerns. Individual aspect ratings are distinct from
    overall experience. Missing saved analysis does not mean missing originals.
-   Current source inspection and route tests confirm broad inputs contain the
-   original records; the exact requests from the user's Mac were not available.
+   The user's subsequent private export confirms all nine original records
+   reached all four broad requests. Missing source retrieval did not cause those
+   omissions. Individual questionnaire answers improved; broad summaries still
+   omitted material concerns and made unsupported claims.
 3. Invitation status distinguishes accepted test sends, simulations, missing
    history, unconfirmed sends, failures and opt-outs in both list and detail.
    Submission status remains separate. Provider acceptance is not proof of
@@ -24,39 +27,58 @@ implemented together. Merge and deployment require separate authorization.
    successful save confirms saving; editing clears that confirmation. Existing
    revision guards, failure messages and editable answers are preserved.
 
-The prompt was reread in full with its unchanged output contract. Changes are
-integrated into the shared core and survey section, without adding duplicate
-examples or hardcoded test answers. Full instructions live at
+The earlier prompt correction was integrated into the shared core and survey
+section. This new step leaves the entire prompt and output contract unchanged.
+Full instructions live at
 `services/backend-api/src/services/ask_genius_instructions.txt`.
 
-## Verification
+## Model-input simplification
 
-- Ask Genius offline routes/services: 249 passed.
-- Survey workflow: 84 passed, four PostgreSQL-specific skips.
-- Frontend reviews, Ask Genius and surveys: 155 passed, one existing skip.
-- Affected frontend files: ESLint passed; whitespace check passed.
-- Full frontend TypeScript check: 87 errors, byte-identical diagnostics on the
-  unchanged branch. No added errors; this is not a passing project-wide check.
-- Before these changes, the two new rating-input tests failed and 13 scope
-  cases passed. The expanded frontend flow suite had eight failures and ten
-  passes; after the correction all 18 passed.
+Only the model-facing copy changes. Keep the bound question text once; omit
+duplicate context, duplicate free-text labels and form-only constraints. Supply
+an identical rating scale once per submission; retain different scales per
+question. Preserve all answer values, choices, selected labels, dates, context,
+IDs and calculated counts. Source cards and validation use the unchanged full
+records. No database, model, provider, prompt, history or review-input changes.
 
-The exact 14-question conversation is replayed against nine synthetic
-submissions to verify scope and original-answer inputs. Model generation is
-mocked. This establishes software behavior, not live-model factual accuracy.
-Full captured inputs, outputs, rejected cases, baseline failures and logs are
-kept in the user's private test record; no private capture archive is committed.
-No live model/email calls, Mac installation, merge or deployment occurred.
-Property naming remains a separately queued decision.
+On the four actual captured requests, all nine submissions and 36 answers are
+preserved. Total message content is 24.0–24.3% shorter in characters. This is not
+a token/cost measurement or evidence of improved answer quality. Duplication
+contributing to omissions remains a hypothesis to test.
+
+## Verification and limitations
+
+- Fresh Ask Genius offline suite: 253 passed, including four new preservation
+  cases. Model outputs are mocked; these check software behavior, not accuracy.
+- Comparison runner: eight offline tests passed for the four-call bound,
+  preflight checks and stopping without retries after request/validation errors.
+- The first new-test run had two fixture-type errors plus two missing-function
+  failures. After correcting the fixtures, baseline was three failed/one passed;
+  the implementation then passed all four. All attempts are retained privately.
+- Previous combined-update verification, not rerun for this backend-only change:
+  84 survey workflow passes/four PostgreSQL skips; 155 frontend passes/one skip;
+  affected-file ESLint passed. Project-wide TypeScript had 87 pre-existing errors
+  with identical baseline diagnostics. That was not a passing full typecheck.
+
+The user's baseline export records 13 generated requests using gpt-4.1-mini,
+128,146 input and 2,237 output tokens; the count question was calculated locally.
+Cost was not recorded. Exact private inputs, outputs, failure/rejection reasons
+and factual-review notes stay outside this public repository. No new live model
+or email call, preview installation, merge or deployment occurred in this step.
+Property naming remains separately queued.
 
 ## Next action and stopping rule
 
-Update the local preview through a guarded update, then replay the original
-14 questions against the user's nine existing responses in all-history scope.
-Check nine responses (three maintenance, one per other type), original move-in
-answers, low-rated aspects, unresolved maintenance and the reported slip risk,
-parking, rent-payment follow-up and renewal uncertainty. Check a date period
-excluding the two older submissions. Do not resubmit surveys or resend emails.
-Stop at the first factual failure, capture the actual input/output and diagnose
-it before changing instructions again. Human acceptance of the new live
-answers remains pending; software passes do not substitute for that review.
+Run the prepared four-question comparison on the existing Mac preview. It uses
+the installed AI adapter, model and validator, with the original frozen chat
+history and only simplified survey evidence. No preview update is needed to run
+this diagnostic. The earlier outputs are the baseline; no paid baseline rerun.
+See `survey_input_comparison/README.md` for scope and complete capture behavior.
+
+Check bad-survey selection, maintenance/near-fall and move-in condition coverage,
+parking/rent-payment follow-up, and rent-value uncertainty without invented
+delays or causes. Stop on the first request/validation error, then assess facts
+separately. Stop at the first factual failure and diagnose the saved input/output
+before changing instructions or rerunning. Do not resubmit surveys or send email.
+If the diagnostic passes human review, install through a guarded update and
+check the normal chat workflow. Human accuracy acceptance remains pending.
