@@ -81,6 +81,8 @@ class BuildTests(unittest.TestCase):
             archive_bytes = bundle.read(prefix + 'rereflect-app-source.tar.gz')
             meta = json.loads(bundle.read(prefix + 'update.json'))
             self.assertEqual(meta['commit'], self.commit)
+            self.assertIn('1a57a4bff15d6513b150e3e6b1dc3e847c8a47b6', meta['bases'])
+            self.assertIn('0a654c521ba3830175e76a31bf2433db4c9c2ad8', meta['bases'])
             self.assertEqual(meta['sha256'], updater.digest(archive_bytes))
             self.assertIn('5b39b14ff540b2d2de57f90fe8390b7040d2d16f', meta['bases'])
             self.assertIn('bf6236c84291d633435a1b73719d7b645942a715', meta['bases'])

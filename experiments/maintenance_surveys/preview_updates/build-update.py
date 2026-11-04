@@ -21,6 +21,8 @@ SOURCE_PATHS = (
     'LICENSE', 'NOTICE',
 )
 SUPPORTED_BASES = (
+    '1a57a4bff15d6513b150e3e6b1dc3e847c8a47b6',
+    '0a654c521ba3830175e76a31bf2433db4c9c2ad8',
     'f4c6c222097e1c5a3d7078018da8426695d6cc07',
     '2b5ec7796da41a8cd9f558e53de9bb6d20ed0629',
     '6dd7827360d1a370d59537a0c7407bf5ad5faeff',
@@ -37,8 +39,11 @@ SUPPORTED_BASES = (
     '724ca86b0de00c59ade1c8c54fac17ec9bacbc71',
     '5bba1ce0c502c074d481a4b2228091ec5873c72d',
 )
-BUNDLE_NAME = 'boomsay-survey-email-update'
+BUNDLE_NAME = 'boomsay-lifecycle-email-update'
 HANDOFF_FILES = {
+    'experiments/maintenance_surveys/email_preview/test-survey.sh': 'test-survey.sh',
+    'experiments/lifecycle_surveys/README.md': 'handoff/lifecycle-surveys/README.md',
+    'experiments/lifecycle_surveys/fixtures.json': 'handoff/lifecycle-surveys/fixtures.json',
     'experiments/maintenance_surveys/email_preview/README.txt': 'EMAIL-TEST.txt',
     'experiments/maintenance_surveys/email_preview/survey-email-test.py': 'survey-email-test.py',
     'experiments/maintenance_surveys/verification/email-preview/README.md': 'handoff/verification/email-preview/README.md',

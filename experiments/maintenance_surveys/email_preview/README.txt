@@ -1,45 +1,61 @@
-BoomSay: one real survey email from your existing Mac preview
+BoomSay: seven lifecycle survey email tests
 
-This update builds on the tested survey/Ask Genius corrections. It preserves the
-existing database, source backups, login, AI configuration and Compose networks.
-It adds a separate email test command. It does not enable automated delivery.
-The key is entered hidden in Terminal for a send, held in memory, never saved or
-passed to Docker. Keep your password-manager copy. Do not share the key in chat.
+Uses the ORIGINAL preview on port 53004, preserving its database, login, private
+AI settings and old source backups. The separate 53104 preview is unchanged.
+The property-name label remains unchanged until approval.
 
-1. Unzip boomsay-survey-email-update.zip into Downloads. Keep Docker Desktop running.
-2. In Terminal:
-cd "$HOME/Downloads/boomsay-dashboard-preview" && python3 "$HOME/Downloads/boomsay-survey-email-update/update-preview.py" && bash start-local.sh
-3. Prepare the test (no email is sent):
-python3 "$HOME/Downloads/boomsay-survey-email-update/survey-email-test.py" prepare
+SETUP
+Download/unzip boomsay-lifecycle-email-update.zip into Downloads.
+Keep Docker Desktop open. Run:
+cd "$HOME/Downloads/boomsay-dashboard-preview" && python3 "$HOME/Downloads/boomsay-lifecycle-email-update/update-preview.py" && bash start-local.sh
+Wait for startup, then open http://127.0.0.1:53004/ask-genius with your OLD login.
+Confirm previous records appear and Ask Genius is connected before sending.
+If startup fails or old records are missing, STOP and share the nonsecret error.
+Do not delete folders/volumes or reset anything. Unknown versions/files are
+refused. Source backup: backup-before-lifecycle-email-test-update.
+This is a source backup, not a newly verified database backup.
 
-This creates one NEW fictional maintenance survey, not a duplicate of your existing
-completed test. It prints the agreed email and survey link. Repeating prepare
-returns the same survey. It does not overwrite answers. The manager dashboard
-shows Andres (fictional email test), unit EMAIL-TEST, ticket EMAIL-TEST-first-test.
+Run ONE survey command, complete its workflow, then run the next:
+bash "$HOME/Downloads/boomsay-lifecycle-email-update/test-survey.sh" move_in_completed
+bash "$HOME/Downloads/boomsay-lifecycle-email-update/test-survey.sh" maintenance_completed
+bash "$HOME/Downloads/boomsay-lifecycle-email-update/test-survey.sh" lease_month_3
+bash "$HOME/Downloads/boomsay-lifecycle-email-update/test-survey.sh" lease_month_6
+bash "$HOME/Downloads/boomsay-lifecycle-email-update/test-survey.sh" lease_month_9
+bash "$HOME/Downloads/boomsay-lifecycle-email-update/test-survey.sh" lease_renewed
+bash "$HOME/Downloads/boomsay-lifecycle-email-update/test-survey.sh" move_out_completed
 
-4. When ready to send the displayed email:
-python3 "$HOME/Downloads/boomsay-survey-email-update/survey-email-test.py" send
-Type SEND when asked. Paste your Resend key at the hidden prompt, then press Enter.
-Only andres.feuerberg.ch@gmail.com is permitted; sender is BoomSay <andres@boomsay.com>.
+Each command displays one invitation, asks you to type SEND, then prompts for
+your Resend API key invisibly. The key is not saved or passed to Docker.
+Only recipient: andres.feuerberg.ch@gmail.com.
+Sender: BoomSay <andres@boomsay.com>.
+Stable lifecycle-review test IDs create one new fictional survey per type.
+Opt-out, duplicate, completed-survey, reservation and idempotency guards remain.
+If send fails/times out, STOP and check Resend Emails. Do not change the test ID
+or reset a status to force another email. Acceptance does not prove delivery.
+Check inbox/spam and open links on THIS MAC with Docker running.
 
-5. Check Gmail inbox/spam and open Take survey ON THIS MAC while Docker is running.
-Answer and submit, then check http://127.0.0.1:53004/surveys and Ask Genius.
-Both the survey and unsubscribe links are local for this test, not public links.
-Resend acceptance does not prove inbox delivery. No delivery webhook is included.
+COMPLETE WORKFLOW FOR EACH TYPE
+1. Choose All available history in Ask Genius and record the current submitted
+count for this type. Existing maintenance answers may already be present.
+2. Open Take survey in the email. Answer one question and add a distinctive
+comment, such as "LIFECYCLE TEST move-in: cabinet still loose."
+3. Save draft, reload and confirm your exact answers remain.
+4. Ask Genius for the submitted count again: a draft must not increase it.
+5. Finish and submit. Reopen the link: expect confirmation, not a second answer.
+6. At http://127.0.0.1:53004/surveys filter the type, open this new Andres
+(fictional email test), unit EMAIL-TEST row and verify original answers,
+comment, event context and submission date.
+7. Ask Genius:
+"How many [survey type] surveys were submitted?"
+"What did I say in the latest [survey type] survey? Show the original answers."
+Compare the answer and source link with your actual answers; count should rise
+by ONE from your baseline. Take screenshots and record any factual errors.
+8. Keep month9 renewal intentions separate from completed lease renewal.
+After all seven, ask for submitted counts by type and compare with the dashboard.
 
-Duplicate protection: the database reserves the attempt BEFORE contacting Resend.
-Repeating send cannot resend, even after restarting Terminal or after a timeout.
-A crash/timeout is treated as uncertain: check Resend Emails before doing anything
-else. A reservation can remain if the email was never sent; this intentionally
-avoids guessing and duplicate sends. Do not reset statuses or delete records.
-A deliberate later test uses a new name with --test-id second-test on BOTH commands.
-Do not start another test to bypass an uncertain send or an unsubscribe.
-
-The event remains fictional. The invitation starts simulated; an explicit send
-changes it to a real test attempt (email_test_reserved, email_test_accepted or
-email_test_failed). A failed/uncertain result is not a confirmed delivery failure.
-Production delivery and other application emails remain unchanged. Your key is
-not installed globally. No real email was sent during development verification.
-
-Mac installation, live Resend acceptance and actual Gmail delivery still require
-your test. Keep existing files/backups. Do not use Docker down -v or reset the DB.
+This tests manual local delivery and survey/Ask Genius behavior. It does not
+test automatic reminders, PMS triggers, production delivery or cloud hosting.
+Software packaging checks do not prove actual Mac startup, Gmail delivery,
+answer persistence or AI accuracy. These remain your manual acceptance steps.
+After you approve the tests, fix/check the property label and merge the approved
+release. This package does not merge anything.
