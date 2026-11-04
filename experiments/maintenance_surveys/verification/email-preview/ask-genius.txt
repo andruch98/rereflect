@@ -1,0 +1,108 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-7.4.3, pluggy-1.7.0
+rootdir: /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api
+configfile: pytest.ini
+plugins: anyio-4.15.1, asyncio-0.21.1
+asyncio: mode=Mode.AUTO
+collected 219 items
+
+tests/ask_genius_offline/test_answer_recovery.py ....................... [ 10%]
+.....                                                                    [ 12%]
+tests/ask_genius_offline/test_chat_controls.py ...........               [ 17%]
+tests/ask_genius_offline/test_context_flow_v5.py .....                   [ 20%]
+tests/ask_genius_offline/test_flow.py ............................       [ 32%]
+tests/ask_genius_offline/test_followups_v5.py .......................... [ 44%]
+......................................                                   [ 62%]
+tests/ask_genius_offline/test_migration.py ..                            [ 63%]
+tests/ask_genius_offline/test_retry_history.py ..                        [ 63%]
+tests/ask_genius_offline/test_review_collections.py ............         [ 69%]
+tests/ask_genius_offline/test_service_v3.py ..........................   [ 81%]
+tests/ask_genius_offline/test_snapshots.py ......                        [ 84%]
+tests/ask_genius_offline/test_surveys.py ............................... [ 98%]
+                                                                         [ 98%]
+tests/ask_genius_offline/test_telemetry.py ....                          [100%]
+
+=============================== warnings summary ===============================
+../../../tmp/genius-venv/lib/python3.12/site-packages/starlette/testclient.py:40
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+src/models/base.py:3
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/models/base.py:3: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+tests/ask_genius_offline/test_answer_recovery.py: 214 warnings
+tests/ask_genius_offline/test_chat_controls.py: 143 warnings
+tests/ask_genius_offline/test_context_flow_v5.py: 78 warnings
+tests/ask_genius_offline/test_flow.py: 325 warnings
+tests/ask_genius_offline/test_retry_history.py: 28 warnings
+tests/ask_genius_offline/test_service_v3.py: 142 warnings
+tests/ask_genius_offline/test_snapshots.py: 86 warnings
+tests/ask_genius_offline/test_surveys.py: 412 warnings
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3594: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/ask_genius_offline/test_answer_recovery.py: 41 warnings
+tests/ask_genius_offline/test_chat_controls.py: 29 warnings
+tests/ask_genius_offline/test_context_flow_v5.py: 19 warnings
+tests/ask_genius_offline/test_flow.py: 65 warnings
+tests/ask_genius_offline/test_retry_history.py: 6 warnings
+tests/ask_genius_offline/test_service_v3.py: 24 warnings
+tests/ask_genius_offline/test_snapshots.py: 13 warnings
+tests/ask_genius_offline/test_surveys.py: 83 warnings
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/auth.py:78: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expire = datetime.utcnow() + timedelta(days=JWT_EXPIRATION_DAYS)
+
+tests/ask_genius_offline/test_answer_recovery.py: 26 warnings
+tests/ask_genius_offline/test_chat_controls.py: 38 warnings
+tests/ask_genius_offline/test_context_flow_v5.py: 15 warnings
+tests/ask_genius_offline/test_flow.py: 46 warnings
+tests/ask_genius_offline/test_retry_history.py: 7 warnings
+tests/ask_genius_offline/test_service_v3.py: 11 warnings
+tests/ask_genius_offline/test_snapshots.py: 17 warnings
+tests/ask_genius_offline/test_surveys.py: 59 warnings
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/jose/jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+tests/ask_genius_offline/test_answer_recovery.py: 26 warnings
+tests/ask_genius_offline/test_chat_controls.py: 38 warnings
+tests/ask_genius_offline/test_context_flow_v5.py: 15 warnings
+tests/ask_genius_offline/test_flow.py: 46 warnings
+tests/ask_genius_offline/test_retry_history.py: 7 warnings
+tests/ask_genius_offline/test_service_v3.py: 11 warnings
+tests/ask_genius_offline/test_snapshots.py: 17 warnings
+tests/ask_genius_offline/test_surveys.py: 59 warnings
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/dependencies.py:57: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.last_active_at = datetime.utcnow()
+
+tests/ask_genius_offline/test_answer_recovery.py: 10 warnings
+tests/ask_genius_offline/test_chat_controls.py: 13 warnings
+tests/ask_genius_offline/test_context_flow_v5.py: 14 warnings
+tests/ask_genius_offline/test_flow.py: 23 warnings
+tests/ask_genius_offline/test_retry_history.py: 3 warnings
+tests/ask_genius_offline/test_service_v3.py: 5 warnings
+tests/ask_genius_offline/test_snapshots.py: 7 warnings
+tests/ask_genius_offline/test_surveys.py: 45 warnings
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/routes/ask_genius.py:514: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    conversation.updated_at = datetime.utcnow()
+
+tests/ask_genius_offline/test_chat_controls.py::test_rename_pin_order_and_remove_are_persisted
+tests/ask_genius_offline/test_chat_controls.py::test_rename_pin_order_and_remove_are_persisted
+tests/ask_genius_offline/test_snapshots.py::test_snapshot_is_frozen_after_messages_title_review_and_analysis_change
+tests/ask_genius_offline/test_surveys.py::test_survey_summaries_without_cards_and_mixed_chats_cannot_be_publicly_shared
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/routes/ask_genius.py:246: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    conversation.updated_at = datetime.utcnow()
+
+tests/ask_genius_offline/test_snapshots.py::test_snapshot_is_public_and_has_only_attached_review_content
+tests/ask_genius_offline/test_snapshots.py::test_snapshot_is_frozen_after_messages_title_review_and_analysis_change
+tests/ask_genius_offline/test_snapshots.py::test_each_share_is_a_new_snapshot_not_an_update_to_old_link
+tests/ask_genius_offline/test_snapshots.py::test_each_share_is_a_new_snapshot_not_an_update_to_old_link
+tests/ask_genius_offline/test_snapshots.py::test_unknown_invalid_tokens_and_disabled_preview_return_no_snapshot
+tests/ask_genius_offline/test_snapshots.py::test_legacy_links_are_content_labels_and_unrelated_source_metadata_is_never_shared
+tests/ask_genius_offline/test_snapshots.py::test_share_bounds_and_empty_chats_fail_without_creating_link
+tests/ask_genius_offline/test_surveys.py::test_review_queries_do_not_receive_survey_records_and_existing_analysis_survives
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/services/ask_genius_sharing.py:192: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'title': conversation.title or 'Shared chat', 'created_at': _iso(datetime.utcnow()), 'messages': published,
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+===================== 219 passed, 2280 warnings in 13.29s ======================

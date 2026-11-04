@@ -17,6 +17,42 @@ const source = {
 function show(content = 'Residents reported communication concerns.', data: ChatMessage['structured_data'] = { kind: 'ask_genius', sources: [source] }, publicSnapshot = false) {
   return render(<GeniusMessage message={{ id: 1, role: 'assistant', content, created_at: '', structured_data: data }} publicSnapshot={publicSnapshot} />);
 }
+
+it('opens a topic-specific survey answer in a popup and expands only that submission', () => {
+  const surveyId = '11111111-1111-4111-8111-111111111111';
+  const original = { questions: [
+    { id: 'resolution', text: 'Is the issue fully resolved?', answer_label: 'No, still unresolved' },
+    { id: 'comment', text: 'Anything else?', answer_label: 'The faucet still leaks.' },
+  ] };
+  show('- **Resolution:** The issue remains unresolved.\n- **Leaks:** The faucet still leaks.', { kind: 'ask_genius', sources: [
+    { source: 'survey', survey_id: surveyId, topic: 'Resolution', question_id: 'resolution', survey: original, href: 'https://untrusted.invalid' },
+    { source: 'survey', survey_id: surveyId, topic: 'Leaks', question_id: 'comment', survey: original },
+  ] });
+  const group = screen.getByLabelText('Survey answers for Resolution');
+  expect(group.closest('li')).toHaveTextContent('Resolution: The issue remains unresolved.');
+  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  fireEvent.click(within(group).getByRole('button', { name: 'View original answers' }));
+  const modal = screen.getByRole('dialog');
+  expect(within(modal).getByText('Is the issue fully resolved?')).toBeInTheDocument();
+  expect(within(modal).getByText('No, still unresolved')).toBeInTheDocument();
+  expect(within(modal).queryByText('Anything else?')).not.toBeInTheDocument();
+  fireEvent.click(within(modal).getByRole('button', { name: 'View all answers from this survey' }));
+  expect(within(modal).getByText('The faucet still leaks.')).toBeInTheDocument();
+  fireEvent.click(within(modal).getByRole('button', { name: 'Close' }));
+  fireEvent.click(within(screen.getByLabelText('Survey answers for Leaks')).getByRole('button', { name: 'View original answers' }));
+  expect(within(screen.getByRole('dialog')).getByText('Anything else?')).toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).queryByText('Is the issue fully resolved?')).not.toBeInTheDocument();
+  expect(get).not.toHaveBeenCalled();
+});
+
+it('does not render private survey evidence in a public snapshot or accept malformed survey identifiers', () => {
+  show('Shared answer.', { kind: 'ask_genius', sources: [{ source: 'survey', survey_id: '11111111-1111-4111-8111-111111111111', label: 'Private resident', excerpt: 'Private answer' }] }, true);
+  expect(screen.queryByText('Private resident')).not.toBeInTheDocument();
+  expect(screen.queryByText('Private answer')).not.toBeInTheDocument();
+  cleanup();
+  show('Answer.', { kind: 'ask_genius', sources: [{ source: 'survey', survey_id: '../feedbacks/7', href: '/feedbacks/7' }] });
+  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+});
 beforeEach(() => {
   vi.clearAllMocks();
   writeText.mockResolvedValue(undefined);

@@ -60,7 +60,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy built application (standalone output mirrors monorepo structure)
-COPY --from=builder /app/services/frontend-web/public ./services/frontend-web/public
+COPY --from=builder --chown=nextjs:nodejs /app/services/frontend-web/public ./services/frontend-web/public
 COPY --from=builder --chown=nextjs:nodejs /app/services/frontend-web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/services/frontend-web/.next/static ./services/frontend-web/.next/static
 

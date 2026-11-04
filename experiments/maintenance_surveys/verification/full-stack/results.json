@@ -1,0 +1,234 @@
+{
+  "project": "boomsay-survey-full-20261101",
+  "steps": [
+    {
+      "step": "full_stack_health",
+      "result": "pass",
+      "api_http": 200,
+      "sentinel_review_count": 1
+    },
+    {
+      "step": "actual_browser_login",
+      "result": "pass",
+      "login_http": 200,
+      "community_id": 1
+    },
+    {
+      "step": "generic_event_and_immediate_invitation",
+      "result": "pass",
+      "http": 200,
+      "survey_id": "04444f50-2379-4832-bcc6-83cb242d9cde",
+      "event_id": "fictional-maintenance-event-001",
+      "ticket": "DEMO-WO-1001",
+      "invitation_status": "simulated",
+      "resident_url": "http://127.0.0.1:53204/survey/Oluzh5z26DmZlvkJ7ji5L8IHsxeT0NAOliaE8NtL5H4"
+    },
+    {
+      "step": "event_replay",
+      "result": "pass",
+      "same_survey_and_link": true
+    },
+    {
+      "step": "resident_draft_reload_and_submit",
+      "result": "pass",
+      "submit_http": 200,
+      "submitted_at": "2026-11-01T19:52:16.432389+00:00",
+      "answers": {
+        "maintenance_overall": 2,
+        "issue_resolution": "unresolved",
+        "maintenance_response_time": "not_sure",
+        "maintenance_comment": "The kitchen faucet still leaks after the ticket was marked completed."
+      }
+    },
+    {
+      "step": "dashboard_and_original_answers",
+      "result": "pass",
+      "detail_http": 200,
+      "questions": [
+        {
+          "id": "maintenance_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate the maintenance service for {request_description}?",
+          "rendered_text": "Overall, how would you rate the maintenance service for the kitchen faucet repair?"
+        },
+        {
+          "id": "issue_resolution",
+          "type": "single_choice",
+          "required": true,
+          "text": "Is the issue fully resolved?",
+          "options": [
+            {
+              "value": "resolved",
+              "label": "Yes, fully resolved"
+            },
+            {
+              "value": "partially_resolved",
+              "label": "Partially resolved"
+            },
+            {
+              "value": "unresolved",
+              "label": "No, still unresolved"
+            },
+            {
+              "value": "not_checked",
+              "label": "I haven\u2019t checked yet"
+            }
+          ],
+          "rendered_text": "Is the issue fully resolved?"
+        },
+        {
+          "id": "maintenance_response_time",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate our maintenance team\u2019s response time to your request?",
+          "special_options": [
+            {
+              "value": "not_sure",
+              "label": "Not sure"
+            }
+          ],
+          "rendered_text": "How would you rate our maintenance team\u2019s response time to your request?"
+        },
+        {
+          "id": "maintenance_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to know about this maintenance experience?",
+          "rendered_text": "What would you like us to know about this maintenance experience?"
+        }
+      ]
+    },
+    {
+      "step": "ask_genius_question",
+      "result": "pass",
+      "question": "Show the completed maintenance surveys for this period.",
+      "answer": "1 submitted maintenance survey(s) from 1 distinct resident(s) in All available history.",
+      "conversation_id": "a8faf9ec-f43e-48d6-a055-3705e264d7b2",
+      "survey_counts": {
+        "submission_count": 1,
+        "distinct_resident_count": 1,
+        "issue_resolution_counts": {
+          "unresolved": 1
+        },
+        "issue_resolution_submission_ids": {
+          "unresolved": [
+            "04444f50-2379-4832-bcc6-83cb242d9cde"
+          ]
+        }
+      }
+    },
+    {
+      "step": "full_stack_health",
+      "result": "pass",
+      "api_http": 200,
+      "sentinel_review_count": 1
+    },
+    {
+      "step": "actual_browser_login",
+      "result": "pass",
+      "login_http": 200,
+      "community_id": 1
+    },
+    {
+      "step": "resume_preserved_submission",
+      "result": "pass",
+      "survey_id": "04444f50-2379-4832-bcc6-83cb242d9cde"
+    },
+    {
+      "step": "ask_genius_question",
+      "result": "pass",
+      "question": "Show the completed maintenance surveys for this period.",
+      "answer": "1 submitted maintenance survey(s) from 1 distinct resident(s) in All available history.",
+      "conversation_id": "9f184d4e-2308-4dcf-bd7b-4b231b1e9275",
+      "survey_counts": {
+        "submission_count": 1,
+        "distinct_resident_count": 1,
+        "issue_resolution_counts": {
+          "unresolved": 1
+        },
+        "issue_resolution_submission_ids": {
+          "unresolved": [
+            "04444f50-2379-4832-bcc6-83cb242d9cde"
+          ]
+        }
+      }
+    },
+    {
+      "step": "ask_genius_question",
+      "result": "pass",
+      "question": "What did residents say about their maintenance experience?",
+      "answer": "MOCKED MODEL: The resident reported that the maintenance issue remains unresolved. This is an offline integration demonstration.",
+      "conversation_id": "9f184d4e-2308-4dcf-bd7b-4b231b1e9275",
+      "survey_counts": {
+        "submission_count": 1,
+        "distinct_resident_count": 1,
+        "issue_resolution_counts": {
+          "unresolved": 1
+        },
+        "issue_resolution_submission_ids": {
+          "unresolved": [
+            "04444f50-2379-4832-bcc6-83cb242d9cde"
+          ]
+        }
+      }
+    },
+    {
+      "step": "ask_genius_question",
+      "result": "pass",
+      "question": "Show the original answers behind that.",
+      "answer": "MOCKED MODEL: The resident reported that the maintenance issue remains unresolved. This is an offline integration demonstration.",
+      "conversation_id": "9f184d4e-2308-4dcf-bd7b-4b231b1e9275",
+      "survey_counts": {
+        "submission_count": 1,
+        "distinct_resident_count": 1,
+        "issue_resolution_counts": {
+          "unresolved": 1
+        },
+        "issue_resolution_submission_ids": {
+          "unresolved": [
+            "04444f50-2379-4832-bcc6-83cb242d9cde"
+          ]
+        }
+      }
+    },
+    {
+      "step": "ask_evidence_navigation",
+      "result": "pass",
+      "href": "/surveys/04444f50-2379-4832-bcc6-83cb242d9cde"
+    },
+    {
+      "step": "private_access_and_sharing",
+      "result": "pass",
+      "share_http": 422,
+      "anonymous_manager_access": "blocked"
+    },
+    {
+      "step": "actual_mock_provider_boundary",
+      "result": "pass",
+      "http_model_calls": 2,
+      "live_model_calls": 0,
+      "original_questions_per_call": 4
+    },
+    {
+      "step": "restart_and_prior_data_preservation",
+      "result": "pass",
+      "survey_unchanged": true,
+      "review_settings_credentials_unchanged": true,
+      "prior_chat_unchanged": true
+    },
+    {
+      "step": "browser_errors",
+      "result": "pass",
+      "page_errors": []
+    },
+    {
+      "step": "complete_flow",
+      "result": "pass",
+      "production_app": "src.api.main:app",
+      "auth_overrides": false,
+      "application_route_stubs": false
+    }
+  ]
+}

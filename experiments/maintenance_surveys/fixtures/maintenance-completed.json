@@ -1,0 +1,15 @@
+{
+  "event_id": "fictional-maintenance-event-001",
+  "occurrence_id": "fictional-maintenance-occurrence-001",
+  "event_type": "maintenance_completed",
+  "community_id": 1,
+  "ticket_id": "DEMO-WO-1001",
+  "request_description": "the kitchen faucet repair",
+  "completed_at": "2026-11-01T10:15:00-05:00",
+  "resident_id": "fictional-resident-001",
+  "resident_name": "Jamie Example",
+  "resident_email": "jamie@survey-demo.invalid",
+  "unit_id": "fictional-unit-204",
+  "unit_number": "204",
+  "is_simulated": true
+}

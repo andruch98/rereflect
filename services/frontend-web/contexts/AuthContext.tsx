@@ -28,7 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const publicRoutes = ['/', '/login', '/login/callback', '/signup', '/privacy', '/terms', '/changelog'];
 
 // Public route prefixes (routes that start with these paths)
-const publicRoutePrefixes = ['/invite', '/shared', '/share/ask-genius/'];
+const publicRoutePrefixes = ['/invite', '/shared', '/share/ask-genius/', '/survey/'];
 
 // Auth routes that should redirect to dashboard if already logged in
 const authRoutes = ['/login', '/signup'];

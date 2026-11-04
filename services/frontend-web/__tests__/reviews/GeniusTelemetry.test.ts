@@ -45,4 +45,13 @@ describe('Ask Genius telemetry boundaries', () => {
     instrumentation.onRouterTransitionStart('/dashboard', 'push');
     expect(sentry.captureRouterTransitionStart).toHaveBeenCalledOnce();
   });
+
+  it('does not initialize recording or trace navigation for a private survey link', async () => {
+    vi.stubEnv('NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW', 'false');
+    window.history.replaceState({}, '', '/survey/private-token');
+    const instrumentation = await import('../../instrumentation-client');
+    await import('../../sentry.client.config');
+    instrumentation.onRouterTransitionStart('/survey/private-token', 'push');
+    expect(sentry.init).not.toHaveBeenCalled(); expect(sentry.captureRouterTransitionStart).not.toHaveBeenCalled();
+  });
 });

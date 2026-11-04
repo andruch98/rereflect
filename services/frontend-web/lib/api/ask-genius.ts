@@ -24,9 +24,10 @@ export interface GeniusConversation {
   updated_at?: string;
   period?: GeniusPeriod | null;
   is_pinned?: boolean;
+  sharing_unavailable_reason?: string | null;
 }
 
-export type GeniusChatMessage = ChatMessage & { status?: 'attempted' | 'failed' | 'completed' };
+export type GeniusChatMessage = ChatMessage & { status?: 'attempted' | 'failed' | 'completed'; error_message?: string | null };
 
 export interface SharedGeniusConversation {
   title: string;

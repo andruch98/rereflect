@@ -8,13 +8,13 @@ import apiClient from '@/lib/api-client';
 import { BoomSayLogo } from './BoomSayLogo';
 import { Button } from '@/components/ui/button';
 import { Sidebar, SidebarProvider, SidebarHeader, SidebarContent, SidebarFooter, SidebarInset, SidebarTrigger, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { MessageSquare, LogOut, Sparkles } from 'lucide-react';
+import { ClipboardList, MessageSquare, LogOut, Sparkles } from 'lucide-react';
 
 export function ReviewPreviewLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const allowed = pathname === '/ask-genius' || pathname === '/feedbacks' || /^\/feedbacks\/\d+$/.test(pathname);
+  const allowed = pathname === '/ask-genius' || pathname === '/feedbacks' || /^\/feedbacks\/\d+$/.test(pathname) || pathname === '/surveys' || /^\/surveys\/[0-9a-f-]+$/i.test(pathname);
   useEffect(() => { if (!allowed) router.replace('/ask-genius'); }, [allowed, router]);
   const community = useQuery({
     queryKey: ['review-preview-community', user?.organization_id, user?.id],
@@ -30,6 +30,7 @@ export function ReviewPreviewLayout({ children }: { children: React.ReactNode })
       <SidebarContent className="px-2"><SidebarMenu>
         <SidebarMenuItem><SidebarMenuButton asChild isActive={pathname === '/ask-genius'} tooltip="Ask Genius"><Link href="/ask-genius"><Sparkles /><span>Ask Genius</span></Link></SidebarMenuButton></SidebarMenuItem>
         <SidebarMenuItem><SidebarMenuButton asChild isActive={pathname.startsWith('/feedbacks')} tooltip="Reviews"><Link href="/feedbacks"><MessageSquare /><span>Reviews</span></Link></SidebarMenuButton></SidebarMenuItem>
+        <SidebarMenuItem><SidebarMenuButton asChild isActive={pathname.startsWith('/surveys')} tooltip="Surveys"><Link href="/surveys"><ClipboardList /><span>Surveys</span></Link></SidebarMenuButton></SidebarMenuItem>
       </SidebarMenu></SidebarContent>
       <SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={logout} tooltip="Sign out"><LogOut /><span>Sign out</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
     </Sidebar>

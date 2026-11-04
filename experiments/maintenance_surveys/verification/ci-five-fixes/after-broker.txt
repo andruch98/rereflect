@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-7.4.3, pluggy-1.7.0
+rootdir: /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api
+configfile: pytest.ini
+plugins: anyio-4.15.1, asyncio-0.21.1
+asyncio: mode=Mode.AUTO
+collected 1 item
+
+tests/test_broker_dependency_compatibility.py F                          [100%]
+
+=================================== FAILURES ===================================
+_________ test_installed_redis_client_is_supported_by_broker_transport _________
+tests/test_broker_dependency_compatibility.py:9: in test_installed_redis_client_is_supported_by_broker_transport
+    assert issubclass(Channel._get_client(None), redis.Redis)
+../../../tmp/genius-venv/lib/python3.12/site-packages/kombu/transport/redis.py:1226: in _get_client
+    if self.global_keyprefix:
+E   AttributeError: 'NoneType' object has no attribute 'global_keyprefix'
+=========================== short test summary info ============================
+FAILED tests/test_broker_dependency_compatibility.py::test_installed_redis_client_is_supported_by_broker_transport
+============================== 1 failed in 0.08s ===============================

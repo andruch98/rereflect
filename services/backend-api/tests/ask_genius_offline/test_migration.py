@@ -57,4 +57,7 @@ def test_chat_controls_upgrade_preserves_existing_chats_and_has_one_head():
     engine.dispose()
     config = Config()
     config.set_main_option('script_location', str(root / 'alembic'))
-    assert ScriptDirectory.from_config(config).get_heads() == [migration.revision]
+    scripts = ScriptDirectory.from_config(config)
+    assert len(scripts.get_heads()) == 1
+    # Later additive migrations must preserve this historical chat revision.
+    assert migration.revision in {revision.revision for revision in scripts.walk_revisions()}

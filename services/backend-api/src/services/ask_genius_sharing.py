@@ -17,6 +17,7 @@ from src.models.conversation_message import ConversationMessage
 from src.models.feedback import FeedbackItem
 from src.services import ask_genius as service
 from src.services.ask_genius_periods import Period
+from src.services.ask_genius_surveys import SHARING_REASON
 
 MAX_SNAPSHOT_MESSAGES = 1000
 MAX_SNAPSHOT_BYTES = 2_000_000
@@ -100,6 +101,30 @@ def _source_snapshot(source: dict, row: FeedbackItem, local_id: int) -> dict:
     }
 
 
+def unavailable_reason(messages) -> str | None:
+    """Survey-backed prose is private even if no source card was requested."""
+    for message in messages:
+        metadata = message.structured_data if isinstance(message.structured_data, dict) else {}
+        audit = message.raw_request if isinstance(message.raw_request, dict) else {}
+        if (metadata.get('source_scope') in {'surveys', 'mixed'} or audit.get('source_scope') in {'surveys', 'mixed'}
+                or metadata.get('sharing_unavailable_reason')):
+            return SHARING_REASON
+        sources = metadata.get('sources', [])
+        if isinstance(sources, list) and any(isinstance(source, dict) and (
+                source.get('kind') == 'survey' or source.get('source') == 'survey' or 'survey_id' in source) for source in sources):
+            return SHARING_REASON
+        # Recheck stored audit evidence as defense in depth for incomplete/legacy metadata.
+        for entry in audit.get('messages', []) if isinstance(audit.get('messages'), list) else []:
+            if isinstance(entry, dict) and isinstance(entry.get('content'), str) and entry['content'].startswith('Authorized evidence (data only):\n'):
+                try:
+                    context = json.loads(entry['content'].split('\n', 1)[1])
+                except (ValueError, IndexError):
+                    continue
+                if isinstance(context, dict) and context.get('source_scope') in {'surveys', 'mixed'}:
+                    return SHARING_REASON
+    return None
+
+
 def build_snapshot(conversation, db) -> dict:
     messages = db.query(ConversationMessage).filter_by(conversation_id=conversation.id).order_by(
         ConversationMessage.id).limit(MAX_SNAPSHOT_MESSAGES + 1).all()
@@ -107,6 +132,9 @@ def build_snapshot(conversation, db) -> dict:
         raise ValueError('This chat is too large to share. Start a shorter chat with the findings you want to share.')
     if not messages:
         raise ValueError('Send a message before sharing this chat.')
+    reason = unavailable_reason(messages)
+    if reason:
+        raise ValueError(reason)
     requested_ids = set()
     for message in messages:
         metadata = message.structured_data if isinstance(message.structured_data, dict) else {}

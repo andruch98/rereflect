@@ -6,6 +6,13 @@ const landingRoutes = ['/privacy', '/terms', '/changelog'];
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  if (pathname.startsWith('/survey/')) {
+    const response = NextResponse.next();
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return response;
+  }
   if (process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW === 'true' &&
       (pathname === '/' || pathname === '/dashboard' || pathname === '/signup')) {
     return NextResponse.redirect(new URL('/ask-genius', request.url));

@@ -76,3 +76,11 @@ it('locks chat actions while an answer is pending', () => {
   mount({ disabled: true });
   for (const name of ['New chat', 'Main complaints', 'Pin Main complaints', 'Options for Main complaints']) expect(screen.getByRole('button', { name: new RegExp(`^${name}$`) })).toBeDisabled();
 });
+
+it('disables public sharing for survey-backed chats with a clear explanation', async () => {
+  mount({ conversations: [{ ...chat, sharing_unavailable_reason: 'Public sharing is unavailable for resident survey answers.' }] });
+  await menu();
+  expect(screen.getByRole('menuitem', { name: /^Share$/ })).toHaveAttribute('aria-disabled', 'true');
+  expect(screen.getByText('Public sharing is unavailable for resident survey answers.')).toBeInTheDocument();
+  expect(api.shareConversation).not.toHaveBeenCalled();
+});

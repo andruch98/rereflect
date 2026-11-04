@@ -1,0 +1,85 @@
+{
+  "baseline_commit": "59dfd9122b20d0098eceedf8e1d1296e86b6f0a3",
+  "pre_font_feature_commit": "22173b1277e5baf4a3a83cd4014a927eb4cdca98",
+  "baseline_errors": 87,
+  "pre_font_feature_errors": 87,
+  "current_errors": 87,
+  "normalized_diagnostic_signatures_match": true,
+  "new_diagnostics": [],
+  "removed_diagnostics": [],
+  "normalization": "Remove only work/frontend-baseline/services/frontend-web/ prefix from diagnostic lines; compare complete file/line/column/code/message strings.",
+  "identical_test_files_at_base_pre_font_and_current": [
+    {
+      "path": "services/frontend-web/__tests__/copilot/actionsContract.test.tsx",
+      "sha256": "54041f6de374bad52ab77edde5600ed65dca605371058c787f4fbdfbdd600b0b"
+    },
+    {
+      "path": "services/frontend-web/__tests__/feedbacks/FeedbackDeleteRoleGate.test.tsx",
+      "sha256": "94721dc2cb8f2ab72ee39bbf0f3dc3f78c8914bdaf34b32fc36591c1ff045565"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsAIPage.accuracyTab.test.tsx",
+      "sha256": "bea123ce8204c0bb1f916c97dc6ecd7df8553220c55dea925fbac3f2bae8d898"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsEmbeddings.test.tsx",
+      "sha256": "9a685baea801647918d800b8e3950e675ba62aa4a84becb03be67de2404f40a8"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.categoryClassifier.test.tsx",
+      "sha256": "fa3b183e180a2de2d8cef045e583ea79c028fba829a9c733767330ee2952440c"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.classifier.test.tsx",
+      "sha256": "9d8914aa95b2c0f39bdada5c3b8ff08588f50d2ae1b59f2719289f45d5b05b43"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.test.tsx",
+      "sha256": "4d1e10b2251e179c464d89f9bb71d937d3cc5534ab44f7bae138054247f8547d"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsGeneral.urgencyClassifier.test.tsx",
+      "sha256": "f0d7ec08c438f5ea91db00743214755e8ed02a5cd3b704c5bf3db8afab653726"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsProviders.test.tsx",
+      "sha256": "f75dbd6b3d595545ef259d4aa2c7a2c777a87820e625b88db0605ad044a5be53"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsProvidersLocalLLM.test.tsx",
+      "sha256": "64c4f7b9bb2a6b3035e006dfb7440f50871e77734bf45891c2ecf604966fae4e"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/AISettingsSentiment.test.tsx",
+      "sha256": "a0a7f8de60dcb4633654d4ca55c41c747e85c86750e1b13b3def91ea0f98b398"
+    },
+    {
+      "path": "services/frontend-web/__tests__/settings/NotificationsSettingsPage.test.tsx",
+      "sha256": "73f5f4e32e483a48f5f4c232f1f7303c3143e8f4168679b252af755bc8510aa3"
+    },
+    {
+      "path": "services/frontend-web/app/(dashboard)/settings/integrations/salesforce/__tests__/SalesforcePage.test.tsx",
+      "sha256": "eed7caec13ff186006e0c54f2497a2a81c39a3ad473d0e287371b04d554810ff"
+    },
+    {
+      "path": "services/frontend-web/components/__tests__/OidcSignInButton.test.tsx",
+      "sha256": "192513d92c89b232e47ef3202eb14b6b79cd0d083c55e5d615115b36d7cf5c6a"
+    },
+    {
+      "path": "services/frontend-web/components/__tests__/SamlSignInButton.test.tsx",
+      "sha256": "84ca1a1fb85f60175322c4309aa1963e96d96c53f8cc0466e5793c1e27ee3f88"
+    },
+    {
+      "path": "services/frontend-web/contexts/__tests__/AuthContext.test.tsx",
+      "sha256": "9c4eaf2875c3b747dcbd8f6523f2ad3d26366a52ef331eea674f66f2d29e1db3"
+    },
+    {
+      "path": "services/frontend-web/lib/__tests__/api-client.test.ts",
+      "sha256": "118c77ee5c5f156dee0953e486582b6e46fbe6499a74125f5c1d4f88327e85b3"
+    },
+    {
+      "path": "services/frontend-web/lib/api/__tests__/outreach.bulk.test.ts",
+      "sha256": "c9442f6229e5d7d6224c0a67a6653435f00cbd027075cf0105cab5d5850742ce"
+    }
+  ]
+}

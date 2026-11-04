@@ -1,4 +1,5 @@
 from .base import Base
+from .survey import SurveyResident, SurveyUnit, MaintenanceOccurrence, SurveyInstance, SurveyInvitation, SurveyEmailOptOut
 from .organization import Organization
 from .user import User
 from .feedback import FeedbackItem
@@ -71,6 +72,7 @@ from .outreach_campaign import OutreachCampaign, OutreachCampaignRecipient
 from .automation_email_delivery import AutomationEmailDelivery
 
 __all__ = [
+    "SurveyResident", "SurveyUnit", "MaintenanceOccurrence", "SurveyInstance", "SurveyInvitation", "SurveyEmailOptOut",
     "Base",
     "Organization",
     "User",

@@ -1,0 +1,112 @@
+
+> customer-feedback-frontend@1.1.0 build /workspace/rereflect/services/frontend-web
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Experiments (use with caution):
+  · clientTraceMetadata
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Browserslist: browsers data (caniuse-lite) is 10 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+(node:16570) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/rereflect/packages/ui/tailwind.config.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/rereflect/packages/ui/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ Compiled successfully in 25.6s
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 145ms
+  Running TypeScript ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/60) ...
+  Generating static pages using 4 workers (15/60)
+  Generating static pages using 4 workers (30/60)
+  Generating static pages using 4 workers (45/60)
+✓ Generating static pages using 4 workers (60/60) in 909.4ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /analytics
+├ ○ /analytics/churn-cohorts
+├ ○ /ask-genius
+├ ƒ /categories/[category]
+├ ○ /churn-risks
+├ ○ /conversations
+├ ○ /customers
+├ ƒ /customers/[email]
+├ ○ /customers/churn-suggestions
+├ ○ /dashboard
+├ ○ /feature-requests
+├ ○ /feedback-sources
+├ ƒ /feedback-sources/[id]
+├ ○ /feedback-sources/new
+├ ○ /feedback-sources/pending
+├ ○ /feedbacks
+├ ƒ /feedbacks/[id]
+├ ƒ /feedbacks/[id]/create-issue
+├ ○ /icon.svg
+├ ƒ /invite/[token]
+├ ○ /login
+├ ○ /login/callback
+├ ○ /notifications
+├ ƒ /notifications/[id]
+├ ○ /outreach/unsubscribe
+├ ○ /pain-points
+├ ○ /reports
+├ ○ /settings
+├ ○ /settings/ai
+├ ○ /settings/api-keys
+├ ○ /settings/automations
+├ ƒ /settings/automations/[id]
+├ ○ /settings/automations/new
+├ ○ /settings/integrations
+├ ƒ /settings/integrations/[id]
+├ ○ /settings/integrations/asana
+├ ○ /settings/integrations/hubspot
+├ ○ /settings/integrations/intercom
+├ ○ /settings/integrations/jira
+├ ○ /settings/integrations/linear
+├ ○ /settings/integrations/new
+├ ○ /settings/integrations/salesforce
+├ ○ /settings/integrations/zendesk
+├ ○ /settings/notifications
+├ ○ /settings/playbooks
+├ ƒ /settings/playbooks/[id]
+├ ○ /settings/playbooks/new
+├ ○ /settings/preferences
+├ ○ /settings/response-templates
+├ ○ /settings/sso
+├ ○ /settings/team
+├ ○ /settings/usage-events
+├ ○ /settings/webhooks
+├ ƒ /settings/webhooks/[id]
+├ ○ /settings/webhooks/new
+├ ○ /settings/workflow
+├ ƒ /share/ask-genius/[token]
+├ ○ /shared-links
+├ ƒ /shared/[token]
+├ ○ /signup
+├ ƒ /survey/[token]
+├ ƒ /survey/[token]/unsubscribe
+├ ○ /surveys
+├ ƒ /surveys/[id]
+├ ○ /system/ai-models
+├ ○ /system/changelog
+├ ○ /system/churn-accuracy
+├ ƒ /system/churn-accuracy/[orgId]
+├ ○ /system/churn-events
+├ ○ /system/organizations
+├ ○ /system/query-templates
+├ ○ /system/users
+├ ○ /urgent-feedbacks
+└ ○ /workflow
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

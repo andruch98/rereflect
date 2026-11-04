@@ -43,6 +43,7 @@ apiClient.interceptors.response.use(
                              pathname === '/signup' ||
                              pathname.startsWith('/invite') ||
                              pathname.startsWith('/shared') ||
+                             pathname.startsWith('/survey/') ||
                              pathname.startsWith('/share/ask-genius/');
         if (!isPublicPage) {
           window.location.href = '/login';

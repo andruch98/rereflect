@@ -420,9 +420,10 @@ it('keeps a failed first question attached to its saved chat for the retry', asy
 
 it('allows retrying a saved failed question after reopening its chat', async () => {
   mocks.conversations.mockResolvedValue({ conversations: [{ public_id: 'one', title: 'Saved failure' }], total: 1 });
-  mocks.conversation.mockResolvedValue({ public_id: 'one', title: 'Saved failure', period: { preset: 'all_time' }, messages: [{ id: 3, role: 'user', content: 'Show me the original review.', structured_data: null, created_at: '', status: 'failed' }] });
+  mocks.conversation.mockResolvedValue({ public_id: 'one', title: 'Saved failure', period: { preset: 'all_time' }, messages: [{ id: 3, role: 'user', content: 'Show me the original review.', structured_data: null, created_at: '', status: 'failed', error_message: 'The AI returned an answer BoomSay couldn’t read. Your question is fine. Click Retry to request a new answer.' }] });
   mount();
   fireEvent.click(await screen.findByRole('button', { name: /^Saved\ failure$/ }));
+  expect(await screen.findByText(/Your question is fine/)).toBeInTheDocument();
   fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
   await screen.findByText('The saved reviews praise helpful staff.');
   expect(mocks.ask).toHaveBeenCalledWith('Show me the original review.', expect.any(String), 'one', { preset: 'all_time' });

@@ -255,6 +255,10 @@ EXCLUDED_MODULES = {
 
 # Single handlers that are pre-auth or token-authenticated.
 EXCLUDED_HANDLERS = {
+    ("surveys", "save_resident_draft"): "Resident bearer survey capability: only its own bound draft",
+    ("surveys", "submit_resident_survey"): "Resident bearer survey capability: only its own immutable submission",
+    ("surveys", "unsubscribe_resident"): "Resident bearer capability: survey invitation opt-out only",
+
     ("auth", "signup"): "Pre-auth account creation; caller has no JWT yet",
     ("auth", "login"): "Pre-auth credential exchange; caller has no JWT yet",
     ("auth", "google_signup"): "Pre-auth Google OAuth signup; caller has no JWT yet",

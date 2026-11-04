@@ -11,6 +11,7 @@ import { feedbackAPI } from '@/lib/api/feedback';
 import { readSavedApartmentAnalysis } from '@/lib/apartment-analysis';
 import { ApartmentAnalysis } from './ApartmentAnalysis';
 import { ReviewAnalysisStatus, ReviewRating, ReviewSentiment } from './ReviewFields';
+import { readSurveySources, SurveyCollection, type SurveySource } from './GeniusSurveyEvidence';
 
 interface ReviewSnapshot {
   original_review: string;
@@ -34,7 +35,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function readSources(metadata: ChatMessage['structured_data']): Source[] {
   if (!metadata || metadata.kind !== 'ask_genius' || !Array.isArray(metadata.sources)) return [];
   return metadata.sources.flatMap((value: unknown) => {
-    if (!isRecord(value) || typeof value.review_id !== 'number' || !Number.isSafeInteger(value.review_id) || value.review_id <= 0) return [];
+    if (!isRecord(value) || value.source === 'survey' || typeof value.review_id !== 'number' || !Number.isSafeInteger(value.review_id) || value.review_id <= 0) return [];
     const review = isRecord(value.review) && typeof value.review.original_review === 'string'
       ? { original_review: value.review.original_review,
         star_rating: typeof value.review.star_rating === 'number' ? value.review.star_rating : null,
@@ -158,6 +159,7 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
   const [copiedContent, setCopiedContent] = useState<string>();
   const [copyError, setCopyError] = useState(false);
   const sources = useMemo(() => readSources(message.structured_data), [message.structured_data]);
+  const surveySources = useMemo(() => publicSnapshot ? [] : readSurveySources(message.structured_data), [message.structured_data, publicSnapshot]);
   const assistant = message.role === 'assistant';
   const topicGroups = new Map<string, Source[]>();
   const ungrouped: Source[] = [];
@@ -165,12 +167,18 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
     if (source.topic) topicGroups.set(source.topic, [...(topicGroups.get(source.topic) ?? []), source]);
     else ungrouped.push(source);
   }
+  const surveyGroups = new Map<string, SurveySource[]>();
+  const ungroupedSurveys: SurveySource[] = [];
+  for (const source of surveySources) {
+    if (source.topic) surveyGroups.set(source.topic, [...(surveyGroups.get(source.topic) ?? []), source]);
+    else ungroupedSurveys.push(source);
+  }
   const matchedTopics = new Set<string>();
   // Match exact topic labels at the start of Markdown list items; source text cannot
   // create links. Unmatched legacy metadata remains accessible under a labeled group.
   const bulletLines = message.content.split('\n').filter(line => /^\s*(?:[-*+] |\d+\. )/.test(line));
   for (const line of bulletLines) {
-    const topic = topicAtStart(line.replace(/^\s*(?:[-*+] |\d+\. )/, '').replace(/\*\*/g, ''), topicGroups.keys());
+    const topic = topicAtStart(line.replace(/^\s*(?:[-*+] |\d+\. )/, '').replace(/\*\*/g, ''), [...topicGroups.keys(), ...surveyGroups.keys()]);
     if (topic) matchedTopics.add(topic);
   }
   const content = assistant
@@ -179,13 +187,15 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
   const markdownComponents = useMemo(() => {
     const groups = new Map<string, Source[]>();
     for (const source of sources) if (source.topic) groups.set(source.topic, [...(groups.get(source.topic) ?? []), source]);
+    const surveyGroups = new Map<string, SurveySource[]>();
+    for (const source of surveySources) if (source.topic) surveyGroups.set(source.topic, [...(surveyGroups.get(source.topic) ?? []), source]);
     return { a: ({ children }: { children?: ReactNode }) => <span>{children}</span>, img: () => null,
       li: ({ children }: { children?: ReactNode }) => {
         const text = textOf(children).trim();
-        const topic = topicAtStart(text, groups.keys());
-        return <li>{children}{topic && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}</li>;
+        const topic = topicAtStart(text, [...groups.keys(), ...surveyGroups.keys()]);
+        return <li>{children}{topic && groups.has(topic) && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}{topic && surveyGroups.has(topic) && <SurveyCollection sources={surveyGroups.get(topic)!} topic={topic} />}</li>;
       } };
-  }, [sources, publicSnapshot]);
+  }, [sources, surveySources, publicSnapshot]);
   const copied = copiedContent === content;
   useEffect(() => {
     if (copiedContent === undefined) return;
@@ -211,6 +221,8 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
     </div>
     {[...topicGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><ReviewCollection sources={records} topic={topic} publicSnapshot={publicSnapshot} /></section>)}
     {!!ungrouped.length && <ReviewCollection sources={ungrouped} publicSnapshot={publicSnapshot} />}
+    {[...surveyGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><SurveyCollection sources={records} topic={topic} /></section>)}
+    {!!ungroupedSurveys.length && <SurveyCollection sources={ungroupedSurveys} />}
     <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="ghost" size="sm" className="h-8 gap-2 px-2 text-muted-foreground" onClick={() => { void copyAnswer(); }}>{copied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />}{copied ? 'Copied' : 'Copy'}</Button>
       {copyError && <p role="status" className="text-xs text-muted-foreground">Could not copy. Select the answer text to copy it.</p>}

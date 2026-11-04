@@ -1,0 +1,15 @@
+/workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/_pytest/config/__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ModuleNotFoundError: No module named 'authlib' (from /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/tests/conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest '/workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/tests/conftest.py'.
+tests/conftest.py:29: in <module>
+    from src.api.main import app
+src/api/main.py:6: in <module>
+    from src.api.routes import auth, organizations, feedback, dashboard, analyze, integrations, surveys
+src/api/routes/auth.py:28: in <module>
+    from src.services.oidc_provider import OidcProvider, OidcValidationError
+src/services/oidc_provider.py:40: in <module>
+    from authlib.jose import JsonWebToken
+E   ModuleNotFoundError: No module named 'authlib'

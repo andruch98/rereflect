@@ -14,12 +14,13 @@ from datetime import date
 from typing import Annotated, Literal, Optional
 
 import openai
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from src.models.feedback import FeedbackItem
 from src.services.copilot.llm_resolver import LLMConfig
 from src.services.ask_genius_periods import Period, resolve_period
+from src.services import ask_genius_surveys as survey_service
 
 SCOPE = 'boomsay_reviews'
 MAX_REVIEWS = 100
@@ -41,6 +42,13 @@ If evidence_requested is false, evidence and selections must be empty. If true:
   topic (exact saved name for topic-linked evidence; required for analysis), optional
   quotation_index (zero-based saved quotation index) OR excerpt (exact contiguous source text).
   Omit optional fields when not needed. References are technical IDs, not display labels.
+- For surveys, evidence selects {"survey_id": "existing UUID", "kind": "survey"},
+  with topic matching the topic label in the answer and question_id identifying the
+  relevant original question. Optionally excerpt exact original submitted text.
+  Never use review_id for surveys. These are on-demand findings, not saved analysis.
+- survey_selections selects finalized submissions: {} means the established entire survey
+  cohort, or {"issue_resolution":"unresolved"} (also resolved, partially_resolved, not_checked).
+  Preserve prior restrictions. Use verified survey IDs for narrower narrative findings.
 - selections selects all records matching a filter: optional star_ratings (integers 1-5),
   topic (exact saved name), sentiment (positive/negative/mixed/neutral/unknown).
   Filters combine with AND. With topic, sentiment applies to that topic or its quotations;
@@ -57,6 +65,12 @@ Sources, controls and popups are constructed by the application; do not transcri
 records into JSON or add URLs/Markdown links/images/raw HTML. Topic bullets start with the
 exact saved label and colon; put qualifiers after the colon. Supply all relevant references
 when all matching reviews were requested. Do not add a second offer to provide them.
+
+For survey findings also return survey_context: a list with the same fields as survey
+evidence identifying ALL submissions/questions supporting each finding, even when
+evidence_requested is false. This internal context is not a displayed attachment.
+It preserves topic-specific follow-ups. Use current original answers, never prior claims
+as factual authority. Do not attach unrelated survey questions to a narrow finding.
 
 The preceding WRITING AND LENGTH section defines allowances; metadata links/popups do not
 qualify for expanded written detail. For requested source wording written inline, include
@@ -186,14 +200,27 @@ def build_evidence(org_id: int, db: Session, period: Period | None = None) -> di
     return evidence
 
 
+def build_authorized_evidence(org_id: int, db: Session, period: Period, scope: str) -> dict:
+    if scope == 'surveys':
+        evidence = {'period': resolve_period(period), 'reviews': [], 'calculated': {}}
+    else:
+        evidence = build_evidence(org_id, db, period)
+    evidence['source_scope'] = scope
+    if scope in {'surveys', 'mixed'}:
+        evidence.update(survey_service.build_evidence(org_id, db, period))
+    if len(json.dumps(evidence, ensure_ascii=False)) > MAX_EVIDENCE_CHARS:
+        raise ValueError('The selected records are too large to read completely. Choose a shorter period.')
+    return evidence
+
+
 def evidence_requested(question: str, history: list[dict]) -> bool:
     """Conservative expansion gate; a request for a longer explanation is insufficient."""
     lowered = question.casefold().strip()
-    if re.search(r"\b(?:do not|don't|without|no)\s+(?:show|include|give|provide)?\s*(?:me\s+)?(?:supporting\s+)?(?:evidence|reviews?|excerpts?|quotes?|records?)\b", lowered):
+    if re.search(r"\b(?:do not|don't|without|no)\s+(?:show|include|give|provide)?\s*(?:me\s+)?(?:supporting\s+)?(?:evidence|reviews?|surveys?|answers?|submissions?|excerpts?|quotes?|records?)\b", lowered):
         return False
-    if re.search(r"\b(?:show|see|list|give|provide|display|include|open|read|tie|link|connect|match|trace)\b.{0,90}\b(?:reviews?|evidence|excerpts?|quotes?|records?|saved analysis|supporting (?:information|feedback|data)|survey (?:answers?|responses?|data)|management responses?)\b", lowered):
+    if re.search(r"\b(?:show|see|list|give|provide|display|include|open|read|tie|link|connect|match|trace)\b.{0,90}\b(?:reviews?|surveys?|answers?|submissions?|evidence|excerpts?|quotes?|records?|saved analysis|supporting (?:information|feedback|data)|survey (?:answers?|responses?|data)|management responses?)\b", lowered):
         return True
-    if re.search(r"\b(?:which|what)\s+(?:original\s+|actual\s+|specific\s+)?reviews?\b", lowered):
+    if re.search(r"\b(?:which|what)\s+(?:original\s+|actual\s+|specific\s+)?(?:reviews?|submissions?|surveys?)\b", lowered):
         return True
     if re.search(r"\b(?:show|give|provide|see)\b.{0,35}\b(?:topic|theme|sentiment)\b.{0,25}\b(?:breakdown|analysis)\b", lowered):
         return True
@@ -215,10 +242,11 @@ def history_message(message) -> dict:
     """
     content = message.content
     metadata = message.structured_data if isinstance(message.structured_data, dict) else {}
-    sources = metadata.get('sources')
+    sources = [*(metadata.get('sources') or []), *(metadata.get('survey_context') or []),
+               *(metadata.get('review_context') or [])]
     if message.role == 'assistant' and isinstance(sources, list):
-        attached = [{key: source[key] for key in ('review_id', 'excerpt', 'kind', 'topic') if key in source}
-                    for source in sources if isinstance(source, dict) and isinstance(source.get('review_id'), int)]
+        attached = [{key: source[key] for key in ('review_id', 'survey_id', 'excerpt', 'kind', 'topic', 'question_id') if key in source}
+                    for source in sources if isinstance(source, dict) and (isinstance(source.get('review_id'), int) or isinstance(source.get('survey_id'), str))]
         if attached:
             content += '\n\nAttached source cards: ' + json.dumps(attached, ensure_ascii=False)
     return {'role': message.role, 'content': content}
@@ -226,7 +254,11 @@ def history_message(message) -> dict:
 
 def build_messages(question: str, evidence: dict, history: list[dict], expanded: bool = False,
                    default_period: dict | None = None) -> list[dict]:
-    context = {**evidence, 'evidence_requested': expanded, 'available_sources': ['reviews', 'analysis'],
+    scope = evidence.get('source_scope', 'reviews')
+    available = ['surveys'] if scope == 'surveys' else ['reviews', 'analysis']
+    if scope == 'mixed':
+        available.append('surveys')
+    context = {**evidence, 'evidence_requested': expanded, 'available_sources': available,
                'personal_preferences': {'default_period': default_period, 'preference_update_performed': False},
                'answer_character_limit': EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS,
                'explanation_character_limit': DEFAULT_ANSWER_CHARS,
@@ -250,6 +282,20 @@ class ReviewSelection(BaseModel):
     star_ratings: list[Annotated[int, Field(strict=True, ge=1, le=5)]] | None = Field(default=None, min_length=1, max_length=5)
     topic: str | None = Field(default=None, min_length=1, max_length=500)
     sentiment: Literal['positive', 'negative', 'mixed', 'neutral', 'unknown'] | None = None
+
+
+class SurveyEvidenceItem(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    survey_id: str = Field(min_length=36, max_length=36)
+    kind: Literal['survey']
+    excerpt: str | None = Field(default=None, min_length=1, max_length=2500)
+    topic: str | None = Field(default=None, min_length=1, max_length=120, pattern=r'^[^\n\r*<>\[\]]+$')
+    question_id: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class SurveySelection(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    issue_resolution: Literal['resolved', 'partially_resolved', 'unresolved', 'not_checked'] | None = None
 
 
 def selection_items(selection: ReviewSelection, records: list[dict]) -> list[EvidenceItem]:
@@ -276,8 +322,10 @@ def selection_items(selection: ReviewSelection, records: list[dict]) -> list[Evi
 class ModelAnswer(BaseModel):
     model_config = ConfigDict(extra='forbid')
     answer: str = Field(min_length=1, max_length=EVIDENCE_ANSWER_CHARS)
-    evidence: list[EvidenceItem] = Field(default_factory=list, max_length=100)
+    evidence: list[EvidenceItem | SurveyEvidenceItem] = Field(default_factory=list, max_length=200)
     selections: list[ReviewSelection] = Field(default_factory=list, max_length=20)
+    survey_selections: list[SurveySelection] = Field(default_factory=list, max_length=4)
+    survey_context: list[SurveyEvidenceItem] = Field(default_factory=list, max_length=200)
 
 
 def _source_preview(text: str) -> tuple[str, bool]:
@@ -353,13 +401,92 @@ def _explanation_length(answer: str, items: list[EvidenceItem]) -> int:
     return len(answer) - covered
 
 
-def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list[dict]]:
+def _normalize_json_line_breaks(raw: str) -> str:
+    """Escape literal line breaks only inside JSON strings, including backslash-LF.
+
+    Never add missing quotes/braces or reinterpret other escapes. Valid JSON bypasses
+    this helper. The repaired copy must still pass the full schema/source validation.
+    Raw provider output is retained separately by the route.
+    """
+    output, inside, index = [], False, 0
+    while index < len(raw):
+        char = raw[index]
+        if char == '"':
+            inside = not inside
+        elif inside:
+            start = index + 1 if char == '\\' else index
+            if start < len(raw) and raw[start] in '\r\n':
+                end = start + 1
+                if raw[start] == '\r' and end < len(raw) and raw[end] == '\n':
+                    end += 1
+                output.append('\\n')
+                index = end
+                continue
+            if char == '\\' and index + 1 < len(raw):
+                output.append(raw[index:index + 2])
+                index += 2
+                continue
+        output.append(char)
+        index += 1
+    return ''.join(output)
+
+
+_VALIDATION_REASONS = {
+    'IncompleteModelAnswer': ('incomplete_output', 'The model did not finish its answer.'),
+    'EmptyModelAnswer': ('empty_answer', 'The model returned an empty answer.'),
+    'Model answer contains unsupported links or markup': ('unsupported_markup', 'The answer contains unsupported links or markup.'),
+    'Unknown evidence record': ('unknown_source', 'A review reference is outside the authorized records.'),
+    'Unknown survey evidence record': ('unknown_source', 'A survey reference is outside the authorized records.'),
+    'Unknown survey context record': ('unknown_source', 'An internal survey reference is outside the authorized records.'),
+    'Unknown saved analysis topic': ('unknown_topic', 'A topic reference does not match saved analysis.'),
+    'Invalid saved quotation selector': ('source_mismatch', 'A quotation selector does not match saved analysis.'),
+    'Review excerpt does not match the original': ('source_mismatch', 'A review quotation does not match the original.'),
+    'Analysis excerpt does not match saved analysis': ('source_mismatch', 'An analysis quotation does not match saved analysis.'),
+    'Unknown survey question': ('unknown_question', 'A survey question reference does not exist in that submission.'),
+    'Survey excerpt does not match an original submitted answer': ('source_mismatch', 'A survey quotation does not match an original submitted answer.'),
+    'Survey excerpt does not match the selected question': ('source_mismatch', 'A survey quotation does not match the selected question.'),
+    'Answer exceeds the character limit': ('answer_too_long', 'The written answer exceeds the character limit.'),
+    'Explanation exceeds the character limit': ('answer_too_long', 'The explanation exceeds the character limit.'),
+}
+
+
+def validation_failure(exc: ValueError) -> dict:
+    """Stable diagnostics without echoing exception inputs or provider secrets."""
+    if isinstance(exc, ValidationError):
+        errors = exc.errors(include_input=False, include_context=False, include_url=False)
+        if any(e['type'] == 'json_invalid' for e in errors):
+            reason, detail = 'invalid_json', 'The response is not readable JSON after safe line-break handling.'
+        elif any(e['loc'] == ('answer',) and e['type'] == 'string_too_long' for e in errors):
+            reason, detail = 'answer_too_long', 'The written answer exceeds the character limit.'
+        elif any(e['loc'] == ('answer',) and e['type'] == 'string_too_short' for e in errors):
+            reason, detail = 'empty_answer', 'The model returned an empty answer.'
+        else:
+            reason, detail = 'invalid_structure', 'The response fields do not match the required answer structure.'
+    else:
+        reason, detail = _VALIDATION_REASONS.get(str(exc), ('invalid_output', 'The answer failed application validation.'))
+    return {'validation_reason': reason, 'validation_detail': detail}
+
+
+def validation_message(reason: str) -> str:
+    if reason in {'unknown_source', 'unknown_topic', 'unknown_question', 'source_mismatch'}:
+        return 'BoomSay couldn’t match the AI’s supporting references to the available community records. Click Retry to request a new answer.'
+    if reason == 'incomplete_output':
+        return 'The AI stopped before finishing its answer. Click Retry to request a new answer.'
+    if reason == 'empty_answer':
+        return 'The AI returned no answer. Click Retry to request a new answer.'
+    if reason == 'answer_too_long':
+        return 'The AI wrote more text than BoomSay can display in one answer. Click Retry to request a shorter answer.'
+    return 'The AI returned an answer BoomSay couldn’t read. Your question is fine. Click Retry to request a new answer.'
+
+
+def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context: list | None = None,
+                    review_context: list | None = None, normalizations: list | None = None) -> tuple[str, list[dict]]:
     """Validate the explanation and create cards from authorized stored source material.
 
-    Never chop the explanation or drop source cards to fit. Full records are available only
-    for selected cards in their popups. Invalid IDs/excerpts and oversized answers fail closed
-    without an automatic paid retry. Exact structured selectors avoid quote-transcription and
-    full-review-output failures without weakening source verification.
+    Validate every reference even when its display was not requested. Keep authorized
+    references internally for follow-ups; only the presentation gate hides their controls.
+    Invalid IDs/excerpts, ambiguous formatting and oversized answers still fail closed
+    without an automatic paid retry. Never truncate an answer or weaken source verification.
     """
     stripped = raw.strip()
     # Some compatible providers wrap otherwise valid JSON in one Markdown fence. Removing
@@ -369,19 +496,54 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
         if wrapped:
             stripped = wrapped.group(1).strip()
     if stripped.startswith('{'):
-        result = ModelAnswer.model_validate_json(stripped)
+        try:
+            result = ModelAnswer.model_validate_json(stripped)
+        except ValidationError as exc:
+            if not any(e['type'] == 'json_invalid' for e in exc.errors(include_input=False)):
+                raise
+            normalized = _normalize_json_line_breaks(stripped)
+            if normalized == stripped:
+                raise
+            result = ModelAnswer.model_validate_json(normalized)
+            if normalizations is not None:
+                normalizations.append('json_string_line_breaks')
     else:
         result = ModelAnswer(answer=stripped)
-    if not result.answer.strip() or re.search(r'https?://|\[[^\]]*\]\s*\(|<[^>]+>', result.answer, re.I):
+    if not result.answer.strip():
+        raise ValueError('EmptyModelAnswer')
+    if re.search(r'https?://|\[[^\]]*\]\s*\(|<[^>]+>', result.answer, re.I):
         raise ValueError('Model answer contains unsupported links or markup')
-    if (result.evidence or result.selections) and not expanded:
-        raise ValueError('Supporting evidence was not requested')
     reviews = {record['review_id']: record for record in evidence['reviews']}
     sources, seen = [], set()
+    validated_survey_context = []
     items = list(result.evidence)
     for selection in result.selections:
         items.extend(selection_items(selection, evidence['reviews']))
+    surveys = {record['survey_id']: record for record in evidence.get('surveys', [])}
+    for item in result.survey_context:
+        record = surveys.get(item.survey_id)
+        if record is None:
+            raise ValueError('Unknown survey context record')
+        selected = survey_service.source(record, item.excerpt, item.topic, item.question_id)
+        validated_survey_context.append(selected)
+    for selection in result.survey_selections:
+        items.extend(SurveyEvidenceItem(kind='survey', survey_id=record['survey_id'])
+                     for record in surveys.values() if selection.issue_resolution is None or any(
+                         q['id'] == 'issue_resolution' and q['answer'] == selection.issue_resolution for q in record['questions']))
     for item in items:
+        if isinstance(item, SurveyEvidenceItem):
+            record = surveys.get(item.survey_id)
+            if record is None:
+                raise ValueError('Unknown survey evidence record')
+            # Validate duplicates too: a later invalid excerpt must not be hidden by deduplication.
+            selected = survey_service.source(record, item.excerpt, item.topic, item.question_id)
+            key = ('survey', item.survey_id, item.topic, item.question_id)
+            if key not in seen:
+                sources.append(selected)
+                if not result.survey_context:
+                    validated_survey_context.append(selected)
+                seen.add(key)
+            continue
         record = reviews.get(item.review_id)
         if record is None:
             raise ValueError('Unknown evidence record')
@@ -412,10 +574,22 @@ def validate_answer(raw: str, evidence: dict, expanded: bool) -> tuple[str, list
         quoted_detail = expanded and _explanation_length(answer, result.evidence) <= DEFAULT_ANSWER_CHARS
         if not (analysis_detail or quoted_detail):
             raise ValueError('Explanation exceeds the character limit')
+    if survey_context is not None:
+        survey_context.extend(validated_survey_context)
+    if not expanded:
+        if review_context is not None:
+            review_context.extend(s for s in sources if s['kind'] != 'survey')
+        if (result.evidence or result.selections or result.survey_selections) and normalizations is not None:
+            normalizations.append('unrequested_evidence_hidden')
+        return answer, []
     return answer, sources
 
 
 def no_data_answer(evidence: dict) -> str | None:
+    if evidence.get('source_scope') == 'surveys':
+        return None if evidence.get('surveys') else f'There are no finalized maintenance survey submissions matching this request within {evidence["period"]["label"]}.'
+    if evidence.get('source_scope') == 'mixed' and evidence.get('surveys'):
+        return None
     if evidence['reviews']:
         return None
     period = evidence['period']['label']

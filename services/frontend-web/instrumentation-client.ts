@@ -11,7 +11,7 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 // Public chat links are capabilities; never record preview sessions or their URLs.
 const telemetryAllowed = process.env.NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW !== 'true' &&
-  !(typeof window !== 'undefined' && window.location.pathname.startsWith('/share/ask-genius/'));
+  !(typeof window !== 'undefined' && ['/share/ask-genius/', '/survey/'].some(prefix => window.location.pathname.startsWith(prefix)));
 
 if (dsn && telemetryAllowed) {
   Sentry.init({
@@ -32,6 +32,6 @@ if (dsn && telemetryAllowed) {
 }
 
 export const onRouterTransitionStart: typeof Sentry.captureRouterTransitionStart = (...args) => {
-  if (!telemetryAllowed || String(args[0]).includes('/share/ask-genius/')) return;
+  if (!telemetryAllowed || ['/share/ask-genius/', '/survey/'].some(prefix => String(args[0]).includes(prefix))) return;
   return Sentry.captureRouterTransitionStart(...args);
 };
