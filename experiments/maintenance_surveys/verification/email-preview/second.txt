@@ -1,0 +1,29 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-7.4.3, pluggy-1.7.0
+rootdir: /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api
+configfile: pytest.ini
+plugins: anyio-4.15.1, asyncio-0.21.1
+asyncio: mode=Mode.AUTO
+collected 10 items
+
+tests/surveys_offline/test_email_preview.py ..........                   [100%]
+
+=============================== warnings summary ===============================
+../../../tmp/genius-venv/lib/python3.12/site-packages/starlette/testclient.py:40
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+src/models/base.py:3
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/models/base.py:3: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+tests/surveys_offline/test_email_preview.py: 45 warnings
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3594: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/surveys_offline/test_email_preview.py: 18 warnings
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/auth.py:78: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expire = datetime.utcnow() + timedelta(days=JWT_EXPIRATION_DAYS)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 10 passed, 65 warnings in 1.37s ========================

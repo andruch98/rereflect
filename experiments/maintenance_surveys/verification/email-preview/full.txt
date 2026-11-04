@@ -1,0 +1,69 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-7.4.3, pluggy-1.7.0
+rootdir: /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api
+configfile: pytest.ini
+plugins: anyio-4.15.1, asyncio-0.21.1
+asyncio: mode=Mode.AUTO
+collected 49 items
+
+tests/surveys_offline/test_demo_guard.py ....                            [  8%]
+tests/surveys_offline/test_demo_verify_ask.py ...                        [ 14%]
+tests/surveys_offline/test_email_preview.py ..........                   [ 34%]
+tests/surveys_offline/test_journey.py ...........................        [ 89%]
+tests/surveys_offline/test_postgres_concurrency.py ssss                  [ 97%]
+tests/surveys_offline/test_survey_migration.py .                         [100%]
+
+=============================== warnings summary ===============================
+../../../tmp/genius-venv/lib/python3.12/site-packages/starlette/testclient.py:40
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/starlette/testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+src/models/base.py:3
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/models/base.py:3: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+tests/surveys_offline/test_demo_guard.py::test_fictional_manager_address_passes_the_actual_login_schema
+tests/surveys_offline/test_demo_guard.py::test_fictional_manager_address_passes_the_actual_login_schema
+tests/surveys_offline/test_demo_guard.py::test_fictional_manager_address_passes_the_actual_login_schema
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:291: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.8/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+tests/surveys_offline/test_demo_guard.py: 7 warnings
+tests/surveys_offline/test_demo_verify_ask.py: 29 warnings
+tests/surveys_offline/test_email_preview.py: 45 warnings
+tests/surveys_offline/test_journey.py: 133 warnings
+tests/surveys_offline/test_postgres_concurrency.py: 20 warnings
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3594: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/surveys_offline/test_demo_guard.py: 2 warnings
+tests/surveys_offline/test_demo_verify_ask.py: 9 warnings
+tests/surveys_offline/test_email_preview.py: 18 warnings
+tests/surveys_offline/test_journey.py: 95 warnings
+tests/surveys_offline/test_postgres_concurrency.py: 8 warnings
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/auth.py:78: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expire = datetime.utcnow() + timedelta(days=JWT_EXPIRATION_DAYS)
+
+tests/surveys_offline/test_demo_verify_ask.py: 10 warnings
+tests/surveys_offline/test_journey.py: 50 warnings
+  /workspace/scratch/5cb7f8a65fe4/tmp/genius-venv/lib/python3.12/site-packages/jose/jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+tests/surveys_offline/test_demo_verify_ask.py: 10 warnings
+tests/surveys_offline/test_journey.py: 50 warnings
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/dependencies.py:57: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.last_active_at = datetime.utcnow()
+
+tests/surveys_offline/test_demo_verify_ask.py::test_offline_verify_ask_uses_actual_submission_and_restores_configuration
+tests/surveys_offline/test_demo_verify_ask.py::test_offline_verify_ask_uses_actual_submission_and_restores_configuration
+tests/surveys_offline/test_demo_verify_ask.py::test_offline_verify_ask_uses_actual_submission_and_restores_configuration
+tests/surveys_offline/test_demo_verify_ask.py::test_offline_verify_ask_uses_actual_submission_and_restores_configuration
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/routes/ask_genius.py:514: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    conversation.updated_at = datetime.utcnow()
+
+tests/surveys_offline/test_demo_verify_ask.py::test_offline_verify_ask_uses_actual_submission_and_restores_configuration
+  /workspace/scratch/5cb7f8a65fe4/survey-corrections/services/backend-api/src/api/routes/ask_genius.py:246: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    conversation.updated_at = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 45 passed, 4 skipped, 496 warnings in 7.10s ==================

@@ -1,0 +1,14 @@
+test_bad_archive_and_preview_checksums_are_rejected (__main__.UpdateTests.test_bad_archive_and_preview_checksums_are_rejected) ... ok
+test_credentials_are_never_read_and_cannot_join_manifest (__main__.UpdateTests.test_credentials_are_never_read_and_cannot_join_manifest) ... ok
+test_failed_metadata_write_restores_original_source (__main__.UpdateTests.test_failed_metadata_write_restores_original_source) ... ok
+test_repeat_update_is_exact_noop (__main__.UpdateTests.test_repeat_update_is_exact_noop) ... ok
+test_required_survey_migration_and_runtime_are_checked (__main__.UpdateTests.test_required_survey_migration_and_runtime_are_checked) ... ok
+test_source_update_preserves_private_state_configuration_and_prior_backups (__main__.UpdateTests.test_source_update_preserves_private_state_configuration_and_prior_backups) ... ok
+test_traversal_absolute_and_symlink_entries_are_rejected (__main__.UpdateTests.test_traversal_absolute_and_symlink_entries_are_rejected) ... ok
+test_unfinished_backup_is_preserved (__main__.UpdateTests.test_unfinished_backup_is_preserved) ... ok
+test_unknown_startup_or_source_is_rejected_before_mutation (__main__.UpdateTests.test_unknown_startup_or_source_is_rejected_before_mutation) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.180s
+
+OK

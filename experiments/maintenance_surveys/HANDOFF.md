@@ -133,3 +133,13 @@ approval. PR #5's e1d7352fa043 migration pin is already superseded by the survey
 branch's f2e8463ab154 pin; propose closing #5 as superseded when integrating the
 survey branch, rather than replacing the newer pin. Gmail invitation testing
 remains a later workflow milestone; do not enable real sending implicitly.
+
+## Local email test increment (2026-11-04)
+Branch feat/survey-email-preview builds on fix/survey-genius-continuity at 2b5ec779.
+Approved: fixed sender andres@boomsay.com, recipient andres.feuerberg.ch@gmail.com,
+approved email text, one attempt per test; another email requires a new named test.
+No real sends, merge or deployment authorized as part of implementation. User runs
+explicit send step after preview. Key remains in password manager and is entered
+hidden for each test, not installed in application-wide email settings.
+See email_preview/README.txt and verification/email-preview/README.md. Next: install
+packaged update, prepare without sending, then user performs live email test.
