@@ -12,13 +12,13 @@ from src.services.survey_catalog import EVENT_LABELS, event_type_for
 SHARING_REASON = 'Sharing is unavailable for chats using private survey answers until survey sharing is approved.'
 MAX_SURVEYS = 100
 TYPE_PATTERNS = {
-    'move_in_completed': r'move[ -]?in',
-    'maintenance_completed': r'maintenance|work[ -]?order',
+    'move_in_completed': r'move[ -]?in(?: completed)?',
+    'maintenance_completed': r'(?:maintenance|work[ -]?order)(?: completed)?',
     'lease_month_3': r'(?:3|three)[ -]?month',
     'lease_month_6': r'(?:6|six)[ -]?month',
     'lease_month_9': r'(?:9|nine)[ -]?month(?: renewal (?:planning|intent))?|pre[ -]?renewal|renewal intent',
     'lease_renewed': r'(?:lease |completed |signed )?renewal|renewed lease',
-    'move_out_completed': r'move[ -]?out',
+    'move_out_completed': r'move[ -]?out(?: completed)?',
 }
 
 
@@ -31,10 +31,12 @@ def _type_selections(text):
         exclusion = re.search(r'\b(?:not|exclude|excluding|without|except)\s*$', before)
         direct = re.match(r'\s+(?:survey|questionnaire|submission|response)s?\b', after)
         after_type = re.search(r'(?:surveys?|questionnaires?|submissions?|responses?) (?:for|from|after)\s*$', before)
-        short = re.fullmatch(r'(?:what about |(?:use|show|only) )?' + group + r'[?.! ]*', text)
+        short = re.fullmatch(r'(?:what about (?:the )?|(?:use|show|only) (?:the )?)?' + group + r'[?.! ]*', text)
+        description = (re.fullmatch(r'(?:please )?what (?:does|do|did) (?:the )?', before)
+                       and re.match(r'\s+(?:say|report|show)\b', after))
         # "surveys excluding maintenance" has no repeated noun after the type.
         excluded_tail = exclusion and re.search(r'\b(?:surveys?|submissions?|questionnaires?)\b', before)
-        if not (direct or after_type or short or excluded_tail):
+        if not (direct or after_type or short or description or excluded_tail):
             continue
         kinds, occupied = set(), []
         for kind, item in TYPE_PATTERNS.items():
@@ -54,12 +56,20 @@ def survey_types(question: str, previous=None):
             raise ValueError('Choose one survey type, or use “and” to include both survey types.')
         (excluded if exclusion else included).update(kinds)
     all_types = re.search(r'\b(?:all|every) (?:survey types?|types? of surveys?|surveys?)\b', text)
+    # An unqualified evaluation of plural surveys starts a broad comparison;
+    # "what does the bad say?" remains a follow-up to the selected type.
+    evaluation = r'(?:bad|good|negative|positive|(?:low|poorly|high)[ -]rated)'
+    units = r'(?:surveys|submissions|responses|questionnaires)'
+    broad_evaluation = re.search(
+        r'\b(?:(?:which (?:are|were)|show(?: me)?|list|summarize|display) (?:the )?'
+        + evaluation + ' ' + units + '|' + 'which (?:of (?:the )?)?' + units
+        + r' (?:are|were) ' + evaluation + r')\b', text)
     if excluded:
         selected = (set(EVENT_LABELS) if all_types or not included else included) - excluded
         if not selected:
             raise ValueError('No survey types remain after those exclusions. Choose at least one survey type.')
         return sorted(selected)
-    return sorted(included) if included else ([] if all_types else list(previous or []))
+    return sorted(included) if included else ([] if all_types or broad_evaluation else list(previous or []))
 
 
 def _context(record):
