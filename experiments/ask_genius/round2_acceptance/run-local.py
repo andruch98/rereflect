@@ -16,14 +16,17 @@ def report(events, questions, source, exit_code):
     complete = next((e for e in events if e.get('kind') == 'complete'), None)
     outcome = ('completed with answer failures' if complete and complete.get('failed_questions') else
                'completed' if complete and exit_code == 0 else 'stopped / incomplete')
-    lines = ['# Ask Genius: four new survey submissions', '',
+    lines = ['# Ask Genius: four-survey diagnostic', '',
         'PR #12 application commit: ' + source['application_commit'],
         'Software run: ' + outcome,
         'Human factual assessment: pending. Passing JSON/source validation does not prove accuracy.', '',
         'Only the four named November 5 submissions were copied into an isolated diagnostic database. '
         'The actual PR12 question route ran there with the existing configured AI. '
         'This does not install PR12, add chats to your dashboard, or test browser sharing. '
-        'There is no old-version baseline for these four records.', '',
+        'Earlier results are historical comparisons, not a controlled paired run. ' +
+        ('This five-question check starts a new three-question chat and two fresh chats.'
+         if source.get('question_set') == 'summary-check' else
+         'This sequence starts new diagnostic chats; the final two checks use fresh chats.'), '',
         '## Questions and answers', '']
     for index, (group, question) in enumerate(questions, 1):
         event = next((e for e in events if e.get('kind') == 'result' and e['index'] == index), None)
@@ -34,6 +37,21 @@ def report(events, questions, source, exit_code):
                 'Status: ' + event['status'],
                 'Input/output tokens: ' + str(event['tokens_in']) + '/' + str(event['tokens_out']),
                 'Cost: unavailable.', 'Human assessment: pending.', '']
+            raw = event.get('raw_response') or {}
+            choices = raw.get('choices') or []
+            message = choices[0].get('message', {}) if choices else {}
+            try:
+                parsed = json.loads(message.get('content') or '{}')
+            except (ValueError, TypeError):
+                parsed = {}
+            if isinstance(parsed, dict) and parsed.get('survey_findings'):
+                lines += ['Internal survey findings (model-written; factual review pending):', '']
+                for finding in parsed['survey_findings']:
+                    lines += [json.dumps(finding, ensure_ascii=False), '']
+            audit = event.get('raw_request') or {}
+            if audit.get('validation_reason'):
+                lines += ['Software rejection: ' + audit['validation_reason'] + ' — ' +
+                          audit.get('validation_detail', ''), '']
             if event.get('failure'):
                 lines += ['Failure: ' + json.dumps(event['failure'], ensure_ascii=False), '']
                 raw = event.get('raw_response') or {}
@@ -67,7 +85,8 @@ def report(events, questions, source, exit_code):
         '- Explain mixed feedback fairly; do not assume rent value, delays or causes absent from the data.',
         '- Treat the historical example bank as guidance, not evidence about these four submissions.',
         '- Follow-ups must refer to the correct survey; ask for clarification if ambiguous.',
-        '- Compare questions 9/14 and 12/15 for facts lost through conversation history.',
+        '- Compare repeated questions across the sequential and fresh chats for lost facts.',
+        '- Check every internal finding against its cited original answers; coverage validation is not factual approval.',
         '- Separate factual errors and broken workflows from optional wording polish.', '',
         'Answer failures are recorded without retries; later questions continue. Failed/refusal text is not '
         'inserted as an accepted assistant answer. Fresh-chat checks remain separate. Setup/access/unexpected '
@@ -102,7 +121,7 @@ def main():
         shutil.copyfile(package / name, results / name)
     (package / 'TEST-STARTED.txt').write_text(str(results) + '\n')
     events = []
-    print('Testing 15 questions against exactly 4 new submissions using PR #12.', flush=True)
+    print(f'Testing {len(questions)} questions against the same 4 submissions using PR #12.', flush=True)
     print('Your existing AI connection is used; normal model charges apply. No automatic retries.', flush=True)
     print('Answer failures will be recorded and skipped; later questions will continue.', flush=True)
     print('Answers will appear below. Your preview and saved records stay unchanged.\n', flush=True)
@@ -125,7 +144,7 @@ def main():
                     capture.write(json.dumps(event, ensure_ascii=False) + '\n'); capture.flush()
                     events.append(event)
                     if event.get('kind') == 'attempt':
-                        print(f"{event['index']}/15. {event['question']}", flush=True)
+                        print(f"{event['index']}/{len(questions)}. {event['question']}", flush=True)
                     elif event.get('kind') == 'result':
                         print((event.get('response') or {}).get('answer') or (
                             'Answer failed; recorded in report. Continuing.' if event.get('continued_after_failure')

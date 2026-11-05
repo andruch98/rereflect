@@ -39,6 +39,17 @@ The application supplies current authorized records, computed statistics, resolv
 available sources and personal preference state. Resolve conversational scope BEFORE choosing
 selectors. Do not use output format rules to broaden that scope.
 
+When survey_findings_required is true, write survey_findings BEFORE answer in the
+same JSON object. It is a list of {"survey_id": "existing UUID", "question_ids":
+["original question ID"], "finding": "brief factual finding"}, with exactly one
+entry for EVERY supplied survey, including surveys without a reported concern.
+Each finding is at most 300 characters and cites the original questions supporting
+its facts. Read all answers in the submission; retain distinct ratings, explicit
+unresolved concerns, comments and decision/departure reasons that affect this request.
+Then write the manager's answer from these findings. These are source-linked factual
+notes, not reasoning steps or saved sentiment analysis. They are not displayed or
+reused as chat history. When the flag is false, omit survey_findings.
+
 If evidence_requested is false, evidence and selections must be empty. If true:
 - evidence selects specific records: review_id (existing integer), kind (review or analysis),
   topic (exact saved name for topic-linked evidence; required for analysis), optional
@@ -302,6 +313,13 @@ class SurveySelection(BaseModel):
     issue_resolution: Literal['resolved', 'partially_resolved', 'unresolved', 'not_checked'] | None = None
 
 
+class SurveyFinding(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    survey_id: str = Field(min_length=36, max_length=36)
+    question_ids: list[str] = Field(min_length=1, max_length=30)
+    finding: str = Field(min_length=1, max_length=300)
+
+
 def selection_items(selection: ReviewSelection, records: list[dict]) -> list[EvidenceItem]:
     if selection.star_ratings is not None and any(type(r) is not int or r not in range(1, 6) for r in selection.star_ratings):
         raise ValueError('Invalid star rating filter')
@@ -325,6 +343,7 @@ def selection_items(selection: ReviewSelection, records: list[dict]) -> list[Evi
 
 class ModelAnswer(BaseModel):
     model_config = ConfigDict(extra='forbid')
+    survey_findings: list[SurveyFinding] = Field(default_factory=list, max_length=100)
     answer: str = Field(min_length=1, max_length=EVIDENCE_ANSWER_CHARS)
     evidence: list[EvidenceItem | SurveyEvidenceItem] = Field(default_factory=list, max_length=200)
     selections: list[ReviewSelection] = Field(default_factory=list, max_length=20)
@@ -436,6 +455,8 @@ def _normalize_json_line_breaks(raw: str) -> str:
 
 
 _VALIDATION_REASONS = {
+    'Survey findings do not cover the supplied cohort': ('incomplete_survey_coverage', 'The findings must cover each supplied survey exactly once.'),
+    'Invalid survey finding reference': ('unknown_question', 'A survey finding must cite distinct original questions with submitted answers.'),
     'IncompleteModelAnswer': ('incomplete_output', 'The model did not finish its answer.'),
     'EmptyModelAnswer': ('empty_answer', 'The model returned an empty answer.'),
     'Model answer contains unsupported links or markup': ('unsupported_markup', 'The answer contains unsupported links or markup.'),
@@ -524,6 +545,16 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
     for selection in result.selections:
         items.extend(selection_items(selection, evidence['reviews']))
     surveys = {record['survey_id']: record for record in evidence.get('surveys', [])}
+    if evidence.get('survey_findings_required') or result.survey_findings:
+        ids = [item.survey_id for item in result.survey_findings]
+        if len(ids) != len(set(ids)) or set(ids) != set(surveys):
+            raise ValueError('Survey findings do not cover the supplied cohort')
+        for item in result.survey_findings:
+            answered = {q['id'] for q in surveys[item.survey_id]['questions']
+                        if q.get('answer') is not None and q.get('answer') != ''}
+            if (not item.finding.strip() or len(item.question_ids) != len(set(item.question_ids))
+                    or not set(item.question_ids) <= answered):
+                raise ValueError('Invalid survey finding reference')
     for item in result.survey_context:
         record = surveys.get(item.survey_id)
         if record is None:
@@ -616,11 +647,18 @@ class AnswerResult:
     finish_reason: Optional[str]
 
 
+def completion_budget(messages: list[dict]) -> int:
+    """Reserve bounded space for the factual notes without shrinking the answer."""
+    context = json.loads(messages[1]['content'].split('\n', 1)[1])
+    return 1200 + (160 * min(len(context.get('surveys', [])), survey_service.MAX_SURVEYS)
+                   if context.get('survey_findings_required') else 0)
+
+
 async def generate_answer(messages: list[dict], config: LLMConfig) -> AnswerResult:
     """One request, no implicit SDK retries, no provider fallback or tool access."""
     async with openai.AsyncOpenAI(api_key=config.api_key or 'local-keyless', base_url=config.base_url,
                                   timeout=45.0, max_retries=0) as client:
-        response = await client.chat.completions.create(model=config.model, messages=messages, max_completion_tokens=1200, response_format={'type': 'json_object'})
+        response = await client.chat.completions.create(model=config.model, messages=messages, max_completion_tokens=completion_budget(messages), response_format={'type': 'json_object'})
     usage = response.usage
     choice = response.choices[0] if response.choices else None
     return AnswerResult(answer=(choice.message.content or '').strip() if choice else '',

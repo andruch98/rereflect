@@ -53,6 +53,15 @@ QUESTIONS = [
 ]
 
 
+SUMMARY_QUESTIONS = [
+    ('conversation', 'Which are the bad surveys? Summarize them in a list.'),
+    ('conversation', 'What are the main improvements suggested by all surveys?'),
+    ('conversation', 'Based on all the surveys, are we doing a good job?'),
+    ('fresh-negative', 'Which are the bad surveys? Summarize them in a list.'),
+    ('fresh-overall', 'Based on all the surveys, are we doing a good job?'),
+]
+
+
 def emit(event):
     print(json.dumps(event, ensure_ascii=False, default=str), flush=True)
 
@@ -138,11 +147,12 @@ def isolated_database(name, rows, org_id):
     return engine, db, user
 
 
-async def execute_questions(db, user):
+async def execute_questions(db, user, questions=None):
+    questions = QUESTIONS if questions is None else questions
     conversations = {}
     failed_by_group = {}
     failures = 0
-    for index, (group, question) in enumerate(QUESTIONS, 1):
+    for index, (group, question) in enumerate(questions, 1):
         request_id = uuid4()
         emit({'kind': 'attempt', 'index': index, 'group': group, 'question': question})
         result, failure = None, None
@@ -183,8 +193,8 @@ async def execute_questions(db, user):
             failed_by_group.setdefault(group, []).append(index)
             if not continued_after_failure:
                 return 1
-    emit({'kind': 'complete', 'questions': len(QUESTIONS), 'failed_questions': failures,
-          'completed_questions': len(QUESTIONS) - failures,
+    emit({'kind': 'complete', 'questions': len(questions), 'failed_questions': failures,
+          'completed_questions': len(questions) - failures,
           'status': 'completed_with_failures' if failures else 'completed',
           'human_acceptance': 'pending'})
     return 1 if failures else 0
@@ -210,15 +220,18 @@ async def main():
         evidence = service.build_authorized_evidence(org_id, db, period, 'surveys')
         if len(evidence['surveys']) != 4:
             raise ValueError('The isolated evidence does not contain all four submissions. Nothing sent.')
+        provenance = json.loads((Path(__file__).parent / 'source.json').read_text())
+        questions = SUMMARY_QUESTIONS if provenance.get('question_set') == 'summary-check' else QUESTIONS
         emit({'kind': 'preflight', 'provider': config.provider, 'model': config.model,
-            'source': json.loads((Path(__file__).parent / 'source.json').read_text()),
+            'source': provenance,
             'prompt_sha256': hashlib.sha256((service.SYSTEM_PROMPT + '\n\n' + service.RUNTIME_RULES).encode()).hexdigest(),
             'evidence': evidence, 'source_rows': rows,
-            'questions': QUESTIONS, 'max_model_calls': len(QUESTIONS), 'retries': 0,
+            'questions': questions, 'max_model_calls': len(questions), 'retries': 0,
             'notes': 'Actual PR12 question route, isolated cohort DB; no HTTP authentication/browser/Share test. '
                      'Only these four submissions are available. Historical example facts are not current evidence. '
-                     'No before/after baseline on these four records; this tests current factual quality.'})
-        return await execute_questions(db, user)
+                     'Earlier results are historical comparisons, not a controlled paired run. Summary-check starts three '
+                     'sequential questions in a new chat and two fresh-chat checks; it does not replay earlier turns.'})
+        return await execute_questions(db, user, questions)
     finally:
         db.close(); engine.dispose()
 

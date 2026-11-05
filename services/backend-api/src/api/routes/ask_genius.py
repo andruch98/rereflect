@@ -421,6 +421,8 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             config, reason = service.configured_llm(user.organization_id, db)
             if config is None:
                 raise HTTPException(503, reason)
+            if survey_service.needs_findings(question, evidence):
+                evidence['survey_findings_required'] = True
             messages = service.build_messages(question, evidence, history, expanded, period_dict(saved_default))
         if conversation is None:
             conversation = Conversation(organization_id=user.organization_id, created_by_user_id=user.id,
@@ -433,7 +435,7 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                  'evidence_requested': expanded, 'preference_updated': preference_updated,
                  'source_scope': source_scope,
                  'model': config.model if config else None, 'provider': config.provider if config else None,
-                 'max_completion_tokens': 1200 if config else 0, 'max_retries': 0}
+                 'max_completion_tokens': service.completion_budget(messages) if config else 0, 'max_retries': 0}
         user_message = ConversationMessage(conversation_id=conversation.id, role='user', content=submitted_question,
                                            context_scope=service.SCOPE, raw_request=audit,
                                            llm_provider=config.provider if config else None,

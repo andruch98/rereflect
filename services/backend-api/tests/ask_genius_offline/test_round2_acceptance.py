@@ -15,6 +15,16 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
+def synthetic_answer(messages):
+    context = json.loads(messages[1]['content'].split('\n', 1)[1])
+    answer = {'answer': 'Synthetic test answer.', 'evidence': []}
+    if context.get('survey_findings_required'):
+        answer['survey_findings'] = [{'survey_id': r['survey_id'],
+            'question_ids': [q['id'] for q in r['questions'] if q.get('answer') not in (None, '')],
+            'finding': 'Synthetic coverage only.'} for r in context['surveys']]
+    return answer
+
+
 def rows():
     result = []
     for n, (test_id, kind) in enumerate(runner.COHORT.items()):
@@ -77,7 +87,8 @@ def test_read_only_selection_and_exact_copy(tmp_path):
 
 
 @pytest.mark.parametrize("answer_errors", [False, True])
-def test_packaged_source_with_fake_provider(tmp_path, answer_errors):
+@pytest.mark.parametrize("summary_check", [False, True])
+def test_packaged_source_with_fake_provider(tmp_path, answer_errors, summary_check):
     """Exercise the actual SDK/bootstrap/main path; HTTP goes only to a local fixture."""
     import base64
     import hashlib
@@ -91,7 +102,7 @@ def test_packaged_source_with_fake_provider(tmp_path, answer_errors):
     spec = importlib.util.spec_from_file_location('four_survey_build', path)
     builder = importlib.util.module_from_spec(spec); spec.loader.exec_module(builder)
     package = tmp_path / 'package'
-    builder.build(package)
+    builder.build(package, summary_check=summary_check)
     original, db, user = runner.isolated_database('Test community', rows(), 1)
     url = 'sqlite:///' + str(tmp_path / 'source.db')
     target_engine = runner.create_engine(url)
@@ -110,7 +121,7 @@ def test_packaged_source_with_fake_provider(tmp_path, answer_errors):
             requests.append(request)
             response = {'id': 'fixture-response', 'object': 'chat.completion', 'created': 1,
                 'model': 'offline-synthetic', 'choices': [{'index': 0, 'finish_reason': 'stop',
-                'message': {'role': 'assistant', 'content': json.dumps({'answer': 'Synthetic test answer.', 'evidence': []})}}],
+                'message': {'role': 'assistant', 'content': json.dumps(synthetic_answer(request['messages']))}}],
                 'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}}
             if answer_errors and len(requests) == 2:
                 response['choices'][0]['message'].update(content=None, refusal='Captured fixture refusal.')
@@ -144,21 +155,27 @@ def test_packaged_source_with_fake_provider(tmp_path, answer_errors):
                 'requests': requests, 'stdout': run.stdout, 'stderr': run.stderr, 'returncode': run.returncode}) + '\n')
     assert run.returncode == (1 if answer_errors else 0), run.stdout + run.stderr
     events = [json.loads(line) for line in run.stdout.splitlines()]
-    assert events[-1]['kind'] == 'complete' and len(requests) == 14
+    assert events[-1]['kind'] == 'complete' and len(requests) == (5 if summary_check else 14)
+    assert events[0]['questions'] == [list(q) for q in (runner.SUMMARY_QUESTIONS if summary_check else runner.QUESTIONS)]
+    if summary_check:
+        assert not (package / 'survey-email-test.py').exists()
     assert events[-1]['failed_questions'] == (2 if answer_errors else 0)
     if answer_errors:
         results = [e for e in events if e['kind'] == 'result']
-        assert [e['index'] for e in results if e['status'] == 'failed'] == [3, 6]
-        assert results[6]['prior_failed_questions_in_chat'] == [3, 6]
+        assert [e['index'] for e in results if e['status'] == 'failed'] == ([2, 5] if summary_check else [3, 6])
+        assert results[2 if summary_check else 6]['prior_failed_questions_in_chat'] == ([2] if summary_check else [3, 6])
         assert results[-1]['prior_failed_questions_in_chat'] == []
         assert all('Captured fixture refusal.' not in json.dumps(r['messages']) for r in requests)
-        assert results[2]['raw_response']['choices'][0]['message']['refusal']
+        assert results[1 if summary_check else 2]['raw_response']['choices'][0]['message']['refusal']
     assert events[0]['source']['application_commit']
     assert requests[0]['messages'][0]['content'].count(runner.service.SURVEY_ANSWER_EXAMPLES) == 1
     assert len(events[0]['evidence']['surveys']) == 4
     assert (tmp_path / 'source.db').read_bytes() == before
     assert 'never-a-live-key' not in run.stdout
-    assert all(r['max_completion_tokens'] == 1200 for r in requests)
+    assert all(r['max_completion_tokens'] == runner.service.completion_budget(r['messages']) for r in requests)
+    if summary_check:
+        assert all(r['max_completion_tokens'] == 1840 for r in requests)
+        assert len(requests[0]['messages']) == len(requests[-2]['messages']) == len(requests[-1]['messages']) == 3
 
 
 @pytest.mark.asyncio
@@ -177,8 +194,10 @@ async def test_actual_route_and_history_continues(monkeypatch, failure):
     async def generate(messages, config):
         calls.append(deepcopy(messages))
         if failure == 'provider': raise RuntimeError('NEVER LOG PRIVATE EXCEPTION')
-        content = json.dumps({'answer': 'Synthetic test answer.', 'evidence':
-            [{'survey_id': 'not-in-authorized-cohort', 'kind': 'survey'}] if failure == 'validation' else []})
+        output = synthetic_answer(messages)
+        if failure == 'validation':
+            output['evidence'] = [{'survey_id': 'not-in-authorized-cohort', 'kind': 'survey'}]
+        content = json.dumps(output)
         return runner.service.AnswerResult(content, {'fixture': True, 'content': content},
             10, 5, 'length' if failure == 'truncated' else 'stop')
     monkeypatch.setattr(runner.service, 'generate_answer', generate)

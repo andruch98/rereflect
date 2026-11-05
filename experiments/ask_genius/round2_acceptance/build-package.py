@@ -8,7 +8,7 @@ import sys
 from zipfile import ZipFile, ZIP_DEFLATED
 
 
-def build(destination, application_commit=None, application_tree=None):
+def build(destination, application_commit=None, application_tree=None, *, summary_check=False):
     here = Path(__file__).resolve().parent
     repo = here.parents[2]
     application_commit = application_commit or subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo).decode().strip()
@@ -20,6 +20,8 @@ def build(destination, application_commit=None, application_tree=None):
     provenance = {'repository': 'andruch98/rereflect', 'pr': 12,
                   'application_commit': application_commit, 'application_tree': application_tree,
                   'mode': 'isolated four-submission diagnostic', 'files': {}}
+    if summary_check:
+        provenance['question_set'] = 'summary-check'
     source_files = {}
     for path in filter(None, tracked):
         data = subprocess.check_output(['git', 'show', application_tree + ':' + path], cwd=repo)
@@ -30,7 +32,7 @@ def build(destination, application_commit=None, application_tree=None):
         provenance['files'][name] = hashlib.sha256((here / name).read_bytes()).hexdigest()
     tree = ast.parse((here / 'runner.py').read_text())
     questions = next(ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign)
-                     and any(isinstance(t, ast.Name) and t.id == 'QUESTIONS' for t in node.targets))
+                     and any(isinstance(t, ast.Name) and t.id == ('SUMMARY_QUESTIONS' if summary_check else 'QUESTIONS') for t in node.targets))
     metadata = json.dumps(provenance, indent=2).encode()
     with ZipFile(destination / 'pr12-source.zip', 'w', ZIP_DEFLATED) as archive:
         for name, data in sorted(source_files.items()):
@@ -39,8 +41,17 @@ def build(destination, application_commit=None, application_tree=None):
         archive.writestr('source.json', metadata)
     (destination / 'source.json').write_bytes(metadata)
     (destination / 'questions.json').write_text(json.dumps(questions, indent=2))
-    for name in ('bootstrap.py', 'run-local.py', 'README.txt', 'survey-email-test.py'):
-        (destination / name).write_bytes((here / name).read_bytes())
+    for name in ('bootstrap.py', 'run-local.py', 'README.txt', *(() if summary_check else ('survey-email-test.py',))):
+        data = (here / name).read_bytes()
+        if summary_check and name == 'README.txt':
+            marker = 'FIVE-QUESTION SUMMARY CHECK'
+            focused = data.decode().split(marker, 1)[1]
+            data = ('BoomSay PR12 — ' + marker + focused +
+                    '\nKeep Docker Desktop and your existing preview running. The runner reads the original '
+                    'database without changing it, then uses a temporary copy. Normal model charges apply. '
+                    'Full requests, outputs, failures and available usage are saved in the results ZIP. '
+                    'It does not install PR12 or test browser sharing. Leave earlier packages/results intact.\n').encode()
+        (destination / name).write_bytes(data)
     hashes = {name: hashlib.sha256((destination / name).read_bytes()).hexdigest()
               for name in ('bootstrap.py', 'run-local.py', 'pr12-source.zip', 'questions.json', 'source.json')}
     (destination / 'checksums.json').write_text(json.dumps(hashes, indent=2))
@@ -52,4 +63,5 @@ def build(destination, application_commit=None, application_tree=None):
 
 
 if __name__ == '__main__':
-    print(build(Path(sys.argv[1]).resolve(), *(sys.argv[2:4])))
+    args = [arg for arg in sys.argv[1:] if arg != '--summary-check']
+    print(build(Path(args[0]).resolve(), *(args[1:3]), summary_check='--summary-check' in sys.argv[1:]))

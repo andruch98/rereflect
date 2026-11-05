@@ -162,8 +162,16 @@ async def test_actual_route_and_history_stop(monkeypatch, failure):
     async def generate(messages, config):
         calls.append(deepcopy(messages))
         if failure == 'provider': raise RuntimeError('NEVER LOG PRIVATE EXCEPTION')
-        content = json.dumps({'answer': 'Synthetic test answer.', 'evidence':
-            [{'survey_id': 'not-in-authorized-cohort', 'kind': 'survey'}] if failure == 'validation' else []})
+        payload = {'answer': 'Synthetic test answer.', 'evidence':
+            [{'survey_id': 'not-in-authorized-cohort', 'kind': 'survey'}] if failure == 'validation' else []}
+        evidence = json.loads(messages[1]['content'].split('\n', 1)[1])
+        if evidence.get('survey_findings_required'):
+            payload['survey_findings'] = [{'survey_id': row['survey_id'],
+                'question_ids': [q['id'] for q in row['questions']
+                    if q.get('answer') is not None and q.get('answer') != ''],
+                'finding': 'Synthetic source-linked note; not an accuracy judgment.'}
+                for row in evidence['surveys']]
+        content = json.dumps(payload)
         return runner.service.AnswerResult(content, {'fixture': True, 'content': content},
             10, 5, 'length' if failure == 'truncated' else 'stop')
     monkeypatch.setattr(runner.service, 'generate_answer', generate)

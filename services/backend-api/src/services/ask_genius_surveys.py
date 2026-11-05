@@ -100,6 +100,28 @@ def calculated(records):
     }
 
 
+def needs_findings(question: str, evidence: dict) -> bool:
+    """Require a source-linked coverage pass for broad survey assessments only.
+
+    This selects a response format, never records or sentiment. Existing scope
+    resolution still determines the entire supplied cohort.
+    """
+    if evidence.get('source_scope') not in {'surveys', 'mixed'} or not evidence.get('surveys'):
+        return False
+    text = re.sub(r'\s+', ' ', question.casefold())
+    patterns = (
+        r'\b(?:bad|negative|poor|low[ -]rated|concerning) surveys?\b',
+        r'\b(?:surveys?|submissions?|responses?)\b.{0,35}\b(?:bad|negative|need(?:s)? attention)\b',
+        r'\b(?:improvements?|complaints?|concerns?|problems?)\b.{0,60}\b(?:all|every) surveys?\b',
+        r'\b(?:all|every) surveys?\b.{0,60}\b(?:improvements?|complaints?|concerns?|problems?)\b',
+        r'\b(?:main|biggest|top|key) (?:improvements?|complaints?|concerns?|problems?)\b',
+        r'\b(?:are we|how are we) doing\b',
+        r'\b(?:overall|general) (?:assessment|summary|performance|feedback)\b',
+        r'\b(?:summarize|summary of|overview of|what do|what did|compare)\b.{0,50}\b(?:all|every) (?:surveys?|survey responses?|feedback)\b',
+    )
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
 def source_scope(question: str, previous: str | None = None) -> str | None:
     """Resolve named sources, never infer a source from the subject (e.g. maintenance).
 
