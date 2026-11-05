@@ -451,6 +451,8 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                 user_message.raw_response = result.raw_response
                 user_message.tokens_in = result.tokens_in
                 user_message.tokens_out = result.tokens_out
+                if result.refusal:
+                    raise ValueError('ModelRefusal')
                 if result.finish_reason != 'stop':
                     raise ValueError('IncompleteModelAnswer')
                 if not result.answer:

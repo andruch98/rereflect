@@ -102,10 +102,8 @@ def test_only_string_line_breaks_are_normalized_without_changing_quotes_or_backs
 
 
 @pytest.mark.parametrize('field,expected', [
-    ({'answer': 'x' * 1001}, 'answer_too_long'),
-    ({'answer': 'x' * 3001}, 'answer_too_long'),
+    ({'answer': 'x' * (service.MAX_ANSWER_CHARS + 1)}, 'answer_too_long'),
     ({'answer': ''}, 'empty_answer'),
-    ({'answer': 'See https://example.invalid'}, 'unsupported_markup'),
     ({'answer': ['not a string']}, 'invalid_structure'),
 ])
 def test_failures_have_safe_specific_diagnostics(flow, field, expected):

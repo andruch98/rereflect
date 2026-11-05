@@ -35,7 +35,7 @@ python3 "$HOME/Downloads/boomsay-pr12-summary-check/run-local.py"
 Uses the SAME four submitted round2 surveys. No new emails or submissions.
 Five questions maximum, one call per question, no retries. First three form a new
 conversation; last two are fresh chats. Earlier long-chat history is not replayed.
-The complete original survey evidence, model setting and eight-example bank remain.
+The complete original survey evidence, model setting remain. The bank preserves its previous eight examples and adds Example 9.
 For broad summaries the model writes brief source-linked findings for all four
 surveys before its answer. The app checks complete survey coverage and valid question
 references, not the truth/completeness of the findings or final prose. Findings are
@@ -49,4 +49,7 @@ must preserve the missing second fob, rude-but-resolved maintenance, and the bro
 community-conditions departure reason. Do not invent a specific noise/parking cause
 or infer a rent-value complaint from Rent and fees. Any software failure is a failure.
 Stop after these five questions and return the results ZIP for human review.
-Reference-label validation and empty-output handling are still deferred.
+Harmless field/optional-value variations and displayed-answer quotations are now handled.
+Concise answer lengths are writing targets; missing output and incomplete survey coverage
+still fail. Provider refusals are reported separately. Example 9 uses this cohort, so
+this is a regression check, not a blind test on unseen surveys.

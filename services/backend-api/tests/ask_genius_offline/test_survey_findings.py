@@ -42,7 +42,7 @@ def evidence_and_findings(f):
 
 
 @pytest.mark.parametrize('fault', ['missing_all', 'missing_one', 'duplicate', 'foreign', 'wrong_question',
-                                   'empty_question_list', 'duplicate_question', 'blank_finding'])
+                                   'empty_question_list', 'blank_finding'])
 def test_bad_coverage_rejected_before_display(survey_flow, fault):
     f = survey_flow
     evidence, notes = evidence_and_findings(f)

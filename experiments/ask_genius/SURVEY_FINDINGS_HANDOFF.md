@@ -1,3 +1,11 @@
+# Current update — November 5, 2026: response audit
+
+Implemented on PR #12 branch, not merged/deployed. Audited the complete Ask Genius request/response/render/share path. Recover known unambiguous formatting variations, accept actual selected display labels, allow blank-question references, make concise lengths soft targets, and use the existing inert Markdown renderer. Preserve ownership, valid source/quote, complete survey coverage and finished-response checks. Provider refusals now have their own diagnosis. See FORMAT_REJECTION_AUDIT.md for scope and decisions.
+
+Historical five-call replay now accepts three formerly format-rejected responses; the fourth still fails because it omits three surveys. This does not repair the old prose. Preserve the previous eight examples and append Example 9 addressing omitted departure reasons and misleading absence-of-concern claims. Full backend suite 336 passed; private/shared renderer checks 25 passed. A fresh, bounded five-call paid regression on the same four submissions is the next action. Because Example 9 uses that cohort, this is not a blind generalization test. Original records and model/provider unchanged. No new paid calls executed here; runtime credentials are on the user's Mac.
+
+## Previous handoff (historical)
+
 # Survey summary coverage — November 5, 2026
 
 Approved scope: source-linked factual findings for every supplied survey before broad

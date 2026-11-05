@@ -253,10 +253,13 @@ def source(record: dict, excerpt: str | None = None, topic: str | None = None,
            question_id: str | None = None) -> dict:
     if question_id is not None and not any(q['id'] == question_id for q in record['questions']):
         raise ValueError('Unknown survey question')
-    if excerpt is not None and not any(isinstance(q.get('answer'), str) and excerpt in q['answer'] for q in record['questions']):
+    def matches(q):
+        return any(isinstance(q.get(key), str) and excerpt in q[key]
+                   for key in ('answer', 'answer_label'))
+    if excerpt is not None and not any(matches(q) for q in record['questions']):
         raise ValueError('Survey excerpt does not match an original submitted answer')
     if question_id is not None and excerpt is not None and not any(
-            q['id'] == question_id and isinstance(q.get('answer'), str) and excerpt in q['answer']
+            q['id'] == question_id and matches(q)
             for q in record['questions']):
         raise ValueError('Survey excerpt does not match the selected question')
     return {'source': 'survey', 'survey_id': record['survey_id'], 'kind': 'survey',

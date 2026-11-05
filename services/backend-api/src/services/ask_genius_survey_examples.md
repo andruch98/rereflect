@@ -2,9 +2,9 @@
 
 ## Introduction
 
-This file contains eight worked examples for answering managers’ questions about resident surveys. **These examples apply to surveys only. They do not apply to public reviews or saved review analyses.** For a question about both sources, apply this guidance only to the survey portion and keep survey and review findings distinct. For a reviews-only question, use the review instructions and review evidence.
+This file contains nine worked examples for answering managers’ questions about resident surveys. **These examples apply to surveys only. They do not apply to public reviews or saved review analyses.** For a question about both sources, apply this guidance only to the survey portion and keep survey and review findings distinct. For a reviews-only question, use the review instructions and review evidence.
 
-All eight examples are provided together. Read each manager’s question with its conversation context and supporting data, then compare that evidence with the original response and its assessment:
+All nine examples are provided together. Read each manager’s question with its conversation context and supporting data, then compare that evidence with the original response and its assessment:
 
 - **Good:** The original response demonstrates the desired behavior. “Suggested response: None” means no correction is needed; it does not mean the manager should receive no answer.
 - **Incorrect or incomplete:** The original response demonstrates a mistake or omission. Do not imitate that response. Use “Why this assessment” to understand the problem and “Suggested response” to see the preferred answer.
@@ -14,7 +14,7 @@ The examples and appendix contain fictional test submissions, including their co
 
 These examples illustrate answer content. Continue to follow the current instructions for response format and source references. Return the answer to the manager’s question; do not reproduce this file’s assessment fields.
 
-Examples 1–5 preserve the earlier nine-submission test (Batch A). Examples 6–8 add findings from the later four-submission test (Batch B). Each example uses only its named batch, even where the manager asks the same question. Do not combine the two batches or transfer a rating, comment or conclusion between them. The appendix keeps the original source questions and answers for both batches. Later human clarification is identified explicitly in the relevant example; it is not presented as part of the original model request.
+Examples 1–5 preserve the earlier nine-submission test (Batch A). Examples 6–8 add findings from the later four-submission test (Batch B). Each example uses only its named batch, even where the manager asks the same question. Example 9 adds a separate four-submission test (Batch C), with its own complete appendix. Do not combine batches or transfer a rating, comment or conclusion between them. The appendix keeps the original source questions and answers for both batches. Later human clarification is identified explicitly in the relevant example; it is not presented as part of the original model request.
 
 ## Example 1 — Survey counts by type
 
@@ -407,3 +407,85 @@ Four completed fictional submissions from November 5, 2026, with 16 original ans
 | At this point, how likely are you to renew your lease? | Undecided |
 | Which factor will matter most in your decision? | Apartment condition |
 | What would you like us to understand about your renewal decision? | good finishes and good price for quality of apartment |
+
+
+## Example 9 — Preserve departure reasons alongside favorable ratings
+
+**Manager’s question:**
+
+Based on all the surveys, are we doing a good job?
+
+**Conversation context:**
+
+Four completed fictional test submissions: move-in, maintenance, 9-month renewal planning and move-out. Earlier attempted answers in this test were rejected, so this accepted answer had no earlier successful assistant reply in its request.
+
+**Supporting data:**
+
+Move-in reports a missing second fob and an unresolved issue. Maintenance is rated Bad despite a fully resolved repair, with a rude-conduct complaint. Move-out is rated Good but explicitly names community conditions as the reason for leaving. Renewal is probably, with rent and fees the decision factor. See the complete questions below.
+
+**Original response — good, incorrect or incomplete:**
+
+Incomplete and partly unsupported. Actual accepted response:
+
+Across these four surveys dated 2026-11-05, the overall feedback is mixed:
+
+- Move-out and 9-month renewal planning are positive, both rated 4 — Good with no unresolved issues.
+- Maintenance received a 2 — Bad overall rating despite the issue being marked as fully resolved. The resident comments on rude maintenance staff.
+- Move-in experience is moderate with 3 — Okay ratings; the resident reports an unresolved issue needing a second fob.
+
+This indicates generally positive moving experience and renewal sentiment, but concerns remain about maintenance service quality and some move-in unresolved issues that may need attention.
+
+**Why this assessment:**
+
+The response correctly retains the rude-conduct complaint and missing fob, but omits the selected community-conditions reason for leaving. Favorable ratings and a blank optional comment do not erase that reason. Neither the move-out nor renewal questionnaire establishes “no unresolved issues.” The choice mentions noise or parking as examples; it does not specify which condition caused the departure. Rent and fees are a future decision factor, not proof of unfair pricing.
+
+**Suggested response:**
+
+The four responses show strengths and three concerns needing attention:
+
+- **Move-in:** Overall experience and apartment condition were both 3 — Okay. The resident reports an unresolved issue: “still need my 2nd fob.”
+- **Maintenance:** Overall service was 2 — Bad with a rude-conduct complaint. The faucet repair was fully resolved, and response time was 4 — Good.
+- **Move-out:** Overall experience and instructions were both 4 — Good, but the resident left because of “Community conditions, such as noise or parking.” The specific condition is not stated.
+- **Renewal planning:** Living experience was 4 — Good; the resident probably will renew, with rent and fees the main decision factor. This does not establish dissatisfaction with rent.
+
+**Lesson:**
+
+Read every original answer relevant to the question, including selected reasons and specific-aspect ratings. Carry each material concern into the final summary. Do not equate no comment with no concern or assume resolution when the questionnaire does not establish it. Keep actual departure reasons distinct from future decision criteria.
+
+**Complete source-question appendix:**
+
+### Move-out
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate your experience living at Lake House Apartments? | 4 — Good |
+| What was the primary reason you moved out? | Community conditions, such as noise or parking |
+| How would you rate the move-out instructions provided by our team? | 4 — Good |
+| What would you like us to know about your time here? | No comment submitted |
+
+### 9-month renewal planning
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate living at Lake House Apartments? | 4 — Good |
+| At this point, how likely are you to renew your lease? | Probably will renew |
+| Which factor will matter most in your decision? | Rent and fees |
+| What would you like us to understand about your renewal decision? | No comment submitted |
+
+### Maintenance
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate the maintenance service for a fictional leaking kitchen faucet? | 2 — Bad |
+| Is the issue fully resolved? | Yes, fully resolved |
+| How would you rate our maintenance team’s response time to your request? | 4 — Good |
+| What would you like us to know about this maintenance experience? | VERY RUDE the maintenance gu |
+
+### Move-in
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate your move-in experience at Lake House Apartments? | 3 — Okay |
+| How would you rate the condition of your apartment when you received your keys? | 3 — Okay |
+| Is anything from your move-in still unresolved? | Yes |
+| What would you like us to know about your move-in experience? | still need my 2nd fob |

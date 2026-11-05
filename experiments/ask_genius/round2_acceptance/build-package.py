@@ -45,7 +45,7 @@ def build(destination, application_commit=None, application_tree=None, *, summar
         data = (here / name).read_bytes()
         if summary_check and name == 'README.txt':
             marker = 'FIVE-QUESTION SUMMARY CHECK'
-            focused = data.decode().split(marker, 1)[1]
+            focused = data.decode().split(marker, 1)[1].replace('boomsay-pr12-summary-check', destination.name)
             data = ('BoomSay PR12 — ' + marker + focused +
                     '\nKeep Docker Desktop and your existing preview running. The runner reads the original '
                     'database without changing it, then uses a temporary copy. Normal model charges apply. '
