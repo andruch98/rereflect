@@ -1,16 +1,28 @@
-BoomSay PR12 — round 2, four new surveys, November 5 2026
+BoomSay PR12 — round 2 continuation runner, November 5 2026
 
-Keep Docker Desktop and the existing preview running. Extract to Downloads/boomsay-pr12-round2.
-Run email commands from ~/Downloads/boomsay-dashboard-preview, one at a time:
-python3 "$HOME/Downloads/boomsay-pr12-round2/survey-email-test.py" send --test-id round2-move-in --event-type move_in_completed
-python3 "$HOME/Downloads/boomsay-pr12-round2/survey-email-test.py" send --test-id round2-maintenance --event-type maintenance_completed
-python3 "$HOME/Downloads/boomsay-pr12-round2/survey-email-test.py" send --test-id round2-pre-renewal --event-type lease_month_9
-python3 "$HOME/Downloads/boomsay-pr12-round2/survey-email-test.py" send --test-id round2-move-out --event-type move_out_completed
-Verify the displayed recipient is your test email. Type SEND and enter your Resend key when prompted (hidden, not saved). Submit each survey before proceeding. These four types were randomly sampled without replacement from the seven supported types. Fill in new fictional answers in your own words.
+Use the SAME four already-submitted round2 surveys. Do not send new survey emails.
+Keep Docker Desktop and your existing preview running.
+Extract this new package into Downloads/boomsay-pr12-round2-continue.
+Leave the old package and result ZIPs intact.
 
-After all four are submitted on November 5, 2026 (Miami time):
-python3 "$HOME/Downloads/boomsay-pr12-round2/run-local.py"
+Run:
+python3 "$HOME/Downloads/boomsay-pr12-round2-continue/run-local.py"
 
-15 questions, at most 15 model calls, no retries; stops on first failure. Uses existing configured AI; normal model charges apply. Tests only these four named submissions. Original database is read-only; question-route writes go to a temporary copy. Updated application source is included; exact commit and file hashes are in source.json. This does not install the updated dashboard or save chats there. Browser sharing remains a separate check.
+This starts all 15 questions in new diagnostic chats; it does not resume an old chat.
+At most 15 model calls, no automatic retries. Normal model charges apply.
+An answer-generation or validation failure is saved and later questions continue.
+Configuration, access, unexpected errors or manual interruption still stop the run.
+A completed run with failures is labeled as such, not as a passing test.
+Reports flag subsequent questions whose conversation history contains failed questions.
+Captured refusal text is available for human review, never treated as an accepted answer.
 
-Actual answers print in Terminal. Return the generated Ask-Genius-Results-*.zip for review. It includes originals, all model requests/outputs, errors, available usage and tested code. Missing cost is labeled unavailable. Human assessment remains pending. No new answer has been pre-approved. Earlier examples are guidance only. No automatic repeat run: retain TEST-STARTED.txt and share errors before retrying. No API keys are exported; report contains private survey context.
+The original preview database is read-only. Only the four named November 5 finalized
+fictional submissions are copied into a temporary database for the actual PR12 route.
+The application prompt, examples, response handling and survey records are unchanged.
+The final two questions use fresh chats without previous failed answers.
+No application install, dashboard chat writes, emails or browser Share tests occur.
+
+Return the generated Ask-Genius-Results-*.zip for review. It contains original answers,
+actual model requests, raw responses, failures and available token usage.
+Cost is unavailable unless captured. Human factual approval remains pending.
+TEST-STARTED.txt prevents accidental repeat paid runs. Previous result ZIPs are preserved.

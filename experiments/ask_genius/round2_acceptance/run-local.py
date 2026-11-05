@@ -13,9 +13,12 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 def report(events, questions, source, exit_code):
     preflight = next((e for e in events if e.get('kind') == 'preflight'), {})
+    complete = next((e for e in events if e.get('kind') == 'complete'), None)
+    outcome = ('completed with answer failures' if complete and complete.get('failed_questions') else
+               'completed' if complete and exit_code == 0 else 'stopped / incomplete')
     lines = ['# Ask Genius: four new survey submissions', '',
         'PR #12 application commit: ' + source['application_commit'],
-        'Software run: ' + ('completed' if exit_code == 0 else 'stopped / incomplete'),
+        'Software run: ' + outcome,
         'Human factual assessment: pending. Passing JSON/source validation does not prove accuracy.', '',
         'Only the four named November 5 submissions were copied into an isolated diagnostic database. '
         'The actual PR12 question route ran there with the existing configured AI. '
@@ -33,6 +36,17 @@ def report(events, questions, source, exit_code):
                 'Cost: unavailable.', 'Human assessment: pending.', '']
             if event.get('failure'):
                 lines += ['Failure: ' + json.dumps(event['failure'], ensure_ascii=False), '']
+                raw = event.get('raw_response') or {}
+                choices = raw.get('choices') or []
+                message = choices[0].get('message', {}) if choices else {}
+                for field in ('content', 'refusal'):
+                    if message.get(field):
+                        lines += ['Captured ' + field + ' (NOT an accepted application answer):', '',
+                                  str(message[field]), '']
+            if event.get('prior_failed_questions_in_chat'):
+                lines += ['Context warning: earlier questions in this chat failed: ' +
+                          ', '.join(map(str, event['prior_failed_questions_in_chat'])) +
+                          '. Interpret dependent follow-ups with this gap in mind.', '']
         else:
             lines += ['Not run / no response captured.', '']
     lines += ['## Original submitted answers', '']
@@ -55,6 +69,9 @@ def report(events, questions, source, exit_code):
         '- Follow-ups must refer to the correct survey; ask for clarification if ambiguous.',
         '- Compare questions 9/14 and 12/15 for facts lost through conversation history.',
         '- Separate factual errors and broken workflows from optional wording polish.', '',
+        'Answer failures are recorded without retries; later questions continue. Failed/refusal text is not '
+        'inserted as an accepted assistant answer. Fresh-chat checks remain separate. Setup/access/unexpected '
+        'errors and manual interruption still stop the run.\n\n'
         'Complete actual model messages, raw outputs, tokens, software rejection reasons and failures '
         'are in events.jsonl. The source package is included for reproducibility. '
         'This private report includes survey context and resident comments. API keys and live survey links are not exported.']
@@ -67,7 +84,7 @@ def main():
     if not (preview / 'compose.json').is_file() or not shutil.which('docker'):
         sys.exit('Start the existing BoomSay preview in Docker Desktop first. No test requests sent.')
     hashes = json.loads((package / 'checksums.json').read_text())
-    for name in ('bootstrap.py', 'pr12-source.zip', 'questions.json', 'source.json'):
+    for name in ('bootstrap.py', 'run-local.py', 'pr12-source.zip', 'questions.json', 'source.json'):
         if hashlib.sha256((package / name).read_bytes()).hexdigest() != hashes[name]:
             sys.exit('Package checksum mismatch. No test requests sent.')
     if (package / 'TEST-STARTED.txt').exists():
@@ -87,6 +104,7 @@ def main():
     events = []
     print('Testing 15 questions against exactly 4 new submissions using PR #12.', flush=True)
     print('Your existing AI connection is used; normal model charges apply. No automatic retries.', flush=True)
+    print('Answer failures will be recorded and skipped; later questions will continue.', flush=True)
     print('Answers will appear below. Your preview and saved records stay unchanged.\n', flush=True)
     payload = {'archive': base64.b64encode((package / 'pr12-source.zip').read_bytes()).decode(),
                'sha256': hashes['pr12-source.zip']}
@@ -109,8 +127,13 @@ def main():
                     if event.get('kind') == 'attempt':
                         print(f"{event['index']}/15. {event['question']}", flush=True)
                     elif event.get('kind') == 'result':
-                        print((event.get('response') or {}).get('answer') or 'Stopped: answer failed; see report.', flush=True)
+                        print((event.get('response') or {}).get('answer') or (
+                            'Answer failed; recorded in report. Continuing.' if event.get('continued_after_failure')
+                            else 'Stopped: request failed; see report.'), flush=True)
                         print('', flush=True)
+                    elif event.get('kind') == 'complete':
+                        print(f"Finished all {event['questions']} questions: "
+                              f"{event.get('failed_questions', 0)} answer failure(s). See report.", flush=True)
                     elif event.get('kind') == 'preflight_failure':
                         print(event['reason'], flush=True)
                 code = process.wait()

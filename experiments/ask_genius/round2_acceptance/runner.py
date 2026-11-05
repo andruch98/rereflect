@@ -140,10 +140,14 @@ def isolated_database(name, rows, org_id):
 
 async def execute_questions(db, user):
     conversations = {}
+    failed_by_group = {}
+    failures = 0
     for index, (group, question) in enumerate(QUESTIONS, 1):
         request_id = uuid4()
         emit({'kind': 'attempt', 'index': index, 'group': group, 'question': question})
         result, failure = None, None
+        continued_after_failure = False
+        prior_failures = list(failed_by_group.get(group, []))
         try:
             result = await routes.ask_question(routes.Question(question=question, request_id=request_id,
                 conversation_id=conversations.get(group), period=Period(preset='custom', start_date=DAY, end_date=DAY)),
@@ -151,6 +155,12 @@ async def execute_questions(db, user):
             conversations[group] = result['conversation_id']
         except HTTPException as exc:
             failure = {'http_status': exc.status_code, 'detail': exc.detail}
+            # Only completed answer attempts may continue. Configuration, access,
+            # database and unexpected failures still stop the diagnostic.
+            continued_after_failure = (exc.status_code == 502 and isinstance(exc.detail, dict)
+                                       and exc.detail.get('code') == 'ask_genius_failed')
+            if continued_after_failure and exc.detail.get('conversation_id'):
+                conversations[group] = exc.detail['conversation_id']
         except Exception as exc:
             failure = {'error_type': type(exc).__name__, 'detail': 'Unexpected error; private exception text omitted.'}
             db.rollback()
@@ -161,15 +171,23 @@ async def execute_questions(db, user):
         answer = db.get(ConversationMessage, audit['answer_message_id']) if audit.get('answer_message_id') else None
         emit({'kind': 'result', 'index': index, 'group': group, 'question': question,
             'status': 'failed' if failure else 'completed', 'failure': failure, 'response': result,
+            'continued_after_failure': continued_after_failure,
+            'prior_failed_questions_in_chat': prior_failures,
             'raw_request': audit, 'raw_response': attempted.raw_response if attempted else None,
             'tokens_in': answer.tokens_in if answer else attempted.tokens_in if attempted else None,
             'tokens_out': answer.tokens_out if answer else attempted.tokens_out if attempted else None,
             'cost': None, 'cost_note': 'Unavailable; no price estimate substituted.',
             'human_assessment': 'Pending review against captured source answers.'})
         if failure:
-            return 1
-    emit({'kind': 'complete', 'questions': len(QUESTIONS), 'human_acceptance': 'pending'})
-    return 0
+            failures += 1
+            failed_by_group.setdefault(group, []).append(index)
+            if not continued_after_failure:
+                return 1
+    emit({'kind': 'complete', 'questions': len(QUESTIONS), 'failed_questions': failures,
+          'completed_questions': len(QUESTIONS) - failures,
+          'status': 'completed_with_failures' if failures else 'completed',
+          'human_acceptance': 'pending'})
+    return 1 if failures else 0
 
 
 async def main():
