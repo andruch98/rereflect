@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import userEvent from '@testing-library/user-event';
 import { AskGenius } from '@/components/reviews/AskGenius';
 import { MessageBubble } from '@/components/copilot/MessageBubble';
-const mocks = vi.hoisted(() => ({ status: vi.fn(), saveDefaultPeriod: vi.fn(), conversations: vi.fn(), conversation: vi.fn(), ask: vi.fn(), user: { id: 1, organization_id: 11 } }));
+const mocks = vi.hoisted(() => ({ status: vi.fn(), saveDefaultPeriod: vi.fn(), conversations: vi.fn(), conversation: vi.fn(), shareConversation: vi.fn(), ask: vi.fn(), user: { id: 1, organization_id: 11 } }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock('@/lib/api/ask-genius', () => ({ askGeniusAPI: mocks }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -15,6 +16,24 @@ function mount() {
 function connectedStatus(overrides: Record<string, unknown> = {}) {
   return { ready: true, default_period: { preset: 'all_time' }, available_sources: ['reviews', 'analysis'], timezone: 'America/New_York', date_coverage: { total_reviews: 6, dated_reviews: 0, undated_reviews: 6 }, ...overrides };
 }
+it('shares an older survey chat through the existing history menu', async () => {
+  const user = userEvent.setup();
+  mocks.conversations.mockResolvedValue({ conversations: [{ public_id: 'one', title: 'Survey findings', sharing_unavailable_reason: null }], total: 1 });
+  mocks.conversation.mockResolvedValue({ public_id: 'one', title: 'Survey findings', period: { preset: 'all_time' }, messages: [
+    { id: 1, role: 'assistant', content: 'A survey concern.', created_at: '', structured_data: {
+      kind: 'ask_genius', source_scope: 'surveys', sharing_unavailable_reason: 'Legacy survey sharing block', sources: [],
+    } },
+  ] });
+  mocks.shareConversation.mockResolvedValue({ token: 'survey-snapshot', path: '/share/ask-genius/survey-snapshot' });
+  mount();
+  await user.click(await screen.findByRole('button', { name: /^Survey findings$/ }));
+  await screen.findByText('A survey concern.');
+  await user.click(screen.getByRole('button', { name: 'Options for Survey findings' }));
+  const share = screen.getByRole('menuitem', { name: /^Share$/ });
+  expect(share).not.toHaveAttribute('aria-disabled', 'true');
+  await user.click(share);
+  await waitFor(() => expect(mocks.shareConversation).toHaveBeenCalledWith('one'));
+});
 beforeEach(() => {
   mocks.status.mockResolvedValue(connectedStatus());
   mocks.saveDefaultPeriod.mockImplementation(async default_period => ({ default_period }));
@@ -209,6 +228,24 @@ it('shows all category tabs while only connected questions can be selected', asy
   fireEvent.change(input, { target: { value: 'What did reviews say about parking during this period?' } });
   expect(mocks.ask).not.toHaveBeenCalled();
   expect(mocks.saveDefaultPeriod).not.toHaveBeenCalled();
+});
+
+it('offers questions for the additional surveys without sending one until requested', async () => {
+  mocks.status.mockResolvedValue(connectedStatus({ available_sources: ['reviews', 'analysis', 'surveys'] }));
+  mount();
+  const browse = screen.getByRole('button', { name: 'Browse more questions' });
+  await waitFor(() => expect(browse).toBeEnabled());
+  fireEvent.click(browse);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Surveys' }), { button: 0, ctrlKey: false });
+  for (const question of [
+    'Show the completed surveys for this period.',
+    'What did residents say in surveys about their move-in experience?',
+    'What did residents say in surveys about their renewal plans?',
+    'What reasons did residents give in move-out surveys?',
+  ]) expect(await screen.findByRole('button', { name: question })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'What reasons did residents give in move-out surveys?' }));
+  expect(screen.getByRole('textbox', { name: 'Your question' })).toHaveValue('What reasons did residents give in move-out surveys?');
+  expect(mocks.ask).not.toHaveBeenCalled();
 });
 
 it('sends a calendar period distinctly from a rolling window', async () => {

@@ -117,3 +117,43 @@ def test_email_test_links_submit_and_unsubscribe(email_flow):
         assert operate(db, 'prepare', 'second-test')['status'] == 'suppressed_opt_out'
         with pytest.raises(ValueError, match='opted out'):
             operate(db, 'reserve', 'second-test')
+
+
+LIFECYCLE_FIXTURES = json.loads((Path(__file__).parents[4] / 'experiments/lifecycle_surveys/fixtures.json').read_text())
+
+
+@pytest.mark.parametrize('fixture', LIFECYCLE_FIXTURES, ids=lambda item: item['event']['event_type'])
+def test_each_email_type_prepares_one_guarded_link_and_submits_original_answers(email_flow, fixture):
+    kind = fixture['event']['event_type']
+    with email_flow['sessions']() as db:
+        data = operate(db, 'prepare', 'lifecycle-test', kind)
+        assert data == operate(db, 'prepare', 'lifecycle-test', kind)
+        row = db.query(SurveyInstance).one()
+        assert row.occurrence.event_type == kind
+        assert row.occurrence.is_simulated and row.invitation.is_simulated
+        assert data['payload']['to'] == [RECIPIENT]
+        assert data['status'] == 'simulated'
+        assert 'http://127.0.0.1:53004/survey/' + row.token in data['payload']['text']
+        if kind != 'maintenance_completed':
+            assert row.questionnaire_snapshot['title'] in data['payload']['text']
+            assert 'maintenance request' not in data['payload']['text']
+            assert row.occurrence.ticket_id is None
+        token = row.token
+        other_kind = 'maintenance_completed' if kind != 'maintenance_completed' else 'move_in_completed'
+        with pytest.raises(ValueError, match='identity'):
+            operate(db, 'prepare', 'lifecycle-test', other_kind)
+        assert db.query(SurveyInstance).count() == 1
+        # Database reservation is exercised; no provider or email call occurs.
+        assert operate(db, 'reserve', 'lifecycle-test', kind)['status'] == 'email_test_reserved'
+        with pytest.raises(ValueError, match='duplicate'):
+            operate(db, 'reserve', 'lifecycle-test', kind)
+    path = '/api/v1/resident-surveys/' + token
+    client = email_flow['client']
+    result = client.post(path + '/submit', json={'answers': fixture['final_answers']}, headers={'Origin': 'http://127.0.0.1:53004'})
+    assert result.status_code == 200, result.text
+    assert result.json()['answers'] == fixture['final_answers']
+    assert client.post(path + '/unsubscribe', headers={'Origin': 'http://127.0.0.1:53004'}).status_code == 200
+    with email_flow['sessions']() as db:
+        assert operate(db, 'prepare', 'suppressed-next-test', kind)['status'] == 'suppressed_opt_out'
+        with pytest.raises(ValueError, match='opted out'):
+            operate(db, 'reserve', 'suppressed-next-test', kind)

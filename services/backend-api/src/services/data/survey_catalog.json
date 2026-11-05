@@ -1,0 +1,472 @@
+{
+  "catalog_version": 1,
+  "rating_labels": {
+    "1": "Terrible",
+    "2": "Bad",
+    "3": "Okay",
+    "4": "Good",
+    "5": "Excellent"
+  },
+  "templates": [
+    {
+      "id": "move_in_v1",
+      "event_type": "move_in_completed",
+      "title": "Tell us about your move-in",
+      "questions": [
+        {
+          "id": "move_in_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate your move-in experience at {community_name}?"
+        },
+        {
+          "id": "apartment_condition",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate the condition of your apartment when you received your keys?"
+        },
+        {
+          "id": "move_in_unresolved",
+          "type": "single_choice",
+          "required": true,
+          "text": "Is anything from your move-in still unresolved?",
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            },
+            {
+              "value": "not_sure",
+              "label": "Not sure"
+            }
+          ]
+        },
+        {
+          "id": "move_in_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to know about your move-in experience?"
+        }
+      ]
+    },
+    {
+      "id": "maintenance_v1",
+      "event_type": "maintenance_completed",
+      "title": "Tell us about your maintenance experience",
+      "questions": [
+        {
+          "id": "maintenance_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate the maintenance service for {request_description}?"
+        },
+        {
+          "id": "issue_resolution",
+          "type": "single_choice",
+          "required": true,
+          "text": "Is the issue fully resolved?",
+          "options": [
+            {
+              "value": "resolved",
+              "label": "Yes, fully resolved"
+            },
+            {
+              "value": "partially_resolved",
+              "label": "Partially resolved"
+            },
+            {
+              "value": "unresolved",
+              "label": "No, still unresolved"
+            },
+            {
+              "value": "not_checked",
+              "label": "I haven’t checked yet"
+            }
+          ]
+        },
+        {
+          "id": "maintenance_response_time",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate our maintenance team’s response time to your request?",
+          "special_options": [
+            {
+              "value": "not_sure",
+              "label": "Not sure"
+            }
+          ]
+        },
+        {
+          "id": "maintenance_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to know about this maintenance experience?"
+        }
+      ]
+    },
+    {
+      "id": "lease_month_3_v1",
+      "event_type": "lease_month_3",
+      "title": "How are your first three months going?",
+      "questions": [
+        {
+          "id": "community_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate living at {community_name}?"
+        },
+        {
+          "id": "community_team_help",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate the help you have received from our community team?",
+          "special_options": [
+            {
+              "value": "no_help_needed",
+              "label": "I haven’t needed help"
+            }
+          ]
+        },
+        {
+          "id": "follow_up_requested",
+          "type": "single_choice",
+          "required": true,
+          "text": "Do you have an unresolved concern you would like our team to follow up on?",
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        },
+        {
+          "id": "lease_month_3_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to know about your first three months here?"
+        }
+      ]
+    },
+    {
+      "id": "lease_month_6_v1",
+      "event_type": "lease_month_6",
+      "title": "Tell us about life at {community_name}",
+      "questions": [
+        {
+          "id": "community_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate living at {community_name}?"
+        },
+        {
+          "id": "shared_spaces_upkeep",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate the upkeep of the community’s shared spaces?",
+          "special_options": [
+            {
+              "value": "not_applicable",
+              "label": "Not applicable"
+            }
+          ]
+        },
+        {
+          "id": "improvement_priority",
+          "type": "single_choice",
+          "required": true,
+          "text": "Which area would you most like us to improve?",
+          "options": [
+            {
+              "value": "maintenance",
+              "label": "Maintenance"
+            },
+            {
+              "value": "communication",
+              "label": "Communication from the community team"
+            },
+            {
+              "value": "cleanliness",
+              "label": "Common-area cleanliness"
+            },
+            {
+              "value": "noise",
+              "label": "Noise"
+            },
+            {
+              "value": "parking",
+              "label": "Parking"
+            },
+            {
+              "value": "amenities",
+              "label": "Amenities"
+            },
+            {
+              "value": "safety_security",
+              "label": "Safety and security"
+            },
+            {
+              "value": "other",
+              "label": "Something else"
+            },
+            {
+              "value": "none",
+              "label": "Nothing currently needs improvement"
+            }
+          ]
+        },
+        {
+          "id": "lease_month_6_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to understand about your answer?"
+        }
+      ]
+    },
+    {
+      "id": "lease_month_9_v1",
+      "event_type": "lease_month_9",
+      "title": "Tell us about your plans for your next lease",
+      "questions": [
+        {
+          "id": "community_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate living at {community_name}?"
+        },
+        {
+          "id": "renewal_intent",
+          "type": "single_choice",
+          "required": true,
+          "text": "At this point, how likely are you to renew your lease?",
+          "options": [
+            {
+              "value": "definitely_renew",
+              "label": "Definitely will renew"
+            },
+            {
+              "value": "probably_renew",
+              "label": "Probably will renew"
+            },
+            {
+              "value": "undecided",
+              "label": "Undecided"
+            },
+            {
+              "value": "probably_not_renew",
+              "label": "Probably will not renew"
+            },
+            {
+              "value": "definitely_not_renew",
+              "label": "Definitely will not renew"
+            }
+          ]
+        },
+        {
+          "id": "renewal_factor",
+          "type": "single_choice",
+          "required": true,
+          "text": "Which factor will matter most in your decision?",
+          "options": [
+            {
+              "value": "rent_fees",
+              "label": "Rent and fees"
+            },
+            {
+              "value": "size_layout",
+              "label": "Apartment size or layout"
+            },
+            {
+              "value": "condition",
+              "label": "Apartment condition"
+            },
+            {
+              "value": "maintenance",
+              "label": "Maintenance service"
+            },
+            {
+              "value": "management",
+              "label": "Community management"
+            },
+            {
+              "value": "location",
+              "label": "Location"
+            },
+            {
+              "value": "personal",
+              "label": "Personal circumstances"
+            },
+            {
+              "value": "other",
+              "label": "Something else"
+            },
+            {
+              "value": "not_sure",
+              "label": "Not sure yet"
+            }
+          ]
+        },
+        {
+          "id": "lease_month_9_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to understand about your renewal decision?"
+        }
+      ]
+    },
+    {
+      "id": "lease_renewed_v1",
+      "event_type": "lease_renewed",
+      "title": "Tell us about your lease renewal",
+      "questions": [
+        {
+          "id": "community_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate living at {community_name}?"
+        },
+        {
+          "id": "renewal_process",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate the process of renewing your lease?"
+        },
+        {
+          "id": "renewal_reason",
+          "type": "single_choice",
+          "required": true,
+          "text": "What was the main reason you renewed?",
+          "options": [
+            {
+              "value": "location",
+              "label": "Location"
+            },
+            {
+              "value": "apartment",
+              "label": "The apartment itself"
+            },
+            {
+              "value": "community_experience",
+              "label": "Community experience"
+            },
+            {
+              "value": "price_value",
+              "label": "Price and value"
+            },
+            {
+              "value": "avoid_move",
+              "label": "Avoiding a move"
+            },
+            {
+              "value": "limited_alternatives",
+              "label": "Few suitable alternatives"
+            },
+            {
+              "value": "other",
+              "label": "Something else"
+            }
+          ]
+        },
+        {
+          "id": "renewal_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What is one thing, if anything, you would like us to improve during your next lease term?"
+        }
+      ]
+    },
+    {
+      "id": "move_out_v1",
+      "event_type": "move_out_completed",
+      "title": "Tell us about your time at {community_name}",
+      "questions": [
+        {
+          "id": "move_out_overall",
+          "type": "rating",
+          "required": true,
+          "text": "Overall, how would you rate your experience living at {community_name}?"
+        },
+        {
+          "id": "move_out_reason",
+          "type": "single_choice",
+          "required": true,
+          "text": "What was the primary reason you moved out?",
+          "options": [
+            {
+              "value": "rent_fees",
+              "label": "Rent and fees"
+            },
+            {
+              "value": "condition",
+              "label": "Apartment condition"
+            },
+            {
+              "value": "management",
+              "label": "Service from management"
+            },
+            {
+              "value": "community_conditions",
+              "label": "Community conditions, such as noise or parking"
+            },
+            {
+              "value": "relocation",
+              "label": "Moving to another area"
+            },
+            {
+              "value": "buying_home",
+              "label": "Buying a home"
+            },
+            {
+              "value": "household_change",
+              "label": "Change in household needs"
+            },
+            {
+              "value": "not_renewed",
+              "label": "My lease was not renewed"
+            },
+            {
+              "value": "other",
+              "label": "Something else"
+            },
+            {
+              "value": "prefer_not",
+              "label": "Prefer not to answer"
+            }
+          ]
+        },
+        {
+          "id": "move_out_instructions",
+          "type": "rating",
+          "required": true,
+          "text": "How would you rate the move-out instructions provided by our team?",
+          "special_options": [
+            {
+              "value": "not_received",
+              "label": "I did not receive instructions"
+            }
+          ]
+        },
+        {
+          "id": "move_out_comment",
+          "type": "text",
+          "required": false,
+          "max_length": 2000,
+          "text": "What would you like us to know about your time here?"
+        }
+      ]
+    }
+  ]
+}

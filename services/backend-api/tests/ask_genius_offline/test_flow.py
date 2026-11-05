@@ -151,12 +151,12 @@ def test_personal_history_and_other_org_are_isolated(flow):
     assert flow['ask'](period=ALL,conversation_id=first['conversation_id'],headers=other_headers).status_code==404
 
 
-@pytest.mark.parametrize('raw',['x'*1001,json.dumps({'answer':'x'*1001,'evidence':[]})])
+@pytest.mark.parametrize('raw',['x'*(service.MAX_ANSWER_CHARS+1),json.dumps({'answer':'x'*(service.MAX_ANSWER_CHARS+1),'evidence':[]})])
 def test_oversized_explanation_rejected_in_full_without_retry(flow,raw):
     flow['model']['raw']=raw
     result=flow['ask']('Explain the reviews more',period=ALL)
     assert result.status_code==502
-    assert 'more text than BoomSay can display' in result.json()['detail']['message']
+    assert 'unusually large answer' in result.json()['detail']['message']
     assert len(flow['calls'])==1
     assert flow['db'].query(ConversationMessage).filter_by(role='assistant').count()==0
 
@@ -196,13 +196,13 @@ def test_invalid_or_invented_evidence_fails_closed(flow,item):
     assert flow['ask']('Show supporting reviews',period=ALL).status_code==502
 
 
-def test_unrequested_evidence_or_short_citation_does_not_unlock_long_answers(flow):
+def test_style_limits_and_links_do_not_discard_answers(flow):
     flow['model']['evidence']=[{'review_id':flow['rows'][0].id,'kind':'review','excerpt':'Helpful staff.'}]
     assert flow['ask']('Explain the reviews more',period=ALL).json()['structured_data']['sources'] == []
     flow['model']['answer'] = 'x' * 1001
-    assert flow['ask']('Explain the reviews more',period=ALL).status_code == 502
+    assert flow['ask']('Explain the reviews more',period=ALL).status_code == 200
     flow['model'].update(raw='Read [this](https://external.invalid).')
-    assert flow['ask']('Show supporting reviews',period=ALL).status_code==502
+    assert flow['ask']('Show supporting reviews',period=ALL).status_code==200
 
 
 def test_explicit_yes_to_offer_expands_but_explanation_alone_does_not(flow):

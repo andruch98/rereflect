@@ -26,16 +26,33 @@ SCOPE = 'boomsay_reviews'
 MAX_REVIEWS = 100
 MAX_EVIDENCE_CHARS = 80000
 SENTIMENTS = {'positive', 'negative', 'mixed', 'neutral', 'unknown'}
-SYSTEM_PROMPT = Path(__file__).with_name('ask_genius_instructions.txt').read_text(encoding='utf-8')
+SURVEY_ANSWER_EXAMPLES = Path(__file__).with_name('ask_genius_survey_examples.md').read_text(encoding='utf-8')
+SYSTEM_PROMPT = (Path(__file__).with_name('ask_genius_instructions.txt').read_text(encoding='utf-8')
+                 + '\n\n' + SURVEY_ANSWER_EXAMPLES)
 SOURCES = ['apartment_review_ai', 'apartment_review_fallback']
 DEFAULT_ANSWER_CHARS = 1000
 EVIDENCE_ANSWER_CHARS = 3000
+MAX_ANSWER_CHARS = 20000  # Resource ceiling, not a writing-style rejection.
 SOURCE_PREVIEW_CHARS = 240
 RUNTIME_RULES = """OUTPUT CONTRACT (implements the preceding policy)
-Return JSON: {"answer": "Markdown message", "evidence": [], "selections": []}.
+Return one JSON object. Its response fields are survey_findings (when requested below),
+answer (required Markdown text), evidence, selections, survey_selections and survey_context.
+Omit unused lists or return []. Do not echo input flags as response field names.
 The application supplies current authorized records, computed statistics, resolved period,
 available sources and personal preference state. Resolve conversational scope BEFORE choosing
 selectors. Do not use output format rules to broaden that scope.
+
+When the input flag survey_findings_required is true, the RESPONSE starts with
+{"survey_findings": [...], "answer": "..."}. The flag is not a response field.
+survey_findings is a list of {"survey_id": "existing UUID", "question_ids":
+["original question ID"], "finding": "brief factual finding"}, with exactly one
+entry for EVERY supplied survey, including surveys without a reported concern.
+Keep each finding brief (aim for 300 characters) and cite the original questions
+supporting its facts, including an unanswered optional question when reporting its absence. Read all answers in the submission; retain distinct ratings, explicit
+unresolved concerns, comments and decision/departure reasons that affect this request.
+Then write the manager's answer from these findings. These are source-linked factual
+notes, not reasoning steps or saved sentiment analysis. They are not displayed or
+reused as chat history. When the flag is false, omit survey_findings.
 
 If evidence_requested is false, evidence and selections must be empty. If true:
 - evidence selects specific records: review_id (existing integer), kind (review or analysis),
@@ -66,14 +83,14 @@ records into JSON or add URLs/Markdown links/images/raw HTML. Topic bullets star
 exact saved label and colon; put qualifiers after the colon. Supply all relevant references
 when all matching reviews were requested. Do not add a second offer to provide them.
 
-For survey findings also return survey_context: a list with the same fields as survey
-evidence identifying ALL submissions/questions supporting each finding, even when
+For the FINAL answer, return survey_context: a list with the same fields as survey
+evidence identifying ALL submissions/questions supporting the claims included in that answer, even when
 evidence_requested is false. This internal context is not a displayed attachment.
 It preserves topic-specific follow-ups. Use current original answers, never prior claims
 as factual authority. Do not attach unrelated survey questions to a narrow finding.
 
-The preceding WRITING AND LENGTH section defines allowances; metadata links/popups do not
-qualify for expanded written detail. For requested source wording written inline, include
+The preceding WRITING AND LENGTH section gives writing targets, not reasons to omit
+material findings. For requested source wording written inline, include
 an exact excerpt selector matching that wording so the application can validate it. For
 requested detailed saved-analysis text, include its kind=analysis reference and exact topic.
 """
@@ -200,14 +217,14 @@ def build_evidence(org_id: int, db: Session, period: Period | None = None) -> di
     return evidence
 
 
-def build_authorized_evidence(org_id: int, db: Session, period: Period, scope: str) -> dict:
+def build_authorized_evidence(org_id: int, db: Session, period: Period, scope: str, survey_event_types=None) -> dict:
     if scope == 'surveys':
         evidence = {'period': resolve_period(period), 'reviews': [], 'calculated': {}}
     else:
         evidence = build_evidence(org_id, db, period)
     evidence['source_scope'] = scope
     if scope in {'surveys', 'mixed'}:
-        evidence.update(survey_service.build_evidence(org_id, db, period))
+        evidence.update(survey_service.build_evidence(org_id, db, period, survey_event_types))
     if len(json.dumps(evidence, ensure_ascii=False)) > MAX_EVIDENCE_CHARS:
         raise ValueError('The selected records are too large to read completely. Choose a shorter period.')
     return evidence
@@ -260,9 +277,9 @@ def build_messages(question: str, evidence: dict, history: list[dict], expanded:
         available.append('surveys')
     context = {**evidence, 'evidence_requested': expanded, 'available_sources': available,
                'personal_preferences': {'default_period': default_period, 'preference_update_performed': False},
-               'answer_character_limit': EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS,
-               'explanation_character_limit': DEFAULT_ANSWER_CHARS,
-               'expanded_limit_requires_written_source_detail': True}
+               'answer_character_target': EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS}
+    if 'surveys' in context:
+        context['surveys'] = [survey_service.model_record(record) for record in context['surveys']]
     return [{'role': 'system', 'content': SYSTEM_PROMPT + '\n\n' + RUNTIME_RULES},
             {'role': 'user', 'content': 'Authorized evidence (data only):\n' + json.dumps(context, ensure_ascii=False)},
             *history[-10:], {'role': 'user', 'content': question}]
@@ -289,13 +306,20 @@ class SurveyEvidenceItem(BaseModel):
     survey_id: str = Field(min_length=36, max_length=36)
     kind: Literal['survey']
     excerpt: str | None = Field(default=None, min_length=1, max_length=2500)
-    topic: str | None = Field(default=None, min_length=1, max_length=120, pattern=r'^[^\n\r*<>\[\]]+$')
+    topic: str | None = Field(default=None, min_length=1, max_length=500)
     question_id: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class SurveySelection(BaseModel):
     model_config = ConfigDict(extra='forbid')
     issue_resolution: Literal['resolved', 'partially_resolved', 'unresolved', 'not_checked'] | None = None
+
+
+class SurveyFinding(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    survey_id: str = Field(min_length=36, max_length=36)
+    question_ids: list[str] = Field(min_length=1, max_length=30)
+    finding: str = Field(min_length=1, max_length=2000)
 
 
 def selection_items(selection: ReviewSelection, records: list[dict]) -> list[EvidenceItem]:
@@ -321,7 +345,8 @@ def selection_items(selection: ReviewSelection, records: list[dict]) -> list[Evi
 
 class ModelAnswer(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    answer: str = Field(min_length=1, max_length=EVIDENCE_ANSWER_CHARS)
+    survey_findings: list[SurveyFinding] = Field(default_factory=list, max_length=100)
+    answer: str = Field(min_length=1, max_length=MAX_ANSWER_CHARS)
     evidence: list[EvidenceItem | SurveyEvidenceItem] = Field(default_factory=list, max_length=200)
     selections: list[ReviewSelection] = Field(default_factory=list, max_length=20)
     survey_selections: list[SurveySelection] = Field(default_factory=list, max_length=4)
@@ -382,25 +407,6 @@ def displayed_answer_length(answer: str, sources: list[dict]) -> int:
     return len(answer)
 
 
-def _explanation_length(answer: str, items: list[EvidenceItem]) -> int:
-    """Exclude exact validated source excerpts written in the answer, once per span.
-
-    A popup-only selector grants no extra written room. The caller validates every
-    item before using this count. Semantic analysis detail remains governed by the
-    prompt; this function does not attempt to classify prose with another model.
-    """
-    spans = []
-    for item in items:
-        if item.excerpt:
-            spans.extend((match.start(), match.end()) for match in
-                         re.finditer(re.escape(item.excerpt), answer))
-    covered, end = 0, 0
-    for start, stop in sorted(spans):
-        covered += max(0, stop - max(start, end))
-        end = max(end, stop)
-    return len(answer) - covered
-
-
 def _normalize_json_line_breaks(raw: str) -> str:
     """Escape literal line breaks only inside JSON strings, including backslash-LF.
 
@@ -431,7 +437,88 @@ def _normalize_json_line_breaks(raw: str) -> str:
     return ''.join(output)
 
 
+def _unique_json_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('Duplicate JSON field')
+        result[key] = value
+    return result
+
+
+def _read_model_answer(raw: str, normalizations: list | None) -> ModelAnswer:
+    """Normalize unambiguous syntax only; selector filters stay strictly validated."""
+    changes = normalizations if normalizations is not None else []
+    stripped = raw.strip()
+    wrapped = re.fullmatch(r'```(?:json)?\s*\n(.*?)\n```', stripped, re.S | re.I)
+    if wrapped:
+        stripped = wrapped.group(1).strip()
+        changes.append('json_code_fence')
+    if not stripped.startswith(('{', '[')):
+        return ModelAnswer(answer=stripped)
+    try:
+        payload = json.loads(stripped, object_pairs_hook=_unique_json_fields)
+    except json.JSONDecodeError:
+        normalized = _normalize_json_line_breaks(stripped)
+        # Use Pydantic for stable invalid-JSON diagnostics, without echoing its input.
+        if normalized == stripped:
+            return ModelAnswer.model_validate_json(stripped)
+        try:
+            payload = json.loads(normalized, object_pairs_hook=_unique_json_fields)
+        except json.JSONDecodeError:
+            return ModelAnswer.model_validate_json(normalized)
+        changes.append('json_string_line_breaks')
+    if not isinstance(payload, dict):
+        return ModelAnswer.model_validate(payload)
+    # Observed provider mistake: copying the input flag name onto the findings list.
+    # Never guess when two different lists are supplied, or accept a Boolean as notes.
+    if isinstance(payload.get('survey_findings_required'), list):
+        alias = payload.pop('survey_findings_required')
+        if 'survey_findings' in payload and payload['survey_findings'] != alias:
+            raise ValueError('Conflicting response fields')
+        payload['survey_findings'] = alias
+        changes.append('survey_findings_field_alias')
+    lists = ('evidence', 'selections', 'survey_selections', 'survey_context', 'survey_findings')
+    for key in lists:
+        if key in payload and payload[key] is None:
+            payload[key] = []
+            changes.append('null_optional_list')
+        if not isinstance(payload.get(key), list):
+            continue
+        for item in payload[key]:
+            if not isinstance(item, dict):
+                continue
+            for optional in ('excerpt', 'topic', 'question_id'):
+                if isinstance(item.get(optional), str) and not item[optional].strip():
+                    item[optional] = None
+                    changes.append('blank_optional_selector')
+            if key in ('evidence', 'survey_context') and 'kind' not in item:
+                if 'survey_id' in item and 'review_id' not in item:
+                    item['kind'] = 'survey'
+                    changes.append('survey_reference_kind')
+            if key == 'survey_findings' and isinstance(item.get('question_ids'), list):
+                ids = item['question_ids']
+                if all(isinstance(q, str) for q in ids):
+                    item['question_ids'] = list(dict.fromkeys(ids))
+                    if item['question_ids'] != ids:
+                        changes.append('duplicate_finding_question_reference')
+        if key == 'survey_findings':
+            unique = []
+            for item in payload[key]:
+                if item not in unique:
+                    unique.append(item)
+                else:
+                    changes.append('duplicate_identical_finding')
+            payload[key] = unique
+    return ModelAnswer.model_validate(payload)
+
+
 _VALIDATION_REASONS = {
+    'Survey findings do not cover the supplied cohort': ('incomplete_survey_coverage', 'The findings must cover each supplied survey exactly once.'),
+    'Invalid survey finding reference': ('unknown_question', 'A survey finding must cite existing original questions.'),
+    'Conflicting response fields': ('invalid_structure', 'The response contains conflicting fields.'),
+    'Duplicate JSON field': ('invalid_structure', 'The response contains ambiguous duplicate fields.'),
+    'ModelRefusal': ('model_refusal', 'The provider declined to answer this request.'),
     'IncompleteModelAnswer': ('incomplete_output', 'The model did not finish its answer.'),
     'EmptyModelAnswer': ('empty_answer', 'The model returned an empty answer.'),
     'Model answer contains unsupported links or markup': ('unsupported_markup', 'The answer contains unsupported links or markup.'),
@@ -470,12 +557,16 @@ def validation_failure(exc: ValueError) -> dict:
 def validation_message(reason: str) -> str:
     if reason in {'unknown_source', 'unknown_topic', 'unknown_question', 'source_mismatch'}:
         return 'BoomSay couldn’t match the AI’s supporting references to the available community records. Click Retry to request a new answer.'
+    if reason == 'model_refusal':
+        return 'The AI service declined this request. Try rephrasing your question; if this continues, ask your administrator to check the AI connection.'
+    if reason == 'incomplete_survey_coverage':
+        return 'The AI skipped some of the surveys needed for this summary. Click Retry to request a complete answer.'
     if reason == 'incomplete_output':
         return 'The AI stopped before finishing its answer. Click Retry to request a new answer.'
     if reason == 'empty_answer':
         return 'The AI returned no answer. Click Retry to request a new answer.'
     if reason == 'answer_too_long':
-        return 'The AI wrote more text than BoomSay can display in one answer. Click Retry to request a shorter answer.'
+        return 'The AI returned an unusually large answer. Click Retry to request a shorter answer.'
     return 'The AI returned an answer BoomSay couldn’t read. Your question is fine. Click Retry to request a new answer.'
 
 
@@ -485,34 +576,17 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
 
     Validate every reference even when its display was not requested. Keep authorized
     references internally for follow-ups; only the presentation gate hides their controls.
-    Invalid IDs/excerpts, ambiguous formatting and oversized answers still fail closed
-    without an automatic paid retry. Never truncate an answer or weaken source verification.
+    Invalid IDs/excerpts, ambiguous content and resource-limit violations still fail closed.
+    Normalize only unambiguous transport differences; never truncate the answer.
     """
-    stripped = raw.strip()
-    # Some compatible providers wrap otherwise valid JSON in one Markdown fence. Removing
-    # this transport wrapper does not repair or reinterpret any answer/evidence content.
-    if stripped.startswith('```'):
-        wrapped = re.fullmatch(r'```(?:json)?\s*\n(.*?)\n```', stripped, re.S | re.I)
-        if wrapped:
-            stripped = wrapped.group(1).strip()
-    if stripped.startswith('{'):
-        try:
-            result = ModelAnswer.model_validate_json(stripped)
-        except ValidationError as exc:
-            if not any(e['type'] == 'json_invalid' for e in exc.errors(include_input=False)):
-                raise
-            normalized = _normalize_json_line_breaks(stripped)
-            if normalized == stripped:
-                raise
-            result = ModelAnswer.model_validate_json(normalized)
-            if normalizations is not None:
-                normalizations.append('json_string_line_breaks')
-    else:
-        result = ModelAnswer(answer=stripped)
+    result = _read_model_answer(raw, normalizations)
     if not result.answer.strip():
         raise ValueError('EmptyModelAnswer')
+    # The private and shared chat renderers disable model links/images and raw HTML.
+    # A quoted URL or harmless markup must not reject otherwise usable prose.
     if re.search(r'https?://|\[[^\]]*\]\s*\(|<[^>]+>', result.answer, re.I):
-        raise ValueError('Model answer contains unsupported links or markup')
+        if normalizations is not None:
+            normalizations.append('markup_rendered_inert')
     reviews = {record['review_id']: record for record in evidence['reviews']}
     sources, seen = [], set()
     validated_survey_context = []
@@ -520,6 +594,15 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
     for selection in result.selections:
         items.extend(selection_items(selection, evidence['reviews']))
     surveys = {record['survey_id']: record for record in evidence.get('surveys', [])}
+    if evidence.get('survey_findings_required') or result.survey_findings:
+        ids = [item.survey_id for item in result.survey_findings]
+        if len(ids) != len(set(ids)) or set(ids) != set(surveys):
+            raise ValueError('Survey findings do not cover the supplied cohort')
+        for item in result.survey_findings:
+            original_questions = {q['id'] for q in surveys[item.survey_id]['questions']}
+            if (not item.finding.strip() or len(item.question_ids) != len(set(item.question_ids))
+                    or not set(item.question_ids) <= original_questions):
+                raise ValueError('Invalid survey finding reference')
     for item in result.survey_context:
         record = surveys.get(item.survey_id)
         if record is None:
@@ -565,15 +648,9 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
             source['topic'] = item.topic
         sources.append(source)
     answer = result.answer.strip()
-    if displayed_answer_length(answer, sources) > EVIDENCE_ANSWER_CHARS:
-        raise ValueError('Answer exceeds the character limit')
-    if len(answer) > DEFAULT_ANSWER_CHARS:
-        # Retain the existing requested saved-analysis allowance. Its semantic
-        # substance is prompt-controlled; a valid reference alone cannot prove it.
-        analysis_detail = expanded and any(i.kind == 'analysis' for i in result.evidence)
-        quoted_detail = expanded and _explanation_length(answer, result.evidence) <= DEFAULT_ANSWER_CHARS
-        if not (analysis_detail or quoted_detail):
-            raise ValueError('Explanation exceeds the character limit')
+    target = EVIDENCE_ANSWER_CHARS if expanded else DEFAULT_ANSWER_CHARS
+    if len(answer) > target and normalizations is not None:
+        normalizations.append('answer_above_writing_target')
     if survey_context is not None:
         survey_context.extend(validated_survey_context)
     if not expanded:
@@ -587,7 +664,7 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
 
 def no_data_answer(evidence: dict) -> str | None:
     if evidence.get('source_scope') == 'surveys':
-        return None if evidence.get('surveys') else f'There are no finalized maintenance survey submissions matching this request within {evidence["period"]["label"]}.'
+        return None if evidence.get('surveys') else f'There are no finalized survey submissions matching this request within {evidence["period"]["label"]}.'
     if evidence.get('source_scope') == 'mixed' and evidence.get('surveys'):
         return None
     if evidence['reviews']:
@@ -610,17 +687,26 @@ class AnswerResult:
     tokens_in: Optional[int]
     tokens_out: Optional[int]
     finish_reason: Optional[str]
+    refusal: Optional[str] = None
+
+
+def completion_budget(messages: list[dict]) -> int:
+    """Reserve bounded space for the factual notes without shrinking the answer."""
+    context = json.loads(messages[1]['content'].split('\n', 1)[1])
+    return 1200 + (160 * min(len(context.get('surveys', [])), survey_service.MAX_SURVEYS)
+                   if context.get('survey_findings_required') else 0)
 
 
 async def generate_answer(messages: list[dict], config: LLMConfig) -> AnswerResult:
     """One request, no implicit SDK retries, no provider fallback or tool access."""
     async with openai.AsyncOpenAI(api_key=config.api_key or 'local-keyless', base_url=config.base_url,
                                   timeout=45.0, max_retries=0) as client:
-        response = await client.chat.completions.create(model=config.model, messages=messages, max_completion_tokens=1200, response_format={'type': 'json_object'})
+        response = await client.chat.completions.create(model=config.model, messages=messages, max_completion_tokens=completion_budget(messages), response_format={'type': 'json_object'})
     usage = response.usage
     choice = response.choices[0] if response.choices else None
     return AnswerResult(answer=(choice.message.content or '').strip() if choice else '',
                         raw_response=response.model_dump(mode='json'),
                         tokens_in=usage.prompt_tokens if usage else None,
                         tokens_out=usage.completion_tokens if usage else None,
-                        finish_reason=choice.finish_reason if choice else None)
+                        finish_reason=choice.finish_reason if choice else None,
+                        refusal=getattr(choice.message, 'refusal', None) if choice else None)

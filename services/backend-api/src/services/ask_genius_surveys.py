@@ -3,13 +3,123 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from copy import deepcopy
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from src.services.ask_genius_periods import TIMEZONE, resolve_period
+from src.services.survey_catalog import EVENT_LABELS, event_type_for
 
-SHARING_REASON = 'Sharing is unavailable for chats using private survey answers until survey sharing is approved.'
 MAX_SURVEYS = 100
+TYPE_PATTERNS = {
+    'move_in_completed': r'move[ -]?in(?: completed)?',
+    'maintenance_completed': r'(?:maintenance|work[ -]?order)(?: completed)?',
+    'lease_month_3': r'(?:3|three)[ -]?month',
+    'lease_month_6': r'(?:6|six)[ -]?month',
+    'lease_month_9': r'(?:9|nine)[ -]?month(?: renewal (?:planning|intent))?|pre[ -]?renewal|renewal intent',
+    'lease_renewed': r'(?:lease |completed |signed )?renewal|renewed lease',
+    'move_out_completed': r'move[ -]?out(?: completed)?',
+}
+
+
+def _type_selections(text):
+    """Recognize named questionnaire types, including shared-noun lists."""
+    pattern = '(?:' + '|'.join('(?:' + item + ')' for item in TYPE_PATTERNS.values()) + ')'
+    group = pattern + r'(?:(?:\s*,\s*(?:and\s+)?|\s+(?:and|or)\s+)' + pattern + ')*'
+    for match in re.finditer(r'\b' + group + r'\b', text):
+        before, after = text[:match.start()], text[match.end():]
+        exclusion = re.search(r'\b(?:not|exclude|excluding|without|except)\s*$', before)
+        direct = re.match(r'\s+(?:survey|questionnaire|submission|response)s?\b', after)
+        after_type = re.search(r'(?:surveys?|questionnaires?|submissions?|responses?) (?:for|from|after)\s*$', before)
+        short = re.fullmatch(r'(?:what about (?:the )?|(?:use|show|only) (?:the )?)?' + group + r'[?.! ]*', text)
+        description = (re.fullmatch(r'(?:please )?what (?:does|do|did) (?:the )?', before)
+                       and re.match(r'\s+(?:say|report|show)\b', after))
+        # "surveys excluding maintenance" has no repeated noun after the type.
+        excluded_tail = exclusion and re.search(r'\b(?:surveys?|submissions?|questionnaires?)\b', before)
+        if not (direct or after_type or short or description or excluded_tail):
+            continue
+        kinds, occupied = set(), []
+        for kind, item in TYPE_PATTERNS.items():
+            for found in re.finditer(r'\b(?:' + item + r')\b', match.group()):
+                if not any(start <= found.start() < end for start, end in occupied):
+                    kinds.add(kind)
+                    occupied.append(found.span())
+        yield match, kinds, exclusion, direct, after_type
+
+
+def survey_types(question: str, previous=None):
+    """A survey topic is not a questionnaire type; ordinary follow-ups keep scope."""
+    text = question.casefold()
+    included, excluded = set(), set()
+    for match, kinds, exclusion, _, _ in _type_selections(text):
+        if re.search(r'\bor\b', match.group()):
+            raise ValueError('Choose one survey type, or use “and” to include both survey types.')
+        (excluded if exclusion else included).update(kinds)
+    all_types = re.search(r'\b(?:all|every) (?:survey types?|types? of surveys?|surveys?)\b', text)
+    # An unqualified evaluation of plural surveys starts a broad comparison;
+    # "what does the bad say?" remains a follow-up to the selected type.
+    evaluation = r'(?:bad|good|negative|positive|(?:low|poorly|high)[ -]rated)'
+    units = r'(?:surveys|submissions|responses|questionnaires)'
+    broad_evaluation = re.search(
+        r'\b(?:(?:which (?:are|were)|show(?: me)?|list|summarize|display) (?:the )?'
+        + evaluation + ' ' + units + '|' + 'which (?:of (?:the )?)?' + units
+        + r' (?:are|were) ' + evaluation + r')\b', text)
+    if excluded:
+        selected = (set(EVENT_LABELS) if all_types or not included else included) - excluded
+        if not selected:
+            raise ValueError('No survey types remain after those exclusions. Choose at least one survey type.')
+        return sorted(selected)
+    return sorted(included) if included else ([] if all_types or broad_evaluation else list(previous or []))
+
+
+def _context(record):
+    return record.get('context', record.get('maintenance_context', {}))
+
+
+def calculated(records):
+    rating_counts = {}
+    for record in records:
+        for question in record['questions']:
+            if question.get('type') != 'rating' or question.get('answer') is None:
+                continue
+            counts = rating_counts.setdefault(record.get('event_type', 'maintenance_completed'), {}).setdefault(question['id'], {})
+            label = question['answer_label']
+            counts[label] = counts.get(label, 0) + 1
+    maintenance = [r for r in records if r.get('event_type', 'maintenance_completed') == 'maintenance_completed']
+    resolutions = {r['survey_id']: next((q['answer'] for q in r['questions'] if q['id'] == 'issue_resolution'), None)
+                   for r in maintenance}
+    values = [value for value in resolutions.values() if value is not None]
+    return {
+        'submission_count': len(records),
+        'distinct_resident_count': len({_context(r)['resident_id'] for r in records}),
+        'survey_type_counts': dict(Counter(r.get('event_type', 'maintenance_completed') for r in records)),
+        'rating_counts_by_type': rating_counts,
+        'issue_resolution_counts': dict(Counter(values)),
+        'issue_resolution_submission_ids': {value: [key for key, answer in resolutions.items() if answer == value]
+                                           for value in dict.fromkeys(values)},
+    }
+
+
+def needs_findings(question: str, evidence: dict) -> bool:
+    """Require a source-linked coverage pass for broad survey assessments only.
+
+    This selects a response format, never records or sentiment. Existing scope
+    resolution still determines the entire supplied cohort.
+    """
+    if evidence.get('source_scope') not in {'surveys', 'mixed'} or not evidence.get('surveys'):
+        return False
+    text = re.sub(r'\s+', ' ', question.casefold())
+    patterns = (
+        r'\b(?:bad|negative|poor|low[ -]rated|concerning) surveys?\b',
+        r'\b(?:surveys?|submissions?|responses?)\b.{0,35}\b(?:bad|negative|need(?:s)? attention)\b',
+        r'\b(?:improvements?|complaints?|concerns?|problems?)\b.{0,60}\b(?:all|every) surveys?\b',
+        r'\b(?:all|every) surveys?\b.{0,60}\b(?:improvements?|complaints?|concerns?|problems?)\b',
+        r'\b(?:main|biggest|top|key) (?:improvements?|complaints?|concerns?|problems?)\b',
+        r'\b(?:are we|how are we) doing\b',
+        r'\b(?:overall|general) (?:assessment|summary|performance|feedback)\b',
+        r'\b(?:summarize|summary of|overview of|what do|what did|compare)\b.{0,50}\b(?:all|every) (?:surveys?|survey responses?|feedback)\b',
+    )
+    return any(re.search(pattern, text) for pattern in patterns)
 
 
 def source_scope(question: str, previous: str | None = None) -> str | None:
@@ -83,17 +193,47 @@ def original_record(row) -> dict:
                           'answer': answer, 'answer_label': label})
     return {'survey_id': row.public_id, 'submitted_at': _iso(row.submitted_at),
             'template_id': snapshot['id'], 'template_version': snapshot['version'],
+            'event_type': event_type_for(snapshot, row.context_snapshot),
+            'survey_type_label': EVENT_LABELS.get(event_type_for(snapshot, row.context_snapshot), 'Survey'),
+            'title': snapshot.get('title', 'Survey'), 'context': row.context_snapshot,
             'maintenance_context': row.context_snapshot, 'questions': questions,
             'saved_analysis': {'status': 'not_generated'}}
 
 
-def build_evidence(org_id, db, period) -> dict:
-    from src.models.survey import SurveyInstance
+def model_record(record: dict) -> dict:
+    """Present each bound question and context once, without changing originals.
+
+    Source cards and validation retain the full record. Keep answer codes and
+    display labels, all choices, and rating scales; never summarize resident text.
+    """
+    result = deepcopy(record)
+    if result.get('maintenance_context') == result.get('context'):
+        result.pop('maintenance_context', None)
+    for question in result['questions']:
+        # text already contains the exact bound wording shown to the resident.
+        for key in ('rendered_text', 'original_text', 'required', 'max_length'):
+            question.pop(key, None)
+        if question.get('rating_labels') is None:
+            question.pop('rating_labels', None)
+        if question.get('type') == 'text' and question.get('answer_label') == question.get('answer'):
+            question.pop('answer_label', None)
+    scales = [q['rating_labels'] for q in result['questions'] if 'rating_labels' in q]
+    if scales and all(scale == scales[0] for scale in scales):
+        result['rating_labels'] = scales[0]
+        for question in result['questions']:
+            question.pop('rating_labels', None)
+    return result
+
+
+def build_evidence(org_id, db, period, event_types=None) -> dict:
+    from src.models.survey import SurveyInstance, SurveyOccurrence
 
     resolved = resolve_period(period)
     query = db.query(SurveyInstance).filter(
         SurveyInstance.organization_id == org_id, SurveyInstance.status == 'submitted',
         SurveyInstance.submitted_at.isnot(None))
+    if event_types:
+        query = query.join(SurveyOccurrence).filter(SurveyOccurrence.event_type.in_(event_types))
     if resolved.get('start_date'):
         local_zone = ZoneInfo(TIMEZONE)
         start = datetime.combine(date.fromisoformat(resolved['start_date']), time.min, local_zone)
@@ -104,25 +244,22 @@ def build_evidence(org_id, db, period) -> dict:
     if len(rows) > MAX_SURVEYS:
         raise ValueError('This period has more submitted surveys than Ask Genius can safely read at once. Choose a shorter period.')
     records = [original_record(row) for row in rows]
-    resolutions = Counter(row.answers.get('issue_resolution') for row in rows)
-    residents = {row.context_snapshot['resident_id'] for row in rows}
-    return {'surveys': records, 'survey_calculated': {
-        'submission_count': len(rows), 'distinct_resident_count': len(residents),
-        'issue_resolution_counts': dict(resolutions),
-        'issue_resolution_submission_ids': {
-            answer: [row.public_id for row in rows if row.answers.get('issue_resolution') == answer]
-            for answer in resolutions},
-    }, 'survey_coverage_note': 'Finalized maintenance survey submissions only. Periods use survey submission time in the community timezone; ticket completion is separate. Each submission is counted once. Saved survey analysis has not been generated.'}
+    return {'surveys': records, 'survey_calculated': calculated(records),
+            'survey_event_types': list(event_types or []),
+            'survey_coverage_note': 'Finalized survey submissions only, with each questionnaire type identified. Periods use survey submission time in the community timezone; event occurrence time is separate. Each submission is counted once. Issue resolution totals cover maintenance only. Saved survey analysis has not been generated.'}
 
 
 def source(record: dict, excerpt: str | None = None, topic: str | None = None,
            question_id: str | None = None) -> dict:
     if question_id is not None and not any(q['id'] == question_id for q in record['questions']):
         raise ValueError('Unknown survey question')
-    if excerpt is not None and not any(isinstance(q.get('answer'), str) and excerpt in q['answer'] for q in record['questions']):
+    def matches(q):
+        return any(isinstance(q.get(key), str) and excerpt in q[key]
+                   for key in ('answer', 'answer_label'))
+    if excerpt is not None and not any(matches(q) for q in record['questions']):
         raise ValueError('Survey excerpt does not match an original submitted answer')
     if question_id is not None and excerpt is not None and not any(
-            q['id'] == question_id and isinstance(q.get('answer'), str) and excerpt in q['answer']
+            q['id'] == question_id and matches(q)
             for q in record['questions']):
         raise ValueError('Survey excerpt does not match the selected question')
     return {'source': 'survey', 'survey_id': record['survey_id'], 'kind': 'survey',
@@ -144,32 +281,45 @@ def explicit_resolution(question: str) -> str | None:
     return None
 
 
+def maintenance_only(evidence):
+    if evidence.get('survey_resolution_filter'):
+        return True
+    types = set(evidence.get('survey_event_types', [])) or {
+        r.get('event_type', 'maintenance_completed') for r in evidence.get('surveys', [])}
+    return types == {'maintenance_completed'}
+
+
 def filter_resolution(evidence: dict, question: str) -> dict:
     """Bind explicit resolution questions to verified answer values before generation."""
     value = positive_resolution(question)
-    if evidence.get('source_scope') != 'surveys' or value is None:
+    if evidence.get('source_scope') != 'surveys' or value is None or not maintenance_only(evidence):
         return evidence
     records = [record for record in evidence['surveys'] if any(
         q['id'] == 'issue_resolution' and q['answer'] == value for q in record['questions'])]
     return {**evidence, 'surveys': records, 'survey_resolution_filter': value,
-            'survey_calculated': {
-                'submission_count': len(records),
-                'distinct_resident_count': len({r['maintenance_context']['resident_id'] for r in records}),
-                'issue_resolution_counts': {value: len(records)},
-                'issue_resolution_submission_ids': {value: [r['survey_id'] for r in records]},
-            }}
+            'survey_calculated': calculated(records)}
 
 
 def _simple_request_text(question: str) -> str:
     text = re.sub(r'\s+', ' ', question.casefold()).strip().rstrip('.!? ')
     text = re.sub(r'^(?:please |(?:can|could) you )', '', text)
+    # Remove only type selections that the evidence reader actually applied.
+    edits = []
+    for match, _, exclusion, direct, after_type in _type_selections(text):
+        if exclusion:
+            edits.append((exclusion.start(), match.end() + (direct.end() if direct else 0)))
+        else:
+            edits.append((re.search(r'(?:for|from|after)\s*$', text[:match.start()]).start() if after_type else match.start(), match.end()))
+    for start, end in reversed(edits):
+        text = text[:start] + text[end:]
+    text = re.sub(r'\s+', ' ', text).strip()
     return re.sub(r' (?:for|during|in|within) (?:this|the selected) period$', '', text)
 
 
 def _supported_count(question: str) -> bool:
     text = _simple_request_text(question)
     prefix = r'(?:how many|(?:what is )?(?:the )?(?:count|number) of) '
-    unit = r'(?:(?:completed|submitted|maintenance) )*(?:surveys?|submissions?|survey (?:submissions?|responses?)|responses?|(?:distinct |unique )?residents?)'
+    unit = r'(?:all )?(?:(?:completed|submitted|maintenance) )*(?:surveys?|submissions?|survey (?:submissions?|responses?)|responses?|(?:distinct |unique )?residents?)'
     completion = r'(?: (?:are there|did we (?:receive|get)|have we received|were received|were submitted|were completed|are completed|are submitted|(?:have )?(?:submitted|completed) (?:a survey|surveys)|responded))?'
     status = r"(?: (?:are|were|report|reported|say|said|show|have)(?: that)?(?: the issue is| the issue was| issues are| issues were)?)? (?:still )?(?:unresolved|(?:fully |partially )?resolved|not_checked|not checked|haven[’']t checked(?: yet)?|have not checked(?: yet)?)"
     return bool(re.fullmatch(prefix + unit + '(?:' + completion + '|' + status + ')', text))
@@ -221,21 +371,26 @@ def local_answer(question: str, evidence: dict, previous_metadata: dict | None =
             return answer, sources, [record['survey_id'] for record in selected]
         return ('Here are the original questions and submitted answers.', [source(record) for record in selected], [record['survey_id'] for record in selected])
     status_filter = positive_resolution(question)
+    if status_filter and not maintenance_only(evidence):
+        if re.search(r'\bhow many\b|\bcount\b|\bnumber of\b', lowered):
+            return ('These survey types ask different questions about unresolved concerns. Specify maintenance surveys for exact issue-resolution counts, or ask me to explain the original answers.', [], None)
+        return None
     is_list = bool(re.search(r'\b(?:show|list|which|display|open)\b', lowered))
     is_count = bool(re.search(r'\bhow many\b|\bcount\b|\bnumber of\b', lowered))
     # Narrative and narrower thematic questions use the existing model with original context.
     broad_list = bool(re.fullmatch(r'(?:show(?: me)?|list|display|open) (?:the )?(?:all )?(?:(?:completed|submitted|maintenance) )*(?:surveys?|submissions?)', _simple_request_text(question)))
     if is_count and not _supported_count(question):
         return ('I can calculate exact submission counts, distinct resident counts and counts for each recorded resolution choice. That requested condition has no stored survey classification; I can show or explain the original answers instead.', [], None)
-    if re.search(r'\b(?:mention|mentions|mentioning|describe|describes|describing|about|concerning|except|excluding|without|rating|stars?|comments?|faucet|plumbing)\b', lowered):
+    if re.search(r'\b(?:mention|mentions|mentioning|describe|describes|describing|about|concerning|except|excluding|without|rating|stars?|comments?|faucet|plumbing)\b', _simple_request_text(question)):
         return None
     if not (is_count or is_list and (status_filter or broad_list)):
         return None
     selected = [record for record in records if not status_filter or any(
         q['id'] == 'issue_resolution' and q['answer'] == status_filter for q in record['questions'])]
-    if not status_filter and not broad_list and isinstance(prior_ids, list):
+    reset_cohort = bool(re.search(r'\b(?:all|every) surveys?\b', lowered))
+    if not status_filter and not broad_list and not reset_cohort and isinstance(prior_ids, list):
         selected = [record for record in selected if record['survey_id'] in set(prior_ids)]
-    resident_count = len({record['maintenance_context']['resident_id'] for record in selected})
+    resident_count = len({_context(record)['resident_id'] for record in selected})
     suffix = {'unresolved': ' report that the issue is still unresolved',
               'partially_resolved': ' report that the issue is partially resolved',
               'resolved': ' report that the issue is fully resolved',
@@ -243,12 +398,16 @@ def local_answer(question: str, evidence: dict, previous_metadata: dict | None =
     if re.search(r'\bresidents?\b', lowered):
         answer = f'{resident_count} unique resident(s){suffix} in {evidence["period"]["label"]}.'
     else:
-        answer = f'{len(selected)} completed maintenance survey response(s){suffix} in {evidence["period"]["label"]}.'
+        kinds = set(evidence.get('survey_event_types', [])) or {r.get('event_type', 'maintenance_completed') for r in selected}
+        if status_filter:
+            kinds = {'maintenance_completed'}
+        label = EVENT_LABELS[next(iter(kinds))].lower() + ' ' if len(kinds) == 1 else ''
+        answer = f'{len(selected)} completed {label}survey response(s){suffix} in {evidence["period"]["label"]}.'
     if status_filter:
         answer += ' Ticket completion does not change the resident’s reported resolution status.'
     references = [source(record, topic='Issue resolution' if status_filter else None,
                          question_id='issue_resolution' if status_filter else None) for record in selected]
-    if not status_filter and not broad_list and (previous_metadata or {}).get('survey_context'):
+    if not status_filter and not broad_list and not reset_cohort and (previous_metadata or {}).get('survey_context'):
         by_id = {record['survey_id']: record for record in selected}
         references = [source(by_id[item['survey_id']], item.get('excerpt'), item.get('topic'), item.get('question_id'))
                       for item in previous_metadata['survey_context'] if item.get('survey_id') in by_id]

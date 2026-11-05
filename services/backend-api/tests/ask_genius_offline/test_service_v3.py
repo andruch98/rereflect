@@ -154,7 +154,7 @@ def test_code_calculated_topic_counts_have_matching_source_ids(flow):
 def test_only_json_transport_fence_is_unwrapped_not_answer_content(flow):
     flow['model']['raw'] = '```json\n' + json.dumps({'answer': 'Maintenance delays were reported.', 'evidence': []}) + '\n```'
     assert flow['ask'](period=ALL).status_code == 200
-    flow['model']['raw'] = '```json\n' + json.dumps({'answer': 'x' * 1001, 'evidence': []}) + '\n```'
+    flow['model']['raw'] = '```json\n' + json.dumps({'answer': 'x' * (service.MAX_ANSWER_CHARS + 1), 'evidence': []}) + '\n```'
     assert flow['ask'](period=ALL).status_code == 502
 
 

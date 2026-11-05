@@ -11,14 +11,16 @@ import os
 import re
 from typing import Literal
 
+from src.services.survey_catalog import EVENT_LABELS
+
 RECIPIENT = 'andres.feuerberg.ch@gmail.com'
 SENDER = 'BoomSay <andres@boomsay.com>'
 BASE = 'http://127.0.0.1:53004'
 
 
-def operate(db, action, test_id):
+def operate(db, action, test_id, event_type='maintenance_completed'):
     from sqlalchemy import func
-    from src.api.routes.surveys import MaintenanceCompletedEvent
+    from src.api.routes.surveys import SimulatedSurveyEvent
     from src.models.organization import Organization
     from src.models.customer_health import CustomerHealth
     from src.models.survey import SurveyInstance, SurveyInvitation, SurveyResident, SurveyEmailOptOut, MaintenanceOccurrence
@@ -28,6 +30,8 @@ def operate(db, action, test_id):
     if (os.getenv('BOOMSAY_REVIEW_PREVIEW', '').lower() != 'true' or not org.isdecimal()
             or public_base_url() != BASE or not re.fullmatch(r'[a-z0-9-]{1,40}', test_id)):
         raise ValueError('Requires the existing local preview and a simple test name. Nothing sent.')
+    if event_type not in EVENT_LABELS:
+        raise ValueError('Unknown survey type. Nothing sent.')
     org_id = int(org)
     community = db.get(Organization, org_id)
     if not community or community.name != 'Lake House Apartments':
@@ -38,29 +42,34 @@ def operate(db, action, test_id):
     if survey is None:
         if action != 'prepare':
             raise ValueError('Prepare and review this test first. Nothing sent.')
-        class PreviewEmailEvent(MaintenanceCompletedEvent):
+        class PreviewEmailEvent(SimulatedSurveyEvent):
             resident_email: Literal['andres.feuerberg.ch@gmail.com']
+        context = {'ticket_id': 'EMAIL-TEST-' + test_id, 'request_description': 'a fictional leaking kitchen faucet'} if event_type == 'maintenance_completed' else {}
         event = PreviewEmailEvent(
             community_id=org_id, event_id=identity, occurrence_id=identity,
-            event_type='maintenance_completed', ticket_id='EMAIL-TEST-' + test_id,
-            request_description='a fictional leaking kitchen faucet', completed_at=datetime.now(timezone.utc),
+            event_type=event_type, occurred_at=datetime.now(timezone.utc), **context,
             resident_id=identity, resident_name='Andres (fictional email test)', resident_email=RECIPIENT,
             unit_id=identity, unit_number='EMAIL-TEST', is_simulated=True)
         survey = ingest_simulated_event(db, event)
     invitation = survey.invitation
-    if (not survey.occurrence.is_simulated or invitation.recipient != RECIPIENT
+    if (survey.occurrence.event_type != event_type or not survey.occurrence.is_simulated or invitation.recipient != RECIPIENT
             or survey.occurrence.resident_email != RECIPIENT):
         raise ValueError('Test identity does not match. Nothing sent.')
     url = BASE + '/survey/' + survey.token
-    text = (f'Hi Andres,\n\nPlease tell us about your recent maintenance experience at Lake House Apartments.\n\n'
-            f'Take survey: {url}\n\nThis is a BoomSay test using a fictional maintenance request.\n\n'
+    if event_type == 'maintenance_completed':
+        prompt = 'Please tell us about your recent maintenance experience at Lake House Apartments.'
+        disclosure = 'This is a BoomSay test using a fictional maintenance request.'
+        subject = 'Lake House Apartments: how was your maintenance experience?'
+    else:
+        prompt = survey.questionnaire_snapshot['title']
+        disclosure = f'This is a BoomSay test using a fictional {EVENT_LABELS[event_type].lower()} event.'
+        subject = 'Lake House Apartments: ' + prompt
+    text = (f'Hi Andres,\n\n{prompt}\n\nTake survey: {url}\n\n{disclosure}\n\n'
             f'Stop survey invitations: {url}/unsubscribe')
-    html = (f'<p>Hi Andres,</p><p>Please tell us about your recent maintenance experience at Lake House Apartments.</p>'
-            f'<p><a href="{escape(url, quote=True)}">Take survey</a></p>'
-            '<p>This is a BoomSay test using a fictional maintenance request.</p>'
+    html = (f'<p>Hi Andres,</p><p>{escape(prompt)}</p>'
+            f'<p><a href="{escape(url, quote=True)}">Take survey</a></p><p>{escape(disclosure)}</p>'
             f'<p><a href="{escape(url, quote=True)}/unsubscribe">Stop survey invitations</a></p>')
-    payload = {'from': SENDER, 'to': [RECIPIENT],
-               'subject': 'Lake House Apartments: how was your maintenance experience?', 'text': text, 'html': html}
+    payload = {'from': SENDER, 'to': [RECIPIENT], 'subject': subject, 'text': text, 'html': html}
     if action == 'reserve':
         suppressed = (db.get(SurveyEmailOptOut, (org_id, RECIPIENT)) or
             db.query(SurveyResident.id).filter(SurveyResident.organization_id == org_id,
@@ -94,11 +103,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['prepare', 'reserve', 'accepted', 'failed'])
     parser.add_argument('test_id')
+    parser.add_argument('--event-type', choices=list(EVENT_LABELS), default='maintenance_completed')
     args = parser.parse_args()
     from src.database.session import SessionLocal
     with SessionLocal() as db:
         try:
-            print(json.dumps(operate(db, args.action, args.test_id)))
+            print(json.dumps(operate(db, args.action, args.test_id, args.event_type)))
         except ValueError as exc:
             raise SystemExit(str(exc)) from None
 

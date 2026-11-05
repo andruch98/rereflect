@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import type { ChatMessage } from '@/components/copilot/ChatArea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { surveysAPI, surveyAnswerLabel } from '@/lib/api/surveys';
+import { surveysAPI, surveyAnswerLabel, surveyType, surveyTypeLabel } from '@/lib/api/surveys';
 
 interface OriginalAnswer { id: string; text: string; answer_label: string | null }
 export interface SurveySource {
   survey_id: string;
   topic?: string;
   question_id?: string;
+  title?: string;
+  type_label?: string;
   questions?: OriginalAnswer[];
 }
 
@@ -26,35 +28,42 @@ export function readSurveySources(metadata: ChatMessage['structured_data']): Sur
     const questions = snapshot && Array.isArray(snapshot.questions) ? snapshot.questions.flatMap((q: unknown) =>
       isRecord(q) && typeof q.id === 'string' && typeof q.text === 'string'
         ? [{ id: q.id, text: q.text, answer_label: typeof q.answer_label === 'string' ? q.answer_label : null }] : []) : undefined;
+    const type = surveyType(typeof snapshot?.event_type === 'string' ? snapshot.event_type : undefined,
+      typeof snapshot?.template_id === 'string' ? snapshot.template_id : undefined);
     return [{ survey_id: value.survey_id, topic: typeof value.topic === 'string' ? value.topic : undefined,
-      question_id: typeof value.question_id === 'string' ? value.question_id : undefined, questions }];
+      question_id: typeof value.question_id === 'string' ? value.question_id : undefined,
+      title: typeof snapshot?.title === 'string' ? snapshot.title : undefined,
+      type_label: typeof snapshot?.survey_type_label === 'string' ? snapshot.survey_type_label : type?.label, questions }];
   });
 }
 
-function SurveyDetail({ sources }: { sources: SurveySource[] }) {
+function SurveyDetail({ sources, publicSnapshot = false }: { sources: SurveySource[]; publicSnapshot?: boolean }) {
   const source = sources[0];
-  const [legacy, setLegacy] = useState<OriginalAnswer[]>();
+  const [legacy, setLegacy] = useState<{ questions: OriginalAnswer[]; title: string; type_label: string }>();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [allAnswers, setAllAnswers] = useState(false);
   useEffect(() => {
-    if (source.questions) return;
+    if (source.questions || publicSnapshot) return;
     let active = true;
     surveysAPI.get(source.survey_id).then(row => {
       if (row.status !== 'submitted') throw new Error('Submission unavailable');
-      if (active) setLegacy(row.questionnaire.questions.map(q => ({ id: q.id, text: q.rendered_text || q.text,
-        answer_label: surveyAnswerLabel(q, row.answers[q.id], row.questionnaire) })));
+      if (active) setLegacy({ title: row.questionnaire.title, type_label: surveyTypeLabel(row),
+        questions: row.questionnaire.questions.map(q => ({ id: q.id, text: q.rendered_text || q.text,
+          answer_label: surveyAnswerLabel(q, row.answers[q.id], row.questionnaire) })) });
     }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [source.survey_id, source.questions, attempt]);
-  const questions = source.questions ?? legacy;
-  if (!questions) return <div className="py-4 text-sm" role="status">{failed ? <>
+  }, [source.survey_id, source.questions, attempt, publicSnapshot]);
+  const questions = source.questions ?? legacy?.questions;
+  if (!questions) return <div className="py-4 text-sm" role="status">{publicSnapshot ? 'The original answers were not included in this shared chat.' : failed ? <>
     These survey answers could not be loaded. <button type="button" className="underline" onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>Reload answers</button>
   </> : 'Loading survey answers…'}</div>;
   const selectedIds = new Set(sources.flatMap(item => item.question_id ? [item.question_id] : []));
   const relevant = questions.filter(q => selectedIds.has(q.id));
   const ordered = relevant.length && !allAnswers ? relevant : [...relevant, ...questions.filter(q => !selectedIds.has(q.id))];
+  const typeLabel = source.type_label || legacy?.type_label;
   return <section aria-label="Original survey submission" className="space-y-5 border-b py-5 last:border-0">
+    <header className="space-y-1">{typeLabel && <p className="text-sm text-muted-foreground">{typeLabel}</p>}<h3 className="text-lg font-semibold">{source.title || legacy?.title || 'Survey submission'}</h3></header>
     <dl className="space-y-5">{ordered.map(q => <div key={q.id}>
       <dt className="mb-2 font-semibold">{q.text}</dt>
       <dd className="whitespace-pre-wrap break-words text-base leading-7">{q.answer_label || 'No answer provided'}</dd>
@@ -65,7 +74,7 @@ function SurveyDetail({ sources }: { sources: SurveySource[] }) {
   </section>;
 }
 
-export function SurveyCollection({ sources, topic }: { sources: SurveySource[]; topic?: string }) {
+export function SurveyCollection({ sources, topic, publicSnapshot = false }: { sources: SurveySource[]; topic?: string; publicSnapshot?: boolean }) {
   const [pages, setPages] = useState(1);
   const grouped = new Map<string, SurveySource[]>();
   for (const source of sources) grouped.set(source.survey_id, [...(grouped.get(source.survey_id) ?? []), source]);
@@ -83,7 +92,7 @@ export function SurveyCollection({ sources, topic }: { sources: SurveySource[]; 
           </button></DialogTrigger>
           <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-xl sm:p-7">
             <DialogHeader><DialogTitle className="text-xl">{topic || 'Survey answers'}</DialogTitle><DialogDescription>Original questions and submitted answers.</DialogDescription></DialogHeader>
-            {batch.map(items => <SurveyDetail key={items[0].survey_id} sources={items} />)}
+            {batch.map(items => <SurveyDetail key={items[0].survey_id} sources={items} publicSnapshot={publicSnapshot} />)}
           </DialogContent>
         </Dialog>
       </div>;

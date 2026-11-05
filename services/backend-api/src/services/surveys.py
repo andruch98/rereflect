@@ -1,4 +1,4 @@
-"""Persistent maintenance-event ingestion and immutable final survey answers."""
+"""Persistent lifecycle-event ingestion and immutable final survey answers."""
 import os
 import secrets
 from urllib.parse import urlsplit
@@ -8,8 +8,8 @@ from sqlalchemy.exc import IntegrityError
 
 from src.models.organization import Organization
 from src.models.customer_health import CustomerHealth
-from src.models.survey import MaintenanceOccurrence, SurveyInstance, SurveyInvitation, SurveyResident, SurveyUnit, SurveyEmailOptOut, utcnow
-from src.services.survey_catalog import bind_questionnaire, validate_answers, answer_label
+from src.models.survey import SurveyOccurrence, SurveyInstance, SurveyInvitation, SurveyResident, SurveyUnit, SurveyEmailOptOut, utcnow
+from src.services.survey_catalog import bind_questionnaire, validate_answers, answer_label, event_type_for, EVENT_LABELS
 from src.services.survey_delivery import prepare_invitation, SimulatedSurveySender
 
 
@@ -25,16 +25,16 @@ def public_base_url() -> str:
 
 
 def _existing(db, event):
-    occurrence = db.query(MaintenanceOccurrence).filter(
-        MaintenanceOccurrence.organization_id == event.community_id,
-        or_(MaintenanceOccurrence.event_id == event.event_id,
-            MaintenanceOccurrence.occurrence_id == event.occurrence_id)).first()
+    occurrence = db.query(SurveyOccurrence).filter(
+        SurveyOccurrence.organization_id == event.community_id,
+        or_(SurveyOccurrence.event_id == event.event_id,
+            SurveyOccurrence.occurrence_id == event.occurrence_id)).first()
     if occurrence is None:
         return None
     # Replays cannot bind a known event/occurrence identity to a different ticket/resident.
-    if (occurrence.occurrence_id != event.occurrence_id or occurrence.ticket_id != event.ticket_id
+    if (occurrence.event_type != event.event_type or occurrence.occurrence_id != event.occurrence_id or occurrence.ticket_id != event.ticket_id
             or occurrence.resident_id != event.resident_id):
-        raise ValueError('Event or occurrence identity conflicts with an existing maintenance occurrence')
+        raise ValueError('Event or occurrence identity conflicts with an existing survey occurrence')
     return db.query(SurveyInstance).filter_by(occurrence_id=occurrence.id).one()
 
 
@@ -82,19 +82,23 @@ def ingest_simulated_event(db, event):
                 db.add(unit)
             db.flush()
             values = event.model_dump(exclude={'community_id', 'resident_opt_out'})
-            occurrence = MaintenanceOccurrence(organization_id=org.id, resident_record_id=resident.id,
+            occurrence = SurveyOccurrence(organization_id=org.id, resident_record_id=resident.id,
                 unit_record_id=unit.id, **values)
             db.add(occurrence); db.flush()
             context = {**event.model_dump(mode='json', exclude={'community_id', 'resident_opt_out', 'completed_at'}),
-                       'community_name': org.name, 'ticket_completed_at': event.completed_at.isoformat()}
+                       'community_name': org.name, 'event_occurred_at': event.completed_at.isoformat(),
+                       'survey_type_label': EVENT_LABELS[event.event_type]}
+            if event.event_type == 'maintenance_completed':
+                context['ticket_completed_at'] = event.completed_at.isoformat()
             survey = SurveyInstance(organization_id=org.id, occurrence_id=occurrence.id,
-                token=secrets.token_urlsafe(32), questionnaire_snapshot=bind_questionnaire(context),
+                token=secrets.token_urlsafe(32), questionnaire_snapshot=bind_questionnaire(context, event.event_type),
                 context_snapshot=context, status='pending', answers={}, draft_answers={})
             db.add(survey); db.flush()
             base = public_base_url()
             survey_url = f'{base}/survey/{survey.token}'
             prepared = prepare_invitation(name=event.resident_name, community_name=org.name,
-                survey_url=survey_url, unsubscribe_url=f'{base}/survey/{survey.token}/unsubscribe')
+                survey_url=survey_url, unsubscribe_url=f'{base}/survey/{survey.token}/unsubscribe',
+                questionnaire=survey.questionnaire_snapshot)
             invitation = SurveyInvitation(organization_id=org.id, survey_id=survey.id,
                 recipient=event.resident_email, is_simulated=True, provider='resend',
                 survey_url=survey_url, status='prepared', **prepared)
@@ -120,17 +124,22 @@ def ingest_simulated_event(db, event):
             db.rollback()
             if attempt:
                 raise
-    raise RuntimeError('Could not ingest maintenance event')
+    raise RuntimeError('Could not ingest survey event')
 
 
 def serialize_survey(survey, *, manager=False):
+    context = dict(survey.context_snapshot)
+    kind = event_type_for(survey.questionnaire_snapshot, context)
+    context.update(event_type=kind, survey_type_label=EVENT_LABELS.get(kind, 'Survey'))
+    context.setdefault('event_occurred_at', context.get('ticket_completed_at'))
     result = {'public_id': survey.public_id, 'status': survey.status,
               'submitted_at': survey.submitted_at, 'created_at': survey.created_at,
               'questionnaire': survey.questionnaire_snapshot,
-              'context': (survey.context_snapshot if manager else {
-                  key: survey.context_snapshot[key] for key in (
-                      'community_name', 'request_description', 'ticket_id', 'ticket_completed_at')
-                  if key in survey.context_snapshot}), 'answers': survey.answers,
+              'context': (context if manager else {
+                  key: context[key] for key in (
+                      'community_name', 'request_description', 'ticket_id', 'ticket_completed_at',
+                      'event_type', 'survey_type_label', 'event_occurred_at')
+                  if key in context}), 'answers': survey.answers,
               'draft_answers': survey.draft_answers}
     result['answer_labels'] = {q['id']: answer_label(q, survey.answers.get(q['id']), survey.questionnaire_snapshot)
                                for q in survey.questionnaire_snapshot['questions']}

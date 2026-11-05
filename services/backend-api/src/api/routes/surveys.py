@@ -4,13 +4,13 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user, require_admin_or_owner
 from src.database.session import get_db
-from src.models.survey import SurveyInstance, SurveyResident
+from src.models.survey import SurveyInstance, SurveyResident, SurveyOccurrence
 from src.models.user import User
 from src.services import surveys as service
 from src.services.review_preview import require_preview_organization
@@ -18,15 +18,19 @@ from src.services.review_preview import require_preview_organization
 router = APIRouter(tags=['surveys'])
 
 
-class MaintenanceCompletedEvent(BaseModel):
+SurveyEventType = Literal['move_in_completed', 'maintenance_completed', 'lease_month_3',
+                          'lease_month_6', 'lease_month_9', 'lease_renewed', 'move_out_completed']
+
+
+class SimulatedSurveyEvent(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
     event_id: str = Field(min_length=1, max_length=200)
     occurrence_id: str = Field(min_length=1, max_length=200)
-    event_type: Literal['maintenance_completed']
+    event_type: SurveyEventType
     community_id: int = Field(gt=0)
-    ticket_id: str = Field(min_length=1, max_length=200)
-    request_description: str = Field(min_length=1, max_length=1000)
-    completed_at: AwareDatetime
+    ticket_id: str | None = Field(default=None, min_length=1, max_length=200)
+    request_description: str | None = Field(default=None, min_length=1, max_length=1000)
+    completed_at: AwareDatetime = Field(validation_alias=AliasChoices('occurred_at', 'completed_at'))
     resident_id: str = Field(min_length=1, max_length=200)
     resident_name: str = Field(min_length=1, max_length=200)
     resident_email: str = Field(max_length=320, pattern=r'^[^@\s]+@[^@\s]+\.invalid$')
@@ -41,6 +45,21 @@ class MaintenanceCompletedEvent(BaseModel):
     @classmethod
     def normalize_email(cls, value):
         return value.lower()
+
+    @model_validator(mode='after')
+    def event_context_matches_type(self):
+        if self.event_type == 'maintenance_completed':
+            if not self.ticket_id or not self.request_description:
+                raise ValueError('Maintenance requires its ticket ID and request description')
+        elif any(value is not None for value in (self.ticket_id, self.request_description,
+                                                 self.employee_id, self.employee_name)):
+            raise ValueError('Maintenance ticket and employee fields apply only to maintenance surveys')
+        return self
+
+
+class MaintenanceCompletedEvent(SimulatedSurveyEvent):
+    """Keep the existing guarded maintenance CLI's input contract narrow."""
+    event_type: Literal['maintenance_completed']
 
 
 class AnswerSave(BaseModel):
@@ -114,7 +133,7 @@ def unsubscribe_resident(token: str, request: Request, response: Response,
 
 
 @router.post('/api/v1/surveys/simulate', dependencies=[Depends(require_admin_or_owner)])
-def simulate_maintenance_event(body: MaintenanceCompletedEvent, response: Response,
+def simulate_survey_event(body: SimulatedSurveyEvent, response: Response,
                                user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     private_response(response)
     require_preview_organization(user.organization_id)
@@ -133,10 +152,13 @@ def simulate_maintenance_event(body: MaintenanceCompletedEvent, response: Respon
 @router.get('/api/v1/surveys')
 def list_surveys(response: Response, page: int = Query(default=1, ge=1),
                  page_size: int = Query(default=20, ge=1, le=100),
+                 event_type: SurveyEventType | None = Query(default=None),
                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     private_response(response)
     require_preview_organization(user.organization_id)
     query = db.query(SurveyInstance).filter_by(organization_id=user.organization_id)
+    if event_type:
+        query = query.join(SurveyOccurrence).filter(SurveyOccurrence.event_type == event_type)
     total = query.count()
     rows = query.order_by(SurveyInstance.created_at.desc(), SurveyInstance.id.desc()).offset((page-1)*page_size).limit(page_size).all()
     return {'surveys': [service.serialize_survey(row, manager=True) for row in rows], 'total': total}

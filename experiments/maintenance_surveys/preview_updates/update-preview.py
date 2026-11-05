@@ -14,7 +14,7 @@ import tarfile
 import tempfile
 
 
-BACKUP = 'backup-before-survey-email-test-update'
+BACKUP = 'backup-before-lifecycle-email-test-update'
 MUTATED_FILES = ('rereflect-app-source.tar.gz', 'checksums.json', 'SOURCE.txt')
 MANIFEST_REQUIRED = {
     'rereflect-app-source.tar.gz', 'private/saved-ai-records.json', 'restore.py',
@@ -33,6 +33,8 @@ STARTUP_HASHES = {
 LOCAL_LAYOUT_COMMIT = 'bf6236c84291d633435a1b73719d7b645942a715'
 LOCAL_LAYOUT_ARCHIVE_HASH = 'aedf86696d06521dfe89a9aec55c49940596f933bf0d23dcb17f02ab81007300'
 APP_MARKERS = (
+    'services/backend-api/alembic/versions/a3c927b6d801_expand_survey_lifecycle.py',
+    'services/backend-api/src/survey_lifecycle_demo.py',
     'services/frontend-web/components/reviews/AskGenius.tsx',
     'services/backend-api/src/services/ask_genius.py',
     'services/backend-api/src/services/ask_genius_instructions.txt',
@@ -169,7 +171,7 @@ def update(root: Path, bundle: Path) -> bool:
         replacements = {
             'rereflect-app-source.tar.gz': archive_bytes,
             'checksums.json': (json.dumps(updated_checksums, indent=2) + '\n').encode(),
-            'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: feat/survey-email-preview\n'
+            'SOURCE.txt': ('Application: andruch98/rereflect\nBranch: feat/lifecycle-email-preview\n'
                            f"Commit: {meta['commit']}\nExplicit local survey email test added; private data and AI setup unchanged. Startup applies pending additive migrations.\n").encode(),
         }
         moved_old = installed_new = created_backup = False
@@ -213,7 +215,7 @@ def main() -> int:
     except (OSError, ValueError, KeyError, TypeError, tarfile.TarError):
         print('The update could not complete. Keep your preview and any backup; no AI request was made.', file=sys.stderr)
         return 1
-    print('Application updated; existing data, login and AI setup were preserved.' if changed else 'This answer-recovery update is already installed.')
+    print('Application updated; existing data, login and AI setup were preserved.' if changed else 'This lifecycle update is already installed.')
     print('Now run: bash start-local.sh')
     print('Startup rebuilds the app and applies pending additive migrations through its existing database migration step.')
     print('Then open http://127.0.0.1:53004/ask-genius with your existing login.')

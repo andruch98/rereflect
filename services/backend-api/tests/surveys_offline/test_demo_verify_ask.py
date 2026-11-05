@@ -130,3 +130,28 @@ def test_offline_verify_ask_refuses_foreign_storage_without_changing_it(survey_f
         assert [(org.id, org.name) for org in db.query(Organization).order_by(Organization.id)] == original
         assert db.query(Conversation).count() == 0
         assert db.query(AskGeniusShare).count() == 0
+
+
+@pytest.mark.parametrize('event_type', ['move_in_completed', 'maintenance_completed', 'lease_month_3', 'lease_month_6', 'lease_month_9', 'lease_renewed', 'move_out_completed'])
+def test_selected_lifecycle_demo_verifies_actual_submitted_type_without_live_model(demo_ask_flow, event_type):
+    import json
+    from pathlib import Path
+    cases = json.loads((Path(__file__).parents[4] / 'experiments/lifecycle_surveys/fixtures.json').read_text())
+    expected = None
+    for case in cases:
+        response = demo_ask_flow['client'].post('/api/v1/surveys/simulate', headers=demo_ask_flow['headers'], json=case['event'])
+        assert response.status_code == 200, response.text
+        row = response.json()
+        token = urlsplit(row['invitation']['survey_url']).path.split('/')[-1]
+        assert demo_ask_flow['client'].post('/api/v1/resident-surveys/' + token + '/submit', json={'answers': case['final_answers']}).status_code == 200
+        if case['event']['event_type'] == event_type:
+            expected = row['public_id']
+    with demo_ask_flow['sessions']() as db:
+        result = verify_ask(db, event_type)
+        assert result['live_model_calls'] == 0
+        assert len(result['mocked_model_calls']) == 2
+        assert all(call['survey_ids'] == [expected] for call in result['mocked_model_calls'])
+        assert all(answer['survey_counts']['submission_count'] == 1 for answer in result['results'])
+        assert all(answer['survey_counts']['survey_type_counts'] == {event_type: 1} for answer in result['results'])
+        assert all(link['survey_id'] == expected for answer in result['results'] for link in answer['evidence_links'])
+        assert result['sharing_status'] == 'unavailable'

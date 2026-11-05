@@ -314,7 +314,7 @@ class TestAlembicSingleHead:
             f"expected exactly one alembic head, got {len(lines)}: {lines}"
         )
         # The head moves with every new migration; update this pin when you add
-        # one (currently f2e8463ab154 — add occurrence-bound maintenance surveys).
-        assert "f2e8463ab154" in lines[0], (
-            f"the single head must be the newest revision f2e8463ab154, got: {lines[0]}"
+        # one (currently a3c927b6d801 — expand survey lifecycle).
+        assert "a3c927b6d801" in lines[0], (
+            f"the single head must be the newest revision a3c927b6d801, got: {lines[0]}"
         )

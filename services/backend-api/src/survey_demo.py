@@ -71,7 +71,7 @@ def find_survey(db, event_id):
     return row
 
 
-def verify_ask(db):
+def verify_ask(db, event_type='maintenance_completed'):
     """Persist a visibly mocked Ask Genius demo via its actual authenticated API.
 
     The isolated demo's model configuration stays disabled. Mocks exist only
@@ -90,15 +90,19 @@ def verify_ask(db):
     from src.api.routes import ask_genius as ask_routes
     from src.api.routes import surveys as survey_routes
     from src.database.session import get_db
-    from src.models.survey import SurveyInstance
+    from src.models.survey import SurveyInstance, SurveyOccurrence
+    from src.services.survey_catalog import EVENT_LABELS
     from src.models.user import User
     from src.services import ask_genius as service
     from src.services.copilot.llm_resolver import LLMConfig
 
     community = demo_community(db)
-    if not db.query(SurveyInstance.id).filter_by(organization_id=community.id, status='submitted').filter(
-            SurveyInstance.submitted_at.isnot(None)).first():
-        raise ValueError('Submit the actual resident form before running offline Ask Genius verification.')
+    if event_type not in EVENT_LABELS:
+        raise ValueError('Choose a supported survey type for offline verification.')
+    if not db.query(SurveyInstance.id).join(SurveyOccurrence).filter(
+            SurveyInstance.organization_id == community.id, SurveyInstance.status == 'submitted',
+            SurveyOccurrence.event_type == event_type, SurveyInstance.submitted_at.isnot(None)).first():
+        raise ValueError('Submit the actual resident form for the selected survey type before running offline Ask Genius verification.')
     user = db.query(User).filter_by(email=DEMO_EMAIL, organization_id=community.id).one()
     headers = {'Authorization': 'Bearer ' + create_access_token({
         'user_id': user.id, 'organization_id': community.id, 'role': user.role})}
@@ -131,7 +135,7 @@ def verify_ask(db):
         output = {
             'answer': ('MOCKED MODEL OUTPUT: Here are the original submitted survey answers used for this offline demonstration.'
                        if expanded else
-                       'MOCKED MODEL OUTPUT: The supplied evidence contains original finalized maintenance questions and answers. '
+                       'MOCKED MODEL OUTPUT: The supplied evidence contains original finalized survey questions and answers. '
                        'This offline demonstration does not evaluate AI interpretation.'),
             'evidence': [{'kind': 'survey', 'survey_id': row['survey_id']} for row in records] if expanded else [],
         }
@@ -156,9 +160,10 @@ def verify_ask(db):
         mocks.enter_context(patch('openai.AsyncOpenAI', side_effect=forbidden_provider))
         with TestClient(app) as client:
             for question in (
-                'How many completed maintenance surveys?',
-                'Which submissions say the issue is still unresolved?',
-                'What did residents say about their maintenance experience?',
+                f'How many completed {EVENT_LABELS[event_type].lower()} surveys?',
+                ('Which submissions say the issue is still unresolved?' if event_type == 'maintenance_completed'
+                 else 'How many unique residents submitted a survey?'),
+                'What did residents say in these surveys?',
                 'Show the original answers behind that.',
             ):
                 body = {'question': question, 'request_id': str(uuid4())}
@@ -202,7 +207,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('init', help='Create a fictional community in an otherwise empty migrated database.')
-    commands.add_parser('verify-ask', help='Save a clearly mocked, offline Ask Genius verification chat using actual routes and survey records.')
+    from src.services.survey_catalog import EVENT_LABELS
+    verify = commands.add_parser('verify-ask', help='Save a clearly mocked, offline Ask Genius verification chat using actual routes and survey records.')
+    verify.add_argument('--event-type', choices=tuple(EVENT_LABELS), default='maintenance_completed')
     simulate = commands.add_parser('simulate', help='Ingest fictional maintenance event JSON through the real workflow.')
     simulate.add_argument('event', type=Path, help='JSON file, or - to read JSON from standard input.')
     for name in ('inspect', 'link'):
@@ -216,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == 'init':
             result = initialize_demo(db)
         elif args.command == 'verify-ask':
-            result = verify_ask(db)
+            result = verify_ask(db, args.event_type)
         elif args.command == 'simulate':
             from src.api.routes.surveys import MaintenanceCompletedEvent
             community = demo_community(db)

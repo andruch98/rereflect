@@ -77,7 +77,15 @@ def flow(monkeypatch, request):
         if model.get('exception'):
             capture('model', input=messages, output=None, failure=type(model['exception']).__name__)
             raise model['exception']
-        content = model.get('raw', json.dumps(model))
+        output = dict(model)
+        context = json.loads(messages[1]['content'].split('\n', 1)[1])
+        if context.get('survey_findings_required') and 'survey_findings' not in output:
+            output['survey_findings'] = [
+                {'survey_id': record['survey_id'], 'question_ids': [q['id'] for q in record['questions']
+                 if q.get('answer') is not None and q.get('answer') != ''],
+                 'finding': 'Synthetic coverage fixture; not a factual interpretation.'}
+                for record in context['surveys']]
+        content = model.get('raw', json.dumps(output))
         capture('model', input=messages, output=content, finish_reason=model.get('finish_reason', 'stop'),
                 live_requests=0, usage='Synthetic fixture token values; not real usage', cost='No live model request')
         return service.AnswerResult(content, {'simulated': True, 'content': content}, 100, 30, model.get('finish_reason','stop'))
