@@ -32,7 +32,9 @@ export function ResidentSurvey({ token }: { token: string }) {
 function ResidentSurveyForm({ token, initial }: { token: string; initial: SurveyInstance }) {
   const [survey, setSurvey] = useState(initial);
   const [answers, setAnswers] = useState<SurveyAnswers>(initial.draft_answers || {});
-  const [saving, setSaving] = useState<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
+  const [saving, setSaving] = useState<'idle' | 'saved' | 'unsaved' | 'saving' | 'error'>(
+    initial.status === 'draft' || Object.keys(initial.draft_answers || {}).length > 0 ? 'saved' : 'idle',
+  );
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const latestAnswers = useRef(answers);
@@ -116,7 +118,7 @@ function ResidentSurveyForm({ token, initial }: { token: string; initial: Survey
       </fieldset>)}
       <div className="space-y-4 border-t pt-6">
         {error && <p role="alert" className="text-sm text-destructive">{error} Your survey has not been confirmed as submitted.</p>}
-        <p role="status" className="text-sm text-muted-foreground">{submitting ? 'Submitting…' : saving === 'saving' ? 'Saving draft…' : saving === 'saved' ? 'Draft saved. You can return using this private link.' : saving === 'unsaved' ? 'Changes waiting to save…' : 'Draft save could not be confirmed.'}</p>
+        <p role="status" className="text-sm text-muted-foreground">{submitting ? 'Submitting…' : saving === 'saving' ? 'Saving draft…' : saving === 'saved' ? 'Draft saved. You can return using this private link.' : saving === 'unsaved' ? 'Changes waiting to save…' : saving === 'idle' ? 'You can return using this private link.' : 'Draft save could not be confirmed.'}</p>
         <div className="flex flex-wrap gap-3"><Button type="submit" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit survey'}</Button><Button type="button" variant="outline" disabled={submitting || saving === 'saving'} onClick={() => { clearTimeout(timer.current); void enqueueDraft(latestAnswers.current, revision.current); }}>Save draft</Button></div>
       </div>
     </form>

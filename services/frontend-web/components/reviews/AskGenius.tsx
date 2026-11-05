@@ -96,9 +96,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
   const canChooseQuestion = canInteract;
   const canSend = canInteract && (validPeriod(period) || asksToChangeDefault(input));
   const availableSources = status.data?.available_sources ?? [];
-  const surveySharingReason = messages.some(message => message.role === 'assistant' && message.structured_data && (message.structured_data.sharing_unavailable_reason || ['surveys', 'mixed'].includes(String(message.structured_data.source_scope))))
-    ? 'Public sharing is unavailable for chats that use resident survey answers.' : null;
-  const historyConversations = (history.data?.conversations ?? []).map(chat => chat.public_id === conversationId && surveySharingReason ? { ...chat, sharing_unavailable_reason: surveySharingReason } : chat);
+  const historyConversations = history.data?.conversations ?? [];
   useEffect(() => { if (messages.length || busy) answerEnd.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }); }, [messages.length, busy]);
 
   function selectConversation(id?: string) {

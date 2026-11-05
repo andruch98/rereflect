@@ -8,8 +8,19 @@ import { SURVEY_TYPES, surveysAPI, surveyAnswerLabel, surveyDate, surveyType, su
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
+function invitationStatus(invitation: SurveyInstance['invitation']) {
+  if (invitation?.status === 'suppressed_opt_out') return 'Invitation suppressed — opted out';
+  if (invitation?.is_simulated) return 'Simulated invitation — no email sent';
+  switch (invitation?.status) {
+    case 'email_test_accepted': return 'Test email sent';
+    case 'email_test_reserved': return 'Test email sending not confirmed';
+    case 'email_test_failed': return 'Test email send failed';
+    default: return 'Sending history unavailable';
+  }
+}
+
 function SurveyStatus({ survey }: { survey: SurveyInstance }) {
-  return <div className="space-y-1"><span className="capitalize">{survey.status === 'pending' ? 'Awaiting response' : survey.status}</span><p className="text-xs text-muted-foreground">{survey.invitation?.status === 'suppressed_opt_out' ? 'Invitation suppressed — opted out' : survey.invitation?.is_simulated ? 'Simulated invitation — no email sent' : 'No invitation recorded'}</p></div>;
+  return <div className="space-y-1"><span className="capitalize">{survey.status === 'pending' ? 'Awaiting response' : survey.status}</span><p className="text-xs text-muted-foreground">{invitationStatus(survey.invitation)}</p></div>;
 }
 
 export function SurveyDashboard() {
@@ -49,7 +60,7 @@ export function SurveyDetail({ id }: { id: string }) {
             ...(isMaintenance && survey.context.employee_name ? [['Employee / vendor', survey.context.employee_name]] : []),
           ].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words font-medium">{value || '—'}</dd></div>)}</dl></section>
           <section aria-label="Original questions and answers" className="space-y-6 rounded-xl border bg-card p-5 sm:p-6"><h2 className="text-xl font-semibold">Original questions and answers</h2>{survey.status !== 'submitted' && <p className="text-sm text-muted-foreground">This survey has not been submitted. Any saved draft below is incomplete resident feedback.</p>}{survey.questionnaire.questions.map(question => <div key={question.id} className="space-y-2 border-b pb-5 last:border-0 last:pb-0"><h3 className="font-medium leading-7">{question.rendered_text || question.text}{!question.required && <> <span className="ml-1 text-sm font-normal text-muted-foreground">(optional)</span></>}</h3><p className="whitespace-pre-wrap break-words leading-7">{surveyAnswerLabel(question, (survey.status === 'submitted' ? survey.answers : survey.draft_answers)[question.id], survey.questionnaire)}</p></div>)}<p className="text-xs text-muted-foreground">Template {survey.questionnaire.id}, version {survey.questionnaire.version}. Rating scale: {Object.entries(survey.questionnaire.rating_labels).map(([value, label]) => `${value} ${label}`).join(' · ')}</p></section>
-          {survey.invitation && <section aria-label="Simulated invitation" className="space-y-3 rounded-xl border bg-card p-5"><h2 className="text-xl font-semibold">{survey.invitation.is_simulated ? 'Simulated invitation' : 'Invitation'}</h2><p className="text-sm text-muted-foreground">{survey.invitation.status === 'suppressed_opt_out' ? 'The invitation was suppressed because this recipient opted out.' : 'No email was sent. This preview uses the actual private resident survey link.'}</p><dl className="space-y-3 text-sm"><div><dt className="text-muted-foreground">Recipient</dt><dd className="break-words">{survey.invitation.recipient}</dd></div><div><dt className="text-muted-foreground">Subject</dt><dd>{survey.invitation.subject}</dd></div></dl><pre className="whitespace-pre-wrap break-words rounded-lg bg-muted p-4 font-sans text-sm leading-6">{survey.invitation.text}</pre><a href={survey.invitation.survey_url} target="_blank" rel="noreferrer" className="inline-block text-sm text-primary underline underline-offset-4">Open resident survey</a></section>}
+          {survey.invitation && <section aria-label={survey.invitation.is_simulated ? 'Simulated invitation' : 'Invitation'} className="space-y-3 rounded-xl border bg-card p-5"><h2 className="text-xl font-semibold">{survey.invitation.is_simulated ? 'Simulated invitation' : 'Invitation'}</h2><p className="text-sm text-muted-foreground">{invitationStatus(survey.invitation)}</p><dl className="space-y-3 text-sm"><div><dt className="text-muted-foreground">Recipient</dt><dd className="break-words">{survey.invitation.recipient}</dd></div><div><dt className="text-muted-foreground">Subject</dt><dd>{survey.invitation.subject}</dd></div></dl><pre className="whitespace-pre-wrap break-words rounded-lg bg-muted p-4 font-sans text-sm leading-6">{survey.invitation.text}</pre><a href={survey.invitation.survey_url} target="_blank" rel="noreferrer" className="inline-block text-sm text-primary underline underline-offset-4">Open resident survey</a></section>}
         </>}
   </main>;
 }
