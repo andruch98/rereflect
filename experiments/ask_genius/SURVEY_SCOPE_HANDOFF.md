@@ -1,3 +1,13 @@
+# Current update — November 5, round 2
+
+Approved three corrections implemented in existing survey instructions. Preserve all five previous examples/recommendations verbatim; add examples 6–8 with captured Q8/Q10/Q13, assessments, suggested answers and lessons. Older nine and later four sources separated. Includes respondent clarification and withdrawal of prior reviewer rent interpretation. Shared review instructions and output contract unchanged.
+
+New random cohort: move-in, maintenance, 9-month planning, move-out. Round2 acceptance folder reuses read-only source selection and isolated route runner; 15 questions, new IDs, no retries. New live results and human approval pending. No merge/deployment, no changes to existing records. Package uses updated application source but does not install dashboard. Old four-survey runner and test capture retained.
+
+Earlier 14-question run: 13 actual model calls, 135660 input + 3585 output tokens; cost unavailable. These are historical results, not measurements of this update. Main failures: omitted late visit; renewal context interpretation; undecided incorrectly included among negative responses. UUID display remains separately deferred. Next: Andres submits four new surveys and returns round2 results ZIP. Review source accuracy before approval.
+
+--- Prior handoff ---
+
 # Survey corrections — combined PR #12
 
 November 5, 2026 (America/New_York). Branch `fix/ask-genius-survey-selection`,

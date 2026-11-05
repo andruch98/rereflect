@@ -22,7 +22,7 @@ def test_complete_bank_reaches_each_model_request_separate_from_evidence(survey_
     messages = f['calls'][-1]
     assert messages[0]['role'] == 'system'
     assert messages[0]['content'].count(bank) == 1
-    assert bank.count('## Example ') == 5
+    assert bank.count('## Example ') == 8
     assert '**Complete source-question appendix:**' in bank
     evidence = context(f)
     assert evidence['source_scope'] == scope

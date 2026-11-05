@@ -2,9 +2,9 @@
 
 ## Introduction
 
-This file contains five worked examples for answering managers’ questions about resident surveys. **These examples apply to surveys only. They do not apply to public reviews or saved review analyses.** For a question about both sources, apply this guidance only to the survey portion and keep survey and review findings distinct. For a reviews-only question, use the review instructions and review evidence.
+This file contains eight worked examples for answering managers’ questions about resident surveys. **These examples apply to surveys only. They do not apply to public reviews or saved review analyses.** For a question about both sources, apply this guidance only to the survey portion and keep survey and review findings distinct. For a reviews-only question, use the review instructions and review evidence.
 
-All five examples are provided together. Read each manager’s question with its conversation context and supporting data, then compare that evidence with the original response and its assessment:
+All eight examples are provided together. Read each manager’s question with its conversation context and supporting data, then compare that evidence with the original response and its assessment:
 
 - **Good:** The original response demonstrates the desired behavior. “Suggested response: None” means no correction is needed; it does not mean the manager should receive no answer.
 - **Incorrect or incomplete:** The original response demonstrates a mistake or omission. Do not imitate that response. Use “Why this assessment” to understand the problem and “Suggested response” to see the preferred answer.
@@ -13,6 +13,8 @@ All five examples are provided together. Read each manager’s question with its
 The examples and appendix contain fictional test submissions, including their counts, property name, ratings and comments. They are demonstrations, not evidence for the current request. Base the current answer and any source references only on the authorized records supplied with that request. Do not fill gaps in current evidence with facts from these examples.
 
 These examples illustrate answer content. Continue to follow the current instructions for response format and source references. Return the answer to the manager’s question; do not reproduce this file’s assessment fields.
+
+Examples 1–5 preserve the earlier nine-submission test (Batch A). Examples 6–8 add findings from the later four-submission test (Batch B). Each example uses only its named batch, even where the manager asks the same question. Do not combine the two batches or transfer a rating, comment or conclusion between them. The appendix keeps the original source questions and answers for both batches. Later human clarification is identified explicitly in the relevant example; it is not presented as part of the original model request.
 
 ## Example 1 — Survey counts by type
 
@@ -166,9 +168,120 @@ These examples illustrate answer content. Continue to follow the current instruc
 
 **Lesson:** State what the evidence supports and what it cannot establish; do not turn a selected factor into an invented complaint or cause.
 
+## Example 6 — A resolved repair can still contain a complaint
+
+**Manager’s question:** Which are the bad surveys? Summarize them in a list.
+
+**Conversation context:** Batch B only: four completed submissions, comprising two maintenance, one move-in and one 9-month renewal planning response. The manager has discussed individual survey types and now asks about all four. This is the captured conversation answer to question 8 of the later test.
+
+**Supporting data:** Maintenance 1: overall 2 — Bad, issue unresolved, response time 5 — Excellent, comment “faucet still not working properly”. Maintenance 2: overall 4 — Good, issue fully resolved, response time 2 — Bad, comment “working now, but he came in very late, 45min after time”. Move-in: overall 4 — Good, apartment condition 3 — Okay, unresolved Yes, comment “I need 2nd fob”. The 9-month response: overall 3 — Okay, renewal Undecided, main decision factor Apartment condition, comment “good finishes and good price for quality of apartment”.
+
+**Original response — incomplete:**
+
+> Using low ratings or unresolved issues as criteria, two surveys need attention:
+>
+> - **Maintenance survey:** Rated 2 — Bad overall, issue unresolved. The resident said the faucet is still not working properly.
+> - **Move-in survey:** The resident indicates unresolved move-in issues by answering "Yes" and requests a second fob, despite giving 4 — Good overall and 3 — Okay apartment condition ratings.
+>
+> The 9-month renewal planning survey rates overall living as 3 — Okay with an undecided renewal intent but does not report unresolved issues or low ratings.
+
+**Why this assessment:**
+
+- Correctly identifies the unresolved faucet and missing second fob, and keeps the undecided renewal separate.
+- Misses the second maintenance response’s 2 — Bad response-time rating and explicit late-arrival complaint. The response therefore understates the matching count as two instead of three.
+- The resolved repair and 4 — Good overall score are genuine positives, but concern different aspects from punctuality. Keep all three facts together rather than treating the whole submission as either good or bad.
+- This differs from the fully resolved maintenance response in Batch A: that earlier response also rated response time 4 — Good and contained no comment. Excluding that earlier response does not justify excluding the later one with a specific complaint.
+
+**Suggested response:**
+
+> Using low individual ratings or explicit unresolved concerns as the criteria, three responses need attention:
+>
+> - **Maintenance — unresolved repair:** Overall service 2 — Bad; the resident says the faucet is still not working properly. Response time was 5 — Excellent.
+> - **Maintenance — late arrival:** Response time 2 — Bad; the resident reports a 45-minute late arrival. The repair is fully resolved and overall service was 4 — Good.
+> - **Move-in:** The resident reports an unresolved issue and writes “I need 2nd fob”, despite an overall rating of 4 — Good.
+>
+> The undecided renewal response describes decision criteria; it is not an additional negative or unresolved response on that basis alone.
+
+**Lesson:** Judge each relevant answer, not just the overall score or repair status. An improvement summary should also retain the punctuality complaint without inventing a cause for the delay.
+
+## Example 7 — Read renewal comments as answers to their actual question
+
+**Manager’s question:** Do you think we charge good rent?
+
+**Conversation context:** Batch B only: the same four submitted surveys. The original question was answered before a later clarification from Andres, who entered the fictional survey response. He clarified that the renewal comment describes what would guide the eventual decision, not praise for the apartment’s current finishes or rent value. That clarification informs this assessment and suggested response; it was not present in the original model request. An earlier human review that treated the comment as direct praise of current rent was withdrawn.
+
+**Supporting data:** The 9-month response rates living 3 — Okay. “At this point, how likely are you to renew your lease?” → Undecided. “Which factor will matter most in your decision?” → Apartment condition. “What would you like us to understand about your renewal decision?” → “good finishes and good price for quality of apartment”. No other response in Batch B evaluates current rent value, and no market-pricing evidence is supplied.
+
+**Original response — incomplete:**
+
+> We cannot determine from these survey responses whether the rent is considered good value.
+>
+> - The 9-month renewal planning survey rates living overall as 3 — Okay and the resident is undecided about renewing.
+> - Apartment condition is identified as the main factor influencing the renewal decision, described positively as "good finishes and good price for quality of apartment."
+> - There are no direct ratings or comments specifically about rent affordability or value.
+>
+> No survey response directly assesses rent value.
+
+**Why this assessment:**
+
+- Correctly declines to conclude that current rent is good value.
+- “Described positively” does not explain the comment’s role as future decision criteria and can be read as present satisfaction. The original question and preceding answers matter when interpreting that phrase.
+- The statement that there are no comments about rent value is too broad: the resident mentions price relative to apartment quality as a criterion. What is missing is an assessment of whether the current rent meets that criterion.
+- Preserve the resident’s undecided position. Do not claim that the apartment already has good finishes or good value, that current rent is poor value, or that price caused the uncertainty.
+- This is not a blanket rule that undecided residents cannot praise current rent. A different response explicitly praising current rent would support that praise. If context does not settle an ambiguous comment, describe what it could mean without treating the interpretation as established fact.
+
+**Suggested response:**
+
+> We can’t tell from these surveys whether our current rent represents good value. The undecided resident says apartment condition matters most, with good finishes and a price that matches the apartment’s quality guiding their renewal decision. This explains what they’re looking for, but doesn’t establish how they judge the current rent.
+
+**Lesson:** Read the comment with the original question and preceding answers. Distinguish desired conditions for a future decision from a judgment of current conditions, and acknowledge uncertainty when the evidence does not settle the meaning.
+
+## Example 8 — Keep undecided renewal separate from negative feedback
+
+**Manager’s question:** Which are the bad surveys? Summarize them in a list.
+
+**Conversation context:** Batch B only. This is the captured fresh-chat answer to question 13, with the four original submissions supplied and no previous assistant answers. It demonstrates an inclusion error distinct from the omission in Example 6.
+
+**Supporting data:** The same four submissions detailed in Example 6 and the Batch B appendix. Three contain a low individual rating or an explicit unresolved concern: the unresolved faucet, the late maintenance visit, and the missing second fob. The 9-month response has 3 — Okay, Undecided and Apartment condition as a decision factor, plus the future criteria clarified in Example 7. That response does not establish an explicit complaint or an unresolved problem.
+
+**Original response — incorrect:**
+
+> Four surveys show negative or unresolved issues needing attention:
+>
+> - **9-month renewal planning:** Overall community rating 3 — Okay; the resident is undecided about renewal and selects “Apartment condition” as the main factor. Comment: “good finishes and good price for quality of apartment”. This is borderline but noted because of the Okay rating and undecided intent.
+> - **Maintenance (survey ID 29c86929-7e8d-4592-a8b2-0caf1b13ce19):** Overall rating 2 — Bad; issue unresolved. Resident comment: “faucet still not working properly”.
+> - **Maintenance (survey ID b7c38d49-5aa9-4e37-a5c9-0b9142413f95):** Overall rating 4 — Good but response time rated 2 — Bad with comment: “working now, but he came in very late, 45min after time”. Response time complaint.
+> - **Move-in:** Overall rating 4 — Good, apartment condition 3 — Okay, but the resident indicates unresolved issues (“Yes”) and comments “I need 2nd fob”.
+>
+> The unresolved maintenance issue and late response stand out as concerns.
+
+**Why this assessment:**
+
+- Correctly recognizes both maintenance concerns and the unresolved move-in request, including the complaint within the fully resolved repair.
+- Incorrectly counts the undecided renewal as a fourth negative or unresolved response. “Borderline” does not supply evidence for that classification.
+- An Okay rating and uncertainty about a future decision are different from a Bad rating, an explicit complaint or a reported unresolved issue. Selecting Apartment condition identifies what matters; it does not alone say the current apartment condition is bad.
+- Renewal uncertainty may warrant a separately labeled follow-up opportunity in a broader overview. It should not inflate a count introduced as negative or unresolved responses.
+
+**Suggested response:**
+
+> Using low individual ratings or explicit unresolved concerns as the criteria, three responses need attention:
+>
+> - **Maintenance — unresolved repair:** Overall service 2 — Bad; the resident says the faucet is still not working properly. Response time was 5 — Excellent.
+> - **Maintenance — late arrival:** Response time 2 — Bad; the resident reports a 45-minute late arrival. The repair is fully resolved and overall service was 4 — Good.
+> - **Move-in:** The resident reports an unresolved issue and writes “I need 2nd fob”, despite an overall rating of 4 — Good.
+>
+> The undecided renewal response describes decision criteria; it is not an additional negative or unresolved response on that basis alone.
+
+**Lesson:** Apply the stated inclusion criterion consistently. Preserve neutral or uncertain feedback as such, while recognizing a renewal complaint if the actual answers contain one.
+
 ---
 
 **Complete source-question appendix:**
+
+### Batch A — Earlier nine-submission test
+
+The following unchanged source appendix supports Examples 1–5.
+
 
 Nine completed fictional submissions. Blank comments are shown as “No comment submitted”. For all three maintenance submissions, the request description is “a fictional leaking kitchen faucet”.
 
@@ -253,3 +366,44 @@ Nine completed fictional submissions. Blank comments are shown as “No comment 
 | How would you rate our maintenance team’s response time to your request? | Not sure |
 | What would you like us to know about this maintenance experience? | it is still leaaking a lot and i nearly fell with the watr |
 
+
+
+### Batch B — Later four-submission test
+
+Four completed fictional submissions from November 5, 2026, with 16 original answers. These are the sources for Examples 6–8. The two maintenance requests both concern “a fictional leaking kitchen faucet”. Human clarification in Example 7 does not alter these raw answers.
+
+#### Maintenance — unresolved repair
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate the maintenance service for a fictional leaking kitchen faucet? | 2 — Bad |
+| Is the issue fully resolved? | No, still unresolved |
+| How would you rate our maintenance team’s response time to your request? | 5 — Excellent |
+| What would you like us to know about this maintenance experience? | faucet still not working properly |
+
+#### Maintenance — resolved repair, late arrival
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate the maintenance service for a fictional leaking kitchen faucet? | 4 — Good |
+| Is the issue fully resolved? | Yes, fully resolved |
+| How would you rate our maintenance team’s response time to your request? | 2 — Bad |
+| What would you like us to know about this maintenance experience? | working now, but he came in very late, 45min after time |
+
+#### Move-in
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate your move-in experience at Lake House Apartments? | 4 — Good |
+| How would you rate the condition of your apartment when you received your keys? | 3 — Okay |
+| Is anything from your move-in still unresolved? | Yes |
+| What would you like us to know about your move-in experience? | I need 2nd fob |
+
+#### 9-month renewal planning
+
+| Original question | Submitted answer |
+| --- | --- |
+| Overall, how would you rate living at Lake House Apartments? | 3 — Okay |
+| At this point, how likely are you to renew your lease? | Undecided |
+| Which factor will matter most in your decision? | Apartment condition |
+| What would you like us to understand about your renewal decision? | good finishes and good price for quality of apartment |
