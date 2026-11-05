@@ -5,6 +5,33 @@ stacked on `feat/lifecycle-email-preview` (#11). Implemented in this PR;
 not merged, deployed, or installed on the user's Mac. Human answer-quality
 acceptance remains pending. Property naming remains separately queued.
 
+## Next action: four new submissions, terminal acceptance test
+
+The user submitted `nov5-maintenance-1`, `nov5-maintenance-2`,
+`nov5-pre-renewal` (9-month) and `nov5-move-in` on November 5. Prepared
+`experiments/ask_genius/four_survey_acceptance/` for 14 sequential questions:
+12 in one new chat, plus independent negative-feedback and overall summaries.
+It runs the unchanged application source at `ddc0b2cb2dbeca7f7fc245881cd7ae87ef50987c`
+with the user's configured model. Only the four named finalized fictional
+records are read, in a read-only transaction; all route writes use an ephemeral
+SQLite copy. No preview installation, source-record changes, emails or shares.
+Capture full original evidence, actual messages/raw responses, tokens,
+validation errors and human-assessment placeholders. Stop at the first failure;
+no retry. At most 14 model calls (13 in the simulated full run; count is local).
+
+Fresh verification: 11 diagnostic tests passed, including packaged source with
+a local fake HTTP provider, original database unchanged, old-record exclusion,
+follow-up history/fresh chats and first-error stopping. Full backend Ask Genius
+offline suite: 279 passed. No live model calls; simulated usage is not actual
+cost. Initial fixture/assertion failures and a local test-runtime SOCKS dependency
+failure are retained/disclosed in the downloadable package's verification record.
+Docker/Mac execution and human factual accuracy remain unverified here.
+
+Next: Andres runs the package once and returns its results ZIP. Assess against
+these four originals, including historical-example leakage and history effects;
+do not call this a paired old/new comparison. Normal browser Share/source-popup
+checks and review/mixed regression checks remain separate acceptance work.
+
 ## Current additions
 
 ### Approved survey examples
