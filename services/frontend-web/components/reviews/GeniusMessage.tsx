@@ -159,7 +159,7 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
   const [copiedContent, setCopiedContent] = useState<string>();
   const [copyError, setCopyError] = useState(false);
   const sources = useMemo(() => readSources(message.structured_data), [message.structured_data]);
-  const surveySources = useMemo(() => publicSnapshot ? [] : readSurveySources(message.structured_data), [message.structured_data, publicSnapshot]);
+  const surveySources = useMemo(() => readSurveySources(message.structured_data), [message.structured_data]);
   const assistant = message.role === 'assistant';
   const topicGroups = new Map<string, Source[]>();
   const ungrouped: Source[] = [];
@@ -193,7 +193,7 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
       li: ({ children }: { children?: ReactNode }) => {
         const text = textOf(children).trim();
         const topic = topicAtStart(text, [...groups.keys(), ...surveyGroups.keys()]);
-        return <li>{children}{topic && groups.has(topic) && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}{topic && surveyGroups.has(topic) && <SurveyCollection sources={surveyGroups.get(topic)!} topic={topic} />}</li>;
+        return <li>{children}{topic && groups.has(topic) && <ReviewCollection sources={groups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}{topic && surveyGroups.has(topic) && <SurveyCollection sources={surveyGroups.get(topic)!} topic={topic} publicSnapshot={publicSnapshot} />}</li>;
       } };
   }, [sources, surveySources, publicSnapshot]);
   const copied = copiedContent === content;
@@ -221,8 +221,8 @@ export function GeniusMessage({ message, publicSnapshot = false }: { message: Ch
     </div>
     {[...topicGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><ReviewCollection sources={records} topic={topic} publicSnapshot={publicSnapshot} /></section>)}
     {!!ungrouped.length && <ReviewCollection sources={ungrouped} publicSnapshot={publicSnapshot} />}
-    {[...surveyGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><SurveyCollection sources={records} topic={topic} /></section>)}
-    {!!ungroupedSurveys.length && <SurveyCollection sources={ungroupedSurveys} />}
+    {[...surveyGroups].filter(([topic]) => !matchedTopics.has(topic)).map(([topic, records]) => <section key={topic}><p className="font-semibold">{topic}</p><SurveyCollection sources={records} topic={topic} publicSnapshot={publicSnapshot} /></section>)}
+    {!!ungroupedSurveys.length && <SurveyCollection sources={ungroupedSurveys} publicSnapshot={publicSnapshot} />}
     <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="ghost" size="sm" className="h-8 gap-2 px-2 text-muted-foreground" onClick={() => { void copyAnswer(); }}>{copied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Copy aria-hidden="true" className="h-4 w-4" />}{copied ? 'Copied' : 'Copy'}</Button>
       {copyError && <p role="status" className="text-xs text-muted-foreground">Could not copy. Select the answer text to copy it.</p>}

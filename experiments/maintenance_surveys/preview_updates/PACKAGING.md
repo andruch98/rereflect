@@ -1,5 +1,16 @@
 # Maintenance survey preview update
 
+Current lifecycle test release: the ZIP/root folder is
+`boomsay-lifecycle-email-update`; the source backup is
+`backup-before-lifecycle-email-test-update`. Existing email-update backups are
+retained. The allowlist also accepts master `1a57a4bff15d6513b150e3e6b1dc3e847c8a47b6`
+and PR9 `0a654c521ba3830175e76a31bf2433db4c9c2ad8`. Lifecycle migration/runtime
+markers and committed lifecycle instructions/fixtures are required. The bundled
+`test-survey.sh` calls the unchanged guarded single-email helper once per type.
+Application behavior, property labels, private credentials and the separate53104
+installation are unchanged. The historical packaging protocol follows below;
+use the current bundle/backup names in commands.
+
 The dedicated updater selectively follows the existing Ask Genius source update
 protocol. It uses `backup-before-survey-email-test-update`, retains existing
 supported base commits plus the published survey base ccb53d4122a76ffd6045d2bf188d20dfdb712d2d and verified master `59dfd9122b20d0098eceedf8e1d1296e86b6f0a3`,

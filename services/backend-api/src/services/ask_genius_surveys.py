@@ -3,22 +3,22 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from copy import deepcopy
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from src.services.ask_genius_periods import TIMEZONE, resolve_period
 from src.services.survey_catalog import EVENT_LABELS, event_type_for
 
-SHARING_REASON = 'Sharing is unavailable for chats using private survey answers until survey sharing is approved.'
 MAX_SURVEYS = 100
 TYPE_PATTERNS = {
-    'move_in_completed': r'move[ -]?in',
-    'maintenance_completed': r'maintenance|work[ -]?order',
+    'move_in_completed': r'move[ -]?in(?: completed)?',
+    'maintenance_completed': r'(?:maintenance|work[ -]?order)(?: completed)?',
     'lease_month_3': r'(?:3|three)[ -]?month',
     'lease_month_6': r'(?:6|six)[ -]?month',
     'lease_month_9': r'(?:9|nine)[ -]?month(?: renewal (?:planning|intent))?|pre[ -]?renewal|renewal intent',
     'lease_renewed': r'(?:lease |completed |signed )?renewal|renewed lease',
-    'move_out_completed': r'move[ -]?out',
+    'move_out_completed': r'move[ -]?out(?: completed)?',
 }
 
 
@@ -31,10 +31,12 @@ def _type_selections(text):
         exclusion = re.search(r'\b(?:not|exclude|excluding|without|except)\s*$', before)
         direct = re.match(r'\s+(?:survey|questionnaire|submission|response)s?\b', after)
         after_type = re.search(r'(?:surveys?|questionnaires?|submissions?|responses?) (?:for|from|after)\s*$', before)
-        short = re.fullmatch(r'(?:what about |(?:use|show|only) )?' + group + r'[?.! ]*', text)
+        short = re.fullmatch(r'(?:what about (?:the )?|(?:use|show|only) (?:the )?)?' + group + r'[?.! ]*', text)
+        description = (re.fullmatch(r'(?:please )?what (?:does|do|did) (?:the )?', before)
+                       and re.match(r'\s+(?:say|report|show)\b', after))
         # "surveys excluding maintenance" has no repeated noun after the type.
         excluded_tail = exclusion and re.search(r'\b(?:surveys?|submissions?|questionnaires?)\b', before)
-        if not (direct or after_type or short or excluded_tail):
+        if not (direct or after_type or short or description or excluded_tail):
             continue
         kinds, occupied = set(), []
         for kind, item in TYPE_PATTERNS.items():
@@ -54,12 +56,20 @@ def survey_types(question: str, previous=None):
             raise ValueError('Choose one survey type, or use “and” to include both survey types.')
         (excluded if exclusion else included).update(kinds)
     all_types = re.search(r'\b(?:all|every) (?:survey types?|types? of surveys?|surveys?)\b', text)
+    # An unqualified evaluation of plural surveys starts a broad comparison;
+    # "what does the bad say?" remains a follow-up to the selected type.
+    evaluation = r'(?:bad|good|negative|positive|(?:low|poorly|high)[ -]rated)'
+    units = r'(?:surveys|submissions|responses|questionnaires)'
+    broad_evaluation = re.search(
+        r'\b(?:(?:which (?:are|were)|show(?: me)?|list|summarize|display) (?:the )?'
+        + evaluation + ' ' + units + '|' + 'which (?:of (?:the )?)?' + units
+        + r' (?:are|were) ' + evaluation + r')\b', text)
     if excluded:
         selected = (set(EVENT_LABELS) if all_types or not included else included) - excluded
         if not selected:
             raise ValueError('No survey types remain after those exclusions. Choose at least one survey type.')
         return sorted(selected)
-    return sorted(included) if included else ([] if all_types else list(previous or []))
+    return sorted(included) if included else ([] if all_types or broad_evaluation else list(previous or []))
 
 
 def _context(record):
@@ -67,6 +77,14 @@ def _context(record):
 
 
 def calculated(records):
+    rating_counts = {}
+    for record in records:
+        for question in record['questions']:
+            if question.get('type') != 'rating' or question.get('answer') is None:
+                continue
+            counts = rating_counts.setdefault(record.get('event_type', 'maintenance_completed'), {}).setdefault(question['id'], {})
+            label = question['answer_label']
+            counts[label] = counts.get(label, 0) + 1
     maintenance = [r for r in records if r.get('event_type', 'maintenance_completed') == 'maintenance_completed']
     resolutions = {r['survey_id']: next((q['answer'] for q in r['questions'] if q['id'] == 'issue_resolution'), None)
                    for r in maintenance}
@@ -75,10 +93,33 @@ def calculated(records):
         'submission_count': len(records),
         'distinct_resident_count': len({_context(r)['resident_id'] for r in records}),
         'survey_type_counts': dict(Counter(r.get('event_type', 'maintenance_completed') for r in records)),
+        'rating_counts_by_type': rating_counts,
         'issue_resolution_counts': dict(Counter(values)),
         'issue_resolution_submission_ids': {value: [key for key, answer in resolutions.items() if answer == value]
                                            for value in dict.fromkeys(values)},
     }
+
+
+def needs_findings(question: str, evidence: dict) -> bool:
+    """Require a source-linked coverage pass for broad survey assessments only.
+
+    This selects a response format, never records or sentiment. Existing scope
+    resolution still determines the entire supplied cohort.
+    """
+    if evidence.get('source_scope') not in {'surveys', 'mixed'} or not evidence.get('surveys'):
+        return False
+    text = re.sub(r'\s+', ' ', question.casefold())
+    patterns = (
+        r'\b(?:bad|negative|poor|low[ -]rated|concerning) surveys?\b',
+        r'\b(?:surveys?|submissions?|responses?)\b.{0,35}\b(?:bad|negative|need(?:s)? attention)\b',
+        r'\b(?:improvements?|complaints?|concerns?|problems?)\b.{0,60}\b(?:all|every) surveys?\b',
+        r'\b(?:all|every) surveys?\b.{0,60}\b(?:improvements?|complaints?|concerns?|problems?)\b',
+        r'\b(?:main|biggest|top|key) (?:improvements?|complaints?|concerns?|problems?)\b',
+        r'\b(?:are we|how are we) doing\b',
+        r'\b(?:overall|general) (?:assessment|summary|performance|feedback)\b',
+        r'\b(?:summarize|summary of|overview of|what do|what did|compare)\b.{0,50}\b(?:all|every) (?:surveys?|survey responses?|feedback)\b',
+    )
+    return any(re.search(pattern, text) for pattern in patterns)
 
 
 def source_scope(question: str, previous: str | None = None) -> str | None:
@@ -159,6 +200,31 @@ def original_record(row) -> dict:
             'saved_analysis': {'status': 'not_generated'}}
 
 
+def model_record(record: dict) -> dict:
+    """Present each bound question and context once, without changing originals.
+
+    Source cards and validation retain the full record. Keep answer codes and
+    display labels, all choices, and rating scales; never summarize resident text.
+    """
+    result = deepcopy(record)
+    if result.get('maintenance_context') == result.get('context'):
+        result.pop('maintenance_context', None)
+    for question in result['questions']:
+        # text already contains the exact bound wording shown to the resident.
+        for key in ('rendered_text', 'original_text', 'required', 'max_length'):
+            question.pop(key, None)
+        if question.get('rating_labels') is None:
+            question.pop('rating_labels', None)
+        if question.get('type') == 'text' and question.get('answer_label') == question.get('answer'):
+            question.pop('answer_label', None)
+    scales = [q['rating_labels'] for q in result['questions'] if 'rating_labels' in q]
+    if scales and all(scale == scales[0] for scale in scales):
+        result['rating_labels'] = scales[0]
+        for question in result['questions']:
+            question.pop('rating_labels', None)
+    return result
+
+
 def build_evidence(org_id, db, period, event_types=None) -> dict:
     from src.models.survey import SurveyInstance, SurveyOccurrence
 
@@ -187,10 +253,13 @@ def source(record: dict, excerpt: str | None = None, topic: str | None = None,
            question_id: str | None = None) -> dict:
     if question_id is not None and not any(q['id'] == question_id for q in record['questions']):
         raise ValueError('Unknown survey question')
-    if excerpt is not None and not any(isinstance(q.get('answer'), str) and excerpt in q['answer'] for q in record['questions']):
+    def matches(q):
+        return any(isinstance(q.get(key), str) and excerpt in q[key]
+                   for key in ('answer', 'answer_label'))
+    if excerpt is not None and not any(matches(q) for q in record['questions']):
         raise ValueError('Survey excerpt does not match an original submitted answer')
     if question_id is not None and excerpt is not None and not any(
-            q['id'] == question_id and isinstance(q.get('answer'), str) and excerpt in q['answer']
+            q['id'] == question_id and matches(q)
             for q in record['questions']):
         raise ValueError('Survey excerpt does not match the selected question')
     return {'source': 'survey', 'survey_id': record['survey_id'], 'kind': 'survey',

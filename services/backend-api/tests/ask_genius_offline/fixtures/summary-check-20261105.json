@@ -1,0 +1,874 @@
+{
+  "provenance": {
+    "archive": "Ask-Genius-Results-20261105T211225527103Z.zip",
+    "sha256": "61cc8d969f9e8da138685feafb85ce890d266daf239224ed4480a18042f63a43",
+    "note": "Original model answer strings and authorized evidence extracted from the saved real run. No new provider calls. Historical full requests remain in the original archive."
+  },
+  "evidence": {
+    "period": {
+      "preset": "custom",
+      "label": "2026-11-05 to 2026-11-05",
+      "timezone": "America/New_York",
+      "start_date": "2026-11-05",
+      "end_date": "2026-11-05"
+    },
+    "reviews": [],
+    "calculated": {},
+    "source_scope": "surveys",
+    "surveys": [
+      {
+        "survey_id": "c3e90eec-5500-4d4e-bc02-afd9574bb067",
+        "submitted_at": "2026-11-05T20:15:52.544513+00:00",
+        "template_id": "move_out_v1",
+        "template_version": 1,
+        "event_type": "move_out_completed",
+        "survey_type_label": "Move-out",
+        "title": "Tell us about your time at Lake House Apartments",
+        "context": {
+          "event_id": "boomsay-email-test-round2-move-out",
+          "occurrence_id": "boomsay-email-test-round2-move-out",
+          "event_type": "move_out_completed",
+          "ticket_id": null,
+          "request_description": null,
+          "resident_id": "boomsay-email-test-round2-move-out",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-move-out",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:14:31.192532+00:00",
+          "survey_type_label": "Move-out"
+        },
+        "maintenance_context": {
+          "event_id": "boomsay-email-test-round2-move-out",
+          "occurrence_id": "boomsay-email-test-round2-move-out",
+          "event_type": "move_out_completed",
+          "ticket_id": null,
+          "request_description": null,
+          "resident_id": "boomsay-email-test-round2-move-out",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-move-out",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:14:31.192532+00:00",
+          "survey_type_label": "Move-out"
+        },
+        "questions": [
+          {
+            "id": "move_out_overall",
+            "type": "rating",
+            "required": true,
+            "text": "Overall, how would you rate your experience living at Lake House Apartments?",
+            "rendered_text": "Overall, how would you rate your experience living at Lake House Apartments?",
+            "original_text": "Overall, how would you rate your experience living at {community_name}?",
+            "rating_labels": {
+              "1": "Terrible",
+              "2": "Bad",
+              "3": "Okay",
+              "4": "Good",
+              "5": "Excellent"
+            },
+            "answer": 4,
+            "answer_label": "4 — Good"
+          },
+          {
+            "id": "move_out_reason",
+            "type": "single_choice",
+            "required": true,
+            "text": "What was the primary reason you moved out?",
+            "options": [
+              {
+                "value": "rent_fees",
+                "label": "Rent and fees"
+              },
+              {
+                "value": "condition",
+                "label": "Apartment condition"
+              },
+              {
+                "value": "management",
+                "label": "Service from management"
+              },
+              {
+                "value": "community_conditions",
+                "label": "Community conditions, such as noise or parking"
+              },
+              {
+                "value": "relocation",
+                "label": "Moving to another area"
+              },
+              {
+                "value": "buying_home",
+                "label": "Buying a home"
+              },
+              {
+                "value": "household_change",
+                "label": "Change in household needs"
+              },
+              {
+                "value": "not_renewed",
+                "label": "My lease was not renewed"
+              },
+              {
+                "value": "other",
+                "label": "Something else"
+              },
+              {
+                "value": "prefer_not",
+                "label": "Prefer not to answer"
+              }
+            ],
+            "rendered_text": "What was the primary reason you moved out?",
+            "original_text": "What was the primary reason you moved out?",
+            "rating_labels": null,
+            "answer": "community_conditions",
+            "answer_label": "Community conditions, such as noise or parking"
+          },
+          {
+            "id": "move_out_instructions",
+            "type": "rating",
+            "required": true,
+            "text": "How would you rate the move-out instructions provided by our team?",
+            "special_options": [
+              {
+                "value": "not_received",
+                "label": "I did not receive instructions"
+              }
+            ],
+            "rendered_text": "How would you rate the move-out instructions provided by our team?",
+            "original_text": "How would you rate the move-out instructions provided by our team?",
+            "rating_labels": {
+              "1": "Terrible",
+              "2": "Bad",
+              "3": "Okay",
+              "4": "Good",
+              "5": "Excellent"
+            },
+            "answer": 4,
+            "answer_label": "4 — Good"
+          },
+          {
+            "id": "move_out_comment",
+            "type": "text",
+            "required": false,
+            "max_length": 2000,
+            "text": "What would you like us to know about your time here?",
+            "rendered_text": "What would you like us to know about your time here?",
+            "original_text": "What would you like us to know about your time here?",
+            "rating_labels": null,
+            "answer": "",
+            "answer_label": ""
+          }
+        ],
+        "saved_analysis": {
+          "status": "not_generated"
+        }
+      },
+      {
+        "survey_id": "cdda586c-c1a8-4839-a90d-31e51d27a101",
+        "submitted_at": "2026-11-05T20:14:20.498205+00:00",
+        "template_id": "lease_month_9_v1",
+        "template_version": 1,
+        "event_type": "lease_month_9",
+        "survey_type_label": "9-month renewal planning",
+        "title": "Tell us about your plans for your next lease",
+        "context": {
+          "event_id": "boomsay-email-test-round2-pre-renewal",
+          "occurrence_id": "boomsay-email-test-round2-pre-renewal",
+          "event_type": "lease_month_9",
+          "ticket_id": null,
+          "request_description": null,
+          "resident_id": "boomsay-email-test-round2-pre-renewal",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-pre-renewal",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:13:47.571369+00:00",
+          "survey_type_label": "9-month renewal planning"
+        },
+        "maintenance_context": {
+          "event_id": "boomsay-email-test-round2-pre-renewal",
+          "occurrence_id": "boomsay-email-test-round2-pre-renewal",
+          "event_type": "lease_month_9",
+          "ticket_id": null,
+          "request_description": null,
+          "resident_id": "boomsay-email-test-round2-pre-renewal",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-pre-renewal",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:13:47.571369+00:00",
+          "survey_type_label": "9-month renewal planning"
+        },
+        "questions": [
+          {
+            "id": "community_overall",
+            "type": "rating",
+            "required": true,
+            "text": "Overall, how would you rate living at Lake House Apartments?",
+            "rendered_text": "Overall, how would you rate living at Lake House Apartments?",
+            "original_text": "Overall, how would you rate living at {community_name}?",
+            "rating_labels": {
+              "1": "Terrible",
+              "2": "Bad",
+              "3": "Okay",
+              "4": "Good",
+              "5": "Excellent"
+            },
+            "answer": 4,
+            "answer_label": "4 — Good"
+          },
+          {
+            "id": "renewal_intent",
+            "type": "single_choice",
+            "required": true,
+            "text": "At this point, how likely are you to renew your lease?",
+            "options": [
+              {
+                "value": "definitely_renew",
+                "label": "Definitely will renew"
+              },
+              {
+                "value": "probably_renew",
+                "label": "Probably will renew"
+              },
+              {
+                "value": "undecided",
+                "label": "Undecided"
+              },
+              {
+                "value": "probably_not_renew",
+                "label": "Probably will not renew"
+              },
+              {
+                "value": "definitely_not_renew",
+                "label": "Definitely will not renew"
+              }
+            ],
+            "rendered_text": "At this point, how likely are you to renew your lease?",
+            "original_text": "At this point, how likely are you to renew your lease?",
+            "rating_labels": null,
+            "answer": "probably_renew",
+            "answer_label": "Probably will renew"
+          },
+          {
+            "id": "renewal_factor",
+            "type": "single_choice",
+            "required": true,
+            "text": "Which factor will matter most in your decision?",
+            "options": [
+              {
+                "value": "rent_fees",
+                "label": "Rent and fees"
+              },
+              {
+                "value": "size_layout",
+                "label": "Apartment size or layout"
+              },
+              {
+                "value": "condition",
+                "label": "Apartment condition"
+              },
+              {
+                "value": "maintenance",
+                "label": "Maintenance service"
+              },
+              {
+                "value": "management",
+                "label": "Community management"
+              },
+              {
+                "value": "location",
+                "label": "Location"
+              },
+              {
+                "value": "personal",
+                "label": "Personal circumstances"
+              },
+              {
+                "value": "other",
+                "label": "Something else"
+              },
+              {
+                "value": "not_sure",
+                "label": "Not sure yet"
+              }
+            ],
+            "rendered_text": "Which factor will matter most in your decision?",
+            "original_text": "Which factor will matter most in your decision?",
+            "rating_labels": null,
+            "answer": "rent_fees",
+            "answer_label": "Rent and fees"
+          },
+          {
+            "id": "lease_month_9_comment",
+            "type": "text",
+            "required": false,
+            "max_length": 2000,
+            "text": "What would you like us to understand about your renewal decision?",
+            "rendered_text": "What would you like us to understand about your renewal decision?",
+            "original_text": "What would you like us to understand about your renewal decision?",
+            "rating_labels": null,
+            "answer": "",
+            "answer_label": ""
+          }
+        ],
+        "saved_analysis": {
+          "status": "not_generated"
+        }
+      },
+      {
+        "survey_id": "560dfea0-fecb-4121-85df-9911ba7b1044",
+        "submitted_at": "2026-11-05T20:13:35.847623+00:00",
+        "template_id": "maintenance_v1",
+        "template_version": 1,
+        "event_type": "maintenance_completed",
+        "survey_type_label": "Maintenance",
+        "title": "Tell us about your maintenance experience",
+        "context": {
+          "event_id": "boomsay-email-test-round2-maintenance",
+          "occurrence_id": "boomsay-email-test-round2-maintenance",
+          "event_type": "maintenance_completed",
+          "ticket_id": "EMAIL-TEST-round2-maintenance",
+          "request_description": "a fictional leaking kitchen faucet",
+          "resident_id": "boomsay-email-test-round2-maintenance",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-maintenance",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:12:49.771403+00:00",
+          "survey_type_label": "Maintenance",
+          "ticket_completed_at": "2026-11-05T20:12:49.771403+00:00"
+        },
+        "maintenance_context": {
+          "event_id": "boomsay-email-test-round2-maintenance",
+          "occurrence_id": "boomsay-email-test-round2-maintenance",
+          "event_type": "maintenance_completed",
+          "ticket_id": "EMAIL-TEST-round2-maintenance",
+          "request_description": "a fictional leaking kitchen faucet",
+          "resident_id": "boomsay-email-test-round2-maintenance",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-maintenance",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:12:49.771403+00:00",
+          "survey_type_label": "Maintenance",
+          "ticket_completed_at": "2026-11-05T20:12:49.771403+00:00"
+        },
+        "questions": [
+          {
+            "id": "maintenance_overall",
+            "type": "rating",
+            "required": true,
+            "text": "Overall, how would you rate the maintenance service for a fictional leaking kitchen faucet?",
+            "rendered_text": "Overall, how would you rate the maintenance service for a fictional leaking kitchen faucet?",
+            "original_text": "Overall, how would you rate the maintenance service for {request_description}?",
+            "rating_labels": {
+              "1": "Terrible",
+              "2": "Bad",
+              "3": "Okay",
+              "4": "Good",
+              "5": "Excellent"
+            },
+            "answer": 2,
+            "answer_label": "2 — Bad"
+          },
+          {
+            "id": "issue_resolution",
+            "type": "single_choice",
+            "required": true,
+            "text": "Is the issue fully resolved?",
+            "options": [
+              {
+                "value": "resolved",
+                "label": "Yes, fully resolved"
+              },
+              {
+                "value": "partially_resolved",
+                "label": "Partially resolved"
+              },
+              {
+                "value": "unresolved",
+                "label": "No, still unresolved"
+              },
+              {
+                "value": "not_checked",
+                "label": "I haven’t checked yet"
+              }
+            ],
+            "rendered_text": "Is the issue fully resolved?",
+            "original_text": "Is the issue fully resolved?",
+            "rating_labels": null,
+            "answer": "resolved",
+            "answer_label": "Yes, fully resolved"
+          },
+          {
+            "id": "maintenance_response_time",
+            "type": "rating",
+            "required": true,
+            "text": "How would you rate our maintenance team’s response time to your request?",
+            "special_options": [
+              {
+                "value": "not_sure",
+                "label": "Not sure"
+              }
+            ],
+            "rendered_text": "How would you rate our maintenance team’s response time to your request?",
+            "original_text": "How would you rate our maintenance team’s response time to your request?",
+            "rating_labels": {
+              "1": "Terrible",
+              "2": "Bad",
+              "3": "Okay",
+              "4": "Good",
+              "5": "Excellent"
+            },
+            "answer": 4,
+            "answer_label": "4 — Good"
+          },
+          {
+            "id": "maintenance_comment",
+            "type": "text",
+            "required": false,
+            "max_length": 2000,
+            "text": "What would you like us to know about this maintenance experience?",
+            "rendered_text": "What would you like us to know about this maintenance experience?",
+            "original_text": "What would you like us to know about this maintenance experience?",
+            "rating_labels": null,
+            "answer": "VERY RUDE the maintenance gu",
+            "answer_label": "VERY RUDE the maintenance gu"
+          }
+        ],
+        "saved_analysis": {
+          "status": "not_generated"
+        }
+      },
+      {
+        "survey_id": "60fa1b93-3590-4253-bcc3-57abc887bc7f",
+        "submitted_at": "2026-11-05T20:12:39.997607+00:00",
+        "template_id": "move_in_v1",
+        "template_version": 1,
+        "event_type": "move_in_completed",
+        "survey_type_label": "Move-in",
+        "title": "Tell us about your move-in",
+        "context": {
+          "event_id": "boomsay-email-test-round2-move-in",
+          "occurrence_id": "boomsay-email-test-round2-move-in",
+          "event_type": "move_in_completed",
+          "ticket_id": null,
+          "request_description": null,
+          "resident_id": "boomsay-email-test-round2-move-in",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-move-in",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:11:44.778070+00:00",
+          "survey_type_label": "Move-in"
+        },
+        "maintenance_context": {
+          "event_id": "boomsay-email-test-round2-move-in",
+          "occurrence_id": "boomsay-email-test-round2-move-in",
+          "event_type": "move_in_completed",
+          "ticket_id": null,
+          "request_description": null,
+          "resident_id": "boomsay-email-test-round2-move-in",
+          "resident_name": "Andres (fictional email test)",
+          "resident_email": "andres.feuerberg.ch@gmail.com",
+          "unit_id": "boomsay-email-test-round2-move-in",
+          "unit_number": "EMAIL-TEST",
+          "employee_id": null,
+          "employee_name": null,
+          "is_simulated": true,
+          "community_name": "Lake House Apartments",
+          "event_occurred_at": "2026-11-05T20:11:44.778070+00:00",
+          "survey_type_label": "Move-in"
+        },
+        "questions": [
+          {
+            "id": "move_in_overall",
+            "type": "rating",
+            "required": true,
+            "text": "Overall, how would you rate your move-in experience at Lake House Apartments?",
+            "rendered_text": "Overall, how would you rate your move-in experience at Lake House Apartments?",
+            "original_text": "Overall, how would you rate your move-in experience at {community_name}?",
+            "rating_labels": {
+              "1": "Terrible",
+              "2": "Bad",
+              "3": "Okay",
+              "4": "Good",
+              "5": "Excellent"
+            },
+            "answer": 3,
+            "answer_label": "3 — Okay"
+          },
+          {
+            "id": "apartment_condition",
+            "type": "rating",
+            "required": true,
+            "text": "How would you rate the condition of your apartment when you received your keys?",
+            "rendered_text": "How would you rate the condition of your apartment when you received your keys?",
+            "original_text": "How would you rate the condition of your apartment when you received your keys?",
+            "rating_labels": {
+              "1": "Terrible",
+              "2": "Bad",
+              "3": "Okay",
+              "4": "Good",
+              "5": "Excellent"
+            },
+            "answer": 3,
+            "answer_label": "3 — Okay"
+          },
+          {
+            "id": "move_in_unresolved",
+            "type": "single_choice",
+            "required": true,
+            "text": "Is anything from your move-in still unresolved?",
+            "options": [
+              {
+                "value": "yes",
+                "label": "Yes"
+              },
+              {
+                "value": "no",
+                "label": "No"
+              },
+              {
+                "value": "not_sure",
+                "label": "Not sure"
+              }
+            ],
+            "rendered_text": "Is anything from your move-in still unresolved?",
+            "original_text": "Is anything from your move-in still unresolved?",
+            "rating_labels": null,
+            "answer": "yes",
+            "answer_label": "Yes"
+          },
+          {
+            "id": "move_in_comment",
+            "type": "text",
+            "required": false,
+            "max_length": 2000,
+            "text": "What would you like us to know about your move-in experience?",
+            "rendered_text": "What would you like us to know about your move-in experience?",
+            "original_text": "What would you like us to know about your move-in experience?",
+            "rating_labels": null,
+            "answer": "still need my 2nd fob",
+            "answer_label": "still need my 2nd fob"
+          }
+        ],
+        "saved_analysis": {
+          "status": "not_generated"
+        }
+      }
+    ],
+    "survey_calculated": {
+      "submission_count": 4,
+      "distinct_resident_count": 4,
+      "survey_type_counts": {
+        "move_out_completed": 1,
+        "lease_month_9": 1,
+        "maintenance_completed": 1,
+        "move_in_completed": 1
+      },
+      "rating_counts_by_type": {
+        "move_out_completed": {
+          "move_out_overall": {
+            "4 — Good": 1
+          },
+          "move_out_instructions": {
+            "4 — Good": 1
+          }
+        },
+        "lease_month_9": {
+          "community_overall": {
+            "4 — Good": 1
+          }
+        },
+        "maintenance_completed": {
+          "maintenance_overall": {
+            "2 — Bad": 1
+          },
+          "maintenance_response_time": {
+            "4 — Good": 1
+          }
+        },
+        "move_in_completed": {
+          "move_in_overall": {
+            "3 — Okay": 1
+          },
+          "apartment_condition": {
+            "3 — Okay": 1
+          }
+        }
+      },
+      "issue_resolution_counts": {
+        "resolved": 1
+      },
+      "issue_resolution_submission_ids": {
+        "resolved": [
+          "560dfea0-fecb-4121-85df-9911ba7b1044"
+        ]
+      }
+    },
+    "survey_event_types": [],
+    "survey_coverage_note": "Finalized survey submissions only, with each questionnaire type identified. Periods use survey submission time in the community timezone; event occurrence time is separate. Each submission is counted once. Issue resolution totals cover maintenance only. Saved survey analysis has not been generated."
+  },
+  "results": [
+    {
+      "index": 1,
+      "question": "Which are the bad surveys? Summarize them in a list.",
+      "status": "failed",
+      "raw_response": {
+        "id": "chatcmpl-Egz2zdcgXjLFKedEl8VgyanMtOeUQ",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{\"survey_findings_required\":[{\"survey_id\":\"c3e90eec-5500-4d4e-bc02-afd9574bb067\",\"question_ids\":[\"move_out_overall\",\"move_out_comment\"],\"finding\":\"Move-out rated 4 — Good overall, no negative comments.\"},{\"survey_id\":\"cdda586c-c1a8-4839-a90d-31e51d27a101\",\"question_ids\":[\"community_overall\",\"renewal_intent\"],\"finding\":\"9-month renewal planning rated 4 — Good overall, resident intends to probably renew; no unresolved issues or complaints.\"},{\"survey_id\":\"560dfea0-fecb-4121-85df-9911ba7b1044\",\"question_ids\":[\"maintenance_overall\",\"issue_resolution\",\"maintenance_comment\"],\"finding\":\"Maintenance rated 2 — Bad overall but issue fully resolved; resident reports 'VERY RUDE the maintenance gu'.\"},{\"survey_id\":\"60fa1b93-3590-4253-bcc3-57abc887bc7f\",\"question_ids\":[\"move_in_overall\",\"apartment_condition\",\"move_in_unresolved\",\"move_in_comment\"],\"finding\":\"Move-in rated 3 — Okay overall and apartment condition 3 — Okay, but unresolved move-in issue reported; resident says 'still need my 2nd fob'.\"}],\"answer\":\"Three completed surveys show concerns needing attention:\\n\\n- **Maintenance:** Rated 2 — Bad overall with a fully resolved repair, but the resident reports the maintenance staff were very rude.\\n- **Move-in:** All ratings are Okay, but an unresolved issue remains with the resident needing a second key fob.\\n- **Move-out and 9-month renewal planning:** Rated 4 — Good overall with no reported complaints or unresolved issues; not classified as bad.\"}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": [],
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1793913149,
+        "model": "gpt-4.1-mini-2025-04-14",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": "fp_0e7b5db390",
+        "usage": {
+          "completion_tokens": 377,
+          "prompt_tokens": 13291,
+          "total_tokens": 13668,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 0
+          }
+        }
+      },
+      "tokens_in": 13291,
+      "tokens_out": 377
+    },
+    {
+      "index": 2,
+      "question": "What are the main improvements suggested by all surveys?",
+      "status": "failed",
+      "raw_response": {
+        "id": "chatcmpl-Egz33ulO0f4BP5g8txTzC4JvDFuFG",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{\"survey_findings_required\":[{\"survey_id\":\"c3e90eec-5500-4d4e-bc02-afd9574bb067\",\"question_ids\":[\"move_out_overall\",\"move_out_reason\",\"move_out_instructions\",\"move_out_comment\"],\"finding\":\"Move-out survey rates overall experience 4 — Good, moved out due to community conditions such as noise or parking; no unresolved issues or comments.\"},{\"survey_id\":\"cdda586c-c1a8-4839-a90d-31e51d27a101\",\"question_ids\":[\"community_overall\",\"renewal_intent\",\"renewal_factor\",\"lease_month_9_comment\"],\"finding\":\"9-month renewal planning survey rates living 4 — Good and renewal intent 'Probably will renew'; rent and fees stated as main factor; no comment submitted.\"},{\"survey_id\":\"560dfea0-fecb-4121-85df-9911ba7b1044\",\"question_ids\":[\"maintenance_overall\",\"issue_resolution\",\"maintenance_response_time\",\"maintenance_comment\"],\"finding\":\"Maintenance survey rates service 2 — Bad with issue fully resolved; response time rated 4 — Good; resident comments 'VERY RUDE the maintenance gu' indicating staff behavior concerns.\"},{\"survey_id\":\"60fa1b93-3590-4253-bcc3-57abc887bc7f\",\"question_ids\":[\"move_in_overall\",\"apartment_condition\",\"move_in_unresolved\",\"move_in_comment\"],\"finding\":\"Move-in survey rates overall and apartment condition both 3 — Okay; resident reports unresolved move-in issue needing a 2nd fob.\"}],\"answer\":\"Main suggested improvements across these surveys are:\\n\\n- **Maintenance staff professionalism:** The maintenance service was rated 2 — Bad despite full issue resolution; the resident commented on rude behavior.\\n- **Move-in unresolved issue:** Need to address unresolved requests post move-in, such as providing a second key fob.\\n- **Community conditions:** Though no direct comment was provided, moving out was attributed to community conditions like noise or parking, suggesting possible improvement areas.\\n\\nNo other explicit improvement suggestions or unresolved concerns were reported in these surveys.\" ,\"evidence\":[],\"selections\":[]}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": [],
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1793913153,
+        "model": "gpt-4.1-mini-2025-04-14",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": "fp_0e7b5db390",
+        "usage": {
+          "completion_tokens": 452,
+          "prompt_tokens": 13287,
+          "total_tokens": 13739,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 13056
+          }
+        }
+      },
+      "tokens_in": 13287,
+      "tokens_out": 452
+    },
+    {
+      "index": 3,
+      "question": "Based on all the surveys, are we doing a good job?",
+      "status": "completed",
+      "raw_response": {
+        "id": "chatcmpl-Egz38LcH43YR16PeJHMm1rGEmIkUf",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{\"survey_findings\":[{\"survey_id\":\"c3e90eec-5500-4d4e-bc02-afd9574bb067\",\"question_ids\":[\"move_out_overall\"],\"finding\":\"Move-out rating is 4 — Good; no comment given.\"},{\"survey_id\":\"cdda586c-c1a8-4839-a90d-31e51d27a101\",\"question_ids\":[\"community_overall\",\"renewal_intent\",\"renewal_factor\"],\"finding\":\"9-month renewal rates living as 4 — Good, plans to probably renew, rent and fees most important.\"},{\"survey_id\":\"560dfea0-fecb-4121-85df-9911ba7b1044\",\"question_ids\":[\"maintenance_overall\",\"issue_resolution\",\"maintenance_response_time\",\"maintenance_comment\"],\"finding\":\"Maintenance rated 2 — Bad overall with issue marked fully resolved; comment reports rude maintenance staff.\"},{\"survey_id\":\"60fa1b93-3590-4253-bcc3-57abc887bc7f\",\"question_ids\":[\"move_in_overall\",\"apartment_condition\",\"move_in_unresolved\",\"move_in_comment\"],\"finding\":\"Move-in rated 3 — Okay; apartment condition 3 — Okay; unresolved move-in issue reported: needs second fob.\"}],\"answer\":\"Across these four surveys dated 2026-11-05, the overall feedback is mixed:\\n\\n- Move-out and 9-month renewal planning are positive, both rated 4 — Good with no unresolved issues.\\n- Maintenance received a 2 — Bad overall rating despite the issue being marked as fully resolved. The resident comments on rude maintenance staff.\\n- Move-in experience is moderate with 3 — Okay ratings; the resident reports an unresolved issue needing a second fob.\\n\\nThis indicates generally positive moving experience and renewal sentiment, but concerns remain about maintenance service quality and some move-in unresolved issues that may need attention.\"}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": [],
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1793913158,
+        "model": "gpt-4.1-mini-2025-04-14",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": "fp_0e7b5db390",
+        "usage": {
+          "completion_tokens": 399,
+          "prompt_tokens": 13290,
+          "total_tokens": 13689,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 13056
+          }
+        }
+      },
+      "tokens_in": 13290,
+      "tokens_out": 399
+    },
+    {
+      "index": 4,
+      "question": "Which are the bad surveys? Summarize them in a list.",
+      "status": "failed",
+      "raw_response": {
+        "id": "chatcmpl-Egz3Enn8rHg1h8urfw5vgtDGPRbdI",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{\"survey_findings\":[{\"survey_id\":\"560dfea0-fecb-4121-85df-9911ba7b1044\",\"question_ids\":[\"maintenance_overall\",\"issue_resolution\",\"maintenance_response_time\",\"maintenance_comment\"],\"finding\":\"Maintenance survey rated 2 - Bad overall with issue marked fully resolved. Comment reports 'VERY RUDE the maintenance gu'.\"}],\"answer\":\"One survey indicates a negative experience needing attention:\\n\\n- **Maintenance:** Overall service rated 2 — Bad; the issue is marked fully resolved. The resident comments, \\\"VERY RUDE the maintenance gu\\\" indicating dissatisfaction with staff behavior.\\n\\nOther surveys have good or neutral ratings and no explicit unresolved problems.\"}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": [],
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1793913164,
+        "model": "gpt-4.1-mini-2025-04-14",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": "fp_0e7b5db390",
+        "usage": {
+          "completion_tokens": 144,
+          "prompt_tokens": 13291,
+          "total_tokens": 13435,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 13056
+          }
+        }
+      },
+      "tokens_in": 13291,
+      "tokens_out": 144
+    },
+    {
+      "index": 5,
+      "question": "Based on all the surveys, are we doing a good job?",
+      "status": "failed",
+      "raw_response": {
+        "id": "chatcmpl-Egz3Gh7WlNb48TO74EGSShQqNvT9U",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "{\"survey_findings_required\": [{\"survey_id\": \"c3e90eec-5500-4d4e-bc02-afd9574bb067\", \"question_ids\": [\"move_out_overall\"], \"finding\": \"Move-out survey rates overall living experience as 4 — Good, reason for moving out is community conditions such as noise or parking.\"}, {\"survey_id\": \"cdda586c-c1a8-4839-a90d-31e51d27a101\", \"question_ids\": [\"community_overall\", \"renewal_intent\", \"renewal_factor\"], \"finding\": \"9-month renewal survey rates living overall as 4 — Good; resident likely to renew and rates rent and fees as main decision factor.\"}, {\"survey_id\": \"560dfea0-fecb-4121-85df-9911ba7b1044\", \"question_ids\": [\"maintenance_overall\", \"issue_resolution\", \"maintenance_response_time\", \"maintenance_comment\"], \"finding\": \"Maintenance survey overall 2 — Bad but issue is reported as fully resolved; response time rated 4 — Good; comment reports very rude maintenance experience.\"}, {\"survey_id\": \"60fa1b93-3590-4253-bcc3-57abc887bc7f\", \"question_ids\": [\"move_in_overall\", \"apartment_condition\", \"move_in_unresolved\", \"move_in_comment\"], \"finding\": \"Move-in survey rates overall experience as 3 — Okay and apartment condition as 3 — Okay; unresolved move-in issue reported with request for 2nd fob.\"}], \"answer\": \"Survey feedback shows mixed results:\\n\\n- Move-out: 4 — Good overall, but move-out reason involves community conditions like noise or parking.\\n- 9-month renewal planning: 4 — Good overall; resident probably will renew, noting rent and fees as important.\\n- Maintenance: 2 — Bad overall, with a complaint about rudeness despite issue being marked fully resolved and good response time.\\n- Move-in: 3 — Okay overall and apartment condition; there is an unresolved issue about a needed second fob.\\n\\nThese responses suggest areas doing well, especially renewal intent and move-out ratings, but also indicate concerns with maintenance experience and unresolved move-in issues.\", \"evidence\": [], \"selections\": []}",
+              "refusal": null,
+              "role": "assistant",
+              "annotations": [],
+              "audio": null,
+              "function_call": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1793913166,
+        "model": "gpt-4.1-mini-2025-04-14",
+        "object": "chat.completion",
+        "service_tier": "default",
+        "system_fingerprint": "fp_0e7b5db390",
+        "usage": {
+          "completion_tokens": 487,
+          "prompt_tokens": 13290,
+          "total_tokens": 13777,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 13056
+          }
+        }
+      },
+      "tokens_in": 13290,
+      "tokens_out": 487
+    }
+  ]
+}

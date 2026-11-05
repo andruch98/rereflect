@@ -78,4 +78,4 @@ def test_consolidated_policy_and_length_context_are_sent_on_each_model_turn(flow
         assert policy.count('OUTPUT CONTRACT') == 1
         assert 'Resolve this distinction BEFORE' in policy
         assert 'ILLUSTRATIVE; NEVER TREAT AS COMMUNITY DATA' in policy
-        assert 'expanded_limit_requires_written_source_detail' in messages[1]['content']
+        assert 'answer_character_target' in messages[1]['content']

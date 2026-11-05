@@ -37,14 +37,14 @@ export function readSurveySources(metadata: ChatMessage['structured_data']): Sur
   });
 }
 
-function SurveyDetail({ sources }: { sources: SurveySource[] }) {
+function SurveyDetail({ sources, publicSnapshot = false }: { sources: SurveySource[]; publicSnapshot?: boolean }) {
   const source = sources[0];
   const [legacy, setLegacy] = useState<{ questions: OriginalAnswer[]; title: string; type_label: string }>();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [allAnswers, setAllAnswers] = useState(false);
   useEffect(() => {
-    if (source.questions) return;
+    if (source.questions || publicSnapshot) return;
     let active = true;
     surveysAPI.get(source.survey_id).then(row => {
       if (row.status !== 'submitted') throw new Error('Submission unavailable');
@@ -53,9 +53,9 @@ function SurveyDetail({ sources }: { sources: SurveySource[] }) {
           answer_label: surveyAnswerLabel(q, row.answers[q.id], row.questionnaire) })) });
     }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [source.survey_id, source.questions, attempt]);
+  }, [source.survey_id, source.questions, attempt, publicSnapshot]);
   const questions = source.questions ?? legacy?.questions;
-  if (!questions) return <div className="py-4 text-sm" role="status">{failed ? <>
+  if (!questions) return <div className="py-4 text-sm" role="status">{publicSnapshot ? 'The original answers were not included in this shared chat.' : failed ? <>
     These survey answers could not be loaded. <button type="button" className="underline" onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>Reload answers</button>
   </> : 'Loading survey answers…'}</div>;
   const selectedIds = new Set(sources.flatMap(item => item.question_id ? [item.question_id] : []));
@@ -74,7 +74,7 @@ function SurveyDetail({ sources }: { sources: SurveySource[] }) {
   </section>;
 }
 
-export function SurveyCollection({ sources, topic }: { sources: SurveySource[]; topic?: string }) {
+export function SurveyCollection({ sources, topic, publicSnapshot = false }: { sources: SurveySource[]; topic?: string; publicSnapshot?: boolean }) {
   const [pages, setPages] = useState(1);
   const grouped = new Map<string, SurveySource[]>();
   for (const source of sources) grouped.set(source.survey_id, [...(grouped.get(source.survey_id) ?? []), source]);
@@ -92,7 +92,7 @@ export function SurveyCollection({ sources, topic }: { sources: SurveySource[]; 
           </button></DialogTrigger>
           <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-xl sm:p-7">
             <DialogHeader><DialogTitle className="text-xl">{topic || 'Survey answers'}</DialogTitle><DialogDescription>Original questions and submitted answers.</DialogDescription></DialogHeader>
-            {batch.map(items => <SurveyDetail key={items[0].survey_id} sources={items} />)}
+            {batch.map(items => <SurveyDetail key={items[0].survey_id} sources={items} publicSnapshot={publicSnapshot} />)}
           </DialogContent>
         </Dialog>
       </div>;

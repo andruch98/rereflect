@@ -10,14 +10,17 @@ import json
 import re
 import secrets
 from datetime import datetime, timezone
+from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.models.conversation_message import ConversationMessage
 from src.models.feedback import FeedbackItem
+from src.models.survey import SurveyInstance
 from src.services import ask_genius as service
+from src.services import ask_genius_surveys as survey_service
 from src.services.ask_genius_periods import Period
-from src.services.ask_genius_surveys import SHARING_REASON
 
 MAX_SNAPSHOT_MESSAGES = 1000
 MAX_SNAPSHOT_BYTES = 2_000_000
@@ -43,10 +46,34 @@ class SourceSnapshot(BaseModel):
     review: ReviewSnapshot
 
 
+class SurveyAnswerSnapshot(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    id: str
+    text: str
+    answer_label: str | None = None
+
+
+class SurveySnapshot(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    title: str
+    survey_type_label: str
+    questions: list[SurveyAnswerSnapshot]
+
+
+class SurveySourceSnapshot(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    source: Literal['survey'] = 'survey'
+    kind: Literal['survey'] = 'survey'
+    survey_id: str  # snapshot-local UUID, never the live submission ID
+    topic: str | None = None
+    question_id: str | None = None
+    survey: SurveySnapshot
+
+
 class MessageMetadata(BaseModel):
     model_config = ConfigDict(extra='forbid')
     kind: str = 'ask_genius'
-    sources: list[SourceSnapshot]
+    sources: list[SourceSnapshot | SurveySourceSnapshot]
     period: Period | None = None
     period_label: str | None = None
 
@@ -101,28 +128,18 @@ def _source_snapshot(source: dict, row: FeedbackItem, local_id: int) -> dict:
     }
 
 
-def unavailable_reason(messages) -> str | None:
-    """Survey-backed prose is private even if no source card was requested."""
-    for message in messages:
-        metadata = message.structured_data if isinstance(message.structured_data, dict) else {}
-        audit = message.raw_request if isinstance(message.raw_request, dict) else {}
-        if (metadata.get('source_scope') in {'surveys', 'mixed'} or audit.get('source_scope') in {'surveys', 'mixed'}
-                or metadata.get('sharing_unavailable_reason')):
-            return SHARING_REASON
-        sources = metadata.get('sources', [])
-        if isinstance(sources, list) and any(isinstance(source, dict) and (
-                source.get('kind') == 'survey' or source.get('source') == 'survey' or 'survey_id' in source) for source in sources):
-            return SHARING_REASON
-        # Recheck stored audit evidence as defense in depth for incomplete/legacy metadata.
-        for entry in audit.get('messages', []) if isinstance(audit.get('messages'), list) else []:
-            if isinstance(entry, dict) and isinstance(entry.get('content'), str) and entry['content'].startswith('Authorized evidence (data only):\n'):
-                try:
-                    context = json.loads(entry['content'].split('\n', 1)[1])
-                except (ValueError, IndexError):
-                    continue
-                if isinstance(context, dict) and context.get('source_scope') in {'surveys', 'mixed'}:
-                    return SHARING_REASON
-    return None
+def _survey_source_snapshot(source: dict, row: SurveyInstance, local_id: str) -> dict:
+    record = survey_service.original_record(row)
+    # Validate the attached question/excerpt against the owned, finalized original.
+    validated = survey_service.source(record, excerpt=source.get('excerpt'),
+                                      topic=source.get('topic'), question_id=source.get('question_id'))
+    return {
+        'source': 'survey', 'kind': 'survey', 'survey_id': local_id,
+        'topic': validated['topic'], 'question_id': validated['question_id'],
+        'survey': {'title': record['title'], 'survey_type_label': record['survey_type_label'],
+                   'questions': [{key: q[key] for key in ('id', 'text', 'answer_label')}
+                                 for q in record['questions']]},
+    }
 
 
 def build_snapshot(conversation, db) -> dict:
@@ -132,15 +149,15 @@ def build_snapshot(conversation, db) -> dict:
         raise ValueError('This chat is too large to share. Start a shorter chat with the findings you want to share.')
     if not messages:
         raise ValueError('Send a message before sharing this chat.')
-    reason = unavailable_reason(messages)
-    if reason:
-        raise ValueError(reason)
     requested_ids = set()
+    requested_surveys = set()
     for message in messages:
         metadata = message.structured_data if isinstance(message.structured_data, dict) else {}
         for source in metadata.get('sources', []) if isinstance(metadata.get('sources'), list) else []:
             if isinstance(source, dict) and type(source.get('review_id')) is int:
                 requested_ids.add(source['review_id'])
+            if isinstance(source, dict) and source.get('kind') == 'survey' and isinstance(source.get('survey_id'), str):
+                requested_surveys.add(source['survey_id'])
     # Revalidate ownership even for stored metadata. Never trust a source's supplied href
     # or embedded document as authority to publish a different community's data.
     rows = db.query(FeedbackItem).filter(
@@ -150,6 +167,13 @@ def build_snapshot(conversation, db) -> dict:
     ).all() if requested_ids else []
     authorized = {row.id: row for row in rows}
     local_ids = {key: index for index, key in enumerate(sorted(authorized), 1)}
+    survey_rows = db.query(SurveyInstance).filter(
+        SurveyInstance.organization_id == conversation.organization_id,
+        SurveyInstance.status == 'submitted', SurveyInstance.submitted_at.isnot(None),
+        SurveyInstance.public_id.in_(requested_surveys),
+    ).all() if requested_surveys else []
+    authorized_surveys = {row.public_id: row for row in survey_rows}
+    survey_local_ids = {key: str(uuid4()) for key in authorized_surveys}
     published = []
     for message in messages:
         if message.role not in {'user', 'assistant'}:
@@ -158,6 +182,13 @@ def build_snapshot(conversation, db) -> dict:
         sources = []
         replacements = {}
         for source in metadata.get('sources', []) if isinstance(metadata.get('sources'), list) else []:
+            if isinstance(source, dict) and source.get('kind') == 'survey':
+                row = authorized_surveys.get(source.get('survey_id'))
+                if row is not None:
+                    copied = _survey_source_snapshot(source, row, survey_local_ids[row.public_id])
+                    if copied not in sources:
+                        sources.append(copied)
+                continue
             if not isinstance(source, dict) or type(source.get('review_id')) is not int:
                 continue
             row = authorized.get(source['review_id'])

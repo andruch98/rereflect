@@ -44,53 +44,24 @@ def test_unrequested_selection_is_hidden_and_zero_matches_are_not_fabricated():
     assert sources == []
 
 
-def test_explanations_stay_1000_but_requested_analysis_can_use_3000():
-    for expanded in (False, True):
-        with pytest.raises(ValueError):
-            service.validate_answer(json.dumps({'answer': 'a' * 1001, 'selections': [{}] if expanded else []}), records(), expanded)
-    payload = {'answer': 'a' * 3000, 'evidence': [{'review_id': 1, 'kind': 'analysis', 'topic': 'Staff'}]}
-    assert len(service.validate_answer(json.dumps(payload), records(), True)[0]) == 3000
-    payload['answer'] += 'a'
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize('expanded', [False, True])
+@pytest.mark.parametrize('length', [1001, 3001, 6000])
+def test_writing_targets_are_not_rejection_limits(expanded, length):
+    payload = {'answer': 'a' * length, 'selections': [{}] if expanded else []}
+    notes = []
+    answer, sources = service.validate_answer(json.dumps(payload), records(), expanded, normalizations=notes)
+    assert answer == payload['answer']
+    assert len(sources) == (100 if expanded else 0)
+    assert ('answer_above_writing_target' in notes) == (length > (3000 if expanded else 1000))
+
+
+def test_long_answer_cannot_bypass_quote_verification():
+    payload = {'answer': 'x' * 3001, 'evidence': [
+        {'review_id': 1, 'kind': 'review', 'excerpt': 'Invented quotation.'}]}
+    with pytest.raises(ValueError, match='does not match'):
         service.validate_answer(json.dumps(payload), records(), True)
 
 
-def test_requested_verbatim_review_detail_can_use_extra_room_but_not_for_explanation():
-    data = records()
-    excerpt = data['reviews'][0]['original_review'][:2000]
-    payload = {'answer': 'x' * 999 + '\n' + excerpt,
-               'evidence': [{'review_id': 1, 'kind': 'review', 'excerpt': excerpt}]}
-    answer, sources = service.validate_answer(json.dumps(payload), data, True)
-    assert len(answer) == 3000
-    assert sources[0]['review']['original_review'] == data['reviews'][0]['original_review']
-    payload['answer'] = 'x' * 1000 + '\n' + excerpt[:1500]
-    payload['evidence'][0]['excerpt'] = excerpt[:1500]
-    with pytest.raises(ValueError, match='Explanation exceeds'):
-        service.validate_answer(json.dumps(payload), data, True)
-
-
-def test_popup_only_or_invalid_excerpts_do_not_grant_longer_messages():
-    data = records()
-    payload = {'answer': 'x' * 1001,
-               'evidence': [{'review_id': 1, 'kind': 'review', 'excerpt': 'Actual review 1.'}]}
-    with pytest.raises(ValueError, match='Explanation exceeds'):
-        service.validate_answer(json.dumps(payload), data, True)
-    payload['answer'] = 'x' * 990 + 'Invented source quote.'
-    payload['evidence'][0]['excerpt'] = 'Invented source quote.'
-    with pytest.raises(ValueError, match='does not match'):
-        service.validate_answer(json.dumps(payload), data, True)
-
-
-def test_overlapping_source_selectors_do_not_double_count_extra_room():
-    data = records()
-    excerpt = data['reviews'][0]['original_review'][:600]
-    payload = {'answer': 'x' * 1000 + '\n' + excerpt, 'evidence': [
-        {'review_id': 1, 'kind': 'review', 'excerpt': excerpt},
-        {'review_id': 1, 'kind': 'review', 'excerpt': excerpt[:500]},
-    ]}
-    with pytest.raises(ValueError, match='Explanation exceeds'):
-        service.validate_answer(json.dumps(payload), data, True)
-    payload['answer'] = 'x' * 999 + '\n' + excerpt
-    assert service.validate_answer(json.dumps(payload), data, True)[0] == payload['answer']
-    with pytest.raises(ValueError, match='Explanation exceeds'):
-        service.validate_answer(json.dumps(payload), data, False)
+def test_resource_ceiling_rejects_without_truncation():
+    with pytest.raises(ValueError):
+        service.validate_answer(json.dumps({'answer': 'x' * (service.MAX_ANSWER_CHARS + 1)}), records(), True)
