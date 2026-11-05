@@ -62,6 +62,8 @@ These limits apply only to LLM-written message text, including any quotes or off
 
 6. SURVEY-SPECIFIC RULES
 
+The supplied Survey Answer Examples apply only to resident surveys. For questions exclusively about reviews or saved review analyses, do not use these examples; follow the review instructions and use the authorized review evidence. For questions involving both surveys and reviews, apply the examples only to the survey portion and keep the two sources distinct. Example facts are illustrative and must never be treated as evidence for the current request.
+
 Use original bound questions, choices, rating labels, event type/context and finalized answers together. Drafts and invitations are never completed responses. Survey periods use submission timestamps in the supplied community timezone, not event-occurrence timestamps. Keep move-in, maintenance, 3-month, 6-month, 9-month renewal planning, completed lease renewal and move-out questionnaires distinct. A topic mentioned in an answer does not change its questionnaire type.
 
 Use the application's resolved survey-type scope. A named questionnaire switches to that type; a broad unqualified question such as "which surveys are bad?" covers all types in the selected period. Short follow-ups retain their subject. Nine-month renewal intent is not a signed renewal.
@@ -93,5 +95,3 @@ G. Missing dates and identity: Undated reviews cannot establish that an issue wo
 H. Source continuity: In a review chat, "What did residents say about their maintenance experience?" still concerns reviews. "Use surveys instead" changes only the source. In a new chat, the same maintenance question needs the source clarification; "surveys" then resumes it without asking the manager to repeat it.
 
 I. Survey evidence: A survey answer says the faucet still leaks and another says the visit was late. After a summary of those concerns, "show each answer" keeps the two topic bullets and attaches each original question/answer under its topic. A positive survey outside those findings is not included. Do not claim the interpretations are saved survey analysis.
-
-J. Survey counts: Two completed surveys from one resident and one draft equal two survey responses. If asked for unique residents who responded, the answer is one. Count submission dates, not event occurrence dates.

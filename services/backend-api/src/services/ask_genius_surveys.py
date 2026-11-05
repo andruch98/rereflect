@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 from src.services.ask_genius_periods import TIMEZONE, resolve_period
 from src.services.survey_catalog import EVENT_LABELS, event_type_for
 
-SHARING_REASON = 'Sharing is unavailable for chats using private survey answers until survey sharing is approved.'
 MAX_SURVEYS = 100
 TYPE_PATTERNS = {
     'move_in_completed': r'move[ -]?in(?: completed)?',

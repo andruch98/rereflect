@@ -120,7 +120,7 @@ def test_original_question_context_options_labels_and_final_answers_reach_model(
     assert comment['answer'] == 'The faucet still leaks after the visit.'
     assert original['saved_analysis'] == {'status': 'not_generated'}
     assert 'FOREIGN PRIVATE' not in json.dumps(payload) and 'UNFINISHED PRIVATE' not in json.dumps(payload)
-    assert result.json()['structured_data']['sharing_unavailable_reason']
+    assert not result.json()['structured_data'].get('sharing_unavailable_reason')
 
 
 def test_survey_evidence_links_to_authorized_original_and_rejects_foreign_ids(survey_flow):
@@ -158,7 +158,7 @@ def test_review_queries_do_not_receive_survey_records_and_existing_analysis_surv
     assert f['client'].post(f'/api/v1/ask-genius/conversations/{chat}/share', headers=f['headers']).status_code == 201
 
 
-def test_survey_summaries_without_cards_and_mixed_chats_cannot_be_publicly_shared(survey_flow):
+def test_survey_summaries_without_cards_and_mixed_chats_can_be_shared(survey_flow):
     f = survey_flow
     f['create_survey']()
     f['model'].update(answer='A resident reports an unresolved leak.', evidence=[])
@@ -166,17 +166,21 @@ def test_survey_summaries_without_cards_and_mixed_chats_cannot_be_publicly_share
     assert answer.status_code == 200
     chat = answer.json()['conversation_id']
     assert not answer.json()['structured_data']['sources']
-    # Explicitly switching back to reviews never makes earlier survey-backed prose public.
+    # A survey summary and a later review answer use the same explicit share flow.
     assert f['ask']('Summarize the reviews.', conversation_id=chat).status_code == 200
     listed = f['client'].get('/api/v1/ask-genius/conversations', headers=f['headers']).json()['conversations'][0]
-    assert listed['sharing_unavailable_reason']
+    assert listed['sharing_unavailable_reason'] is None
     renamed = f['client'].patch(f'/api/v1/ask-genius/conversations/{chat}', headers=f['headers'], json={'title': 'Private findings'})
-    assert renamed.json()['sharing_unavailable_reason']
+    assert renamed.json()['sharing_unavailable_reason'] is None
     detail = f['client'].get(f'/api/v1/ask-genius/conversations/{chat}', headers=f['headers']).json()
-    assert detail['sharing_unavailable_reason']
+    assert detail['sharing_unavailable_reason'] is None
     shared = f['client'].post(f'/api/v1/ask-genius/conversations/{chat}/share', headers=f['headers'])
-    assert shared.status_code == 422 and 'survey' in shared.json()['detail']
-    assert f['db'].query(AskGeniusShare).count() == 0
+    assert shared.status_code == 201
+    assert f['db'].query(AskGeniusShare).count() == 1
+    public = f['client'].get('/api/v1/ask-genius/shared/' + shared.json()['token']).json()
+    assert len(public['messages']) == 4
+    assert public['messages'][1]['content'] == answer.json()['answer']
+    assert public['messages'][1]['structured_data']['sources'] == []
 
 
 def test_saved_survey_analysis_is_unavailable_without_jobs_or_model_calls(survey_flow):

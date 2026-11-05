@@ -82,17 +82,9 @@ class ShareResult(BaseModel):
 
 
 def conversation_summary(conversation, db=None):
-    private_survey = None
-    if db is not None:
-        private_survey = db.query(ConversationMessage.id).filter(
-            ConversationMessage.conversation_id == conversation.id,
-            or_(ConversationMessage.structured_data['source_scope'].as_string().in_(['surveys', 'mixed']),
-                ConversationMessage.raw_request['source_scope'].as_string().in_(['surveys', 'mixed']),
-                ConversationMessage.structured_data['sharing_unavailable_reason'].as_string().isnot(None)),
-        ).first()
     return {'public_id': conversation.public_id, 'title': conversation.title,
             'is_pinned': conversation.is_pinned, 'updated_at': conversation.updated_at,
-            'sharing_unavailable_reason': survey_service.SHARING_REASON if private_survey else None}
+            'sharing_unavailable_reason': None}
 
 
 def authorize(user: User) -> None:
@@ -226,7 +218,6 @@ def get_conversation(public_id: UUID, user: User = Depends(get_current_user), db
     # Audit context/provider payloads are deliberately not part of the client API.
     return {**conversation_summary(conversation, db),
             'period': period_dict(conversation_period(conversation, db)),
-            'sharing_unavailable_reason': sharing.unavailable_reason(messages),
             'messages': [{'id': m.id, 'role': m.role, 'content': m.content,
                           'structured_data': m.structured_data, 'created_at': m.created_at,
                           'status': (m.raw_request or {}).get('status') if m.role == 'user' else 'completed',
@@ -494,7 +485,6 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             metadata['review_context'] = [{key: s[key] for key in ('review_id', 'kind', 'topic', 'excerpt') if s.get(key) is not None}
                                           for s in review_context]
         if source_scope in {'surveys', 'mixed'}:
-            metadata['sharing_unavailable_reason'] = survey_service.SHARING_REASON
             metadata['survey_counts'] = evidence.get('survey_calculated', {}) if evidence else {}
             metadata['survey_event_types'] = survey_event_types
             selected_ids = survey_match_ids if survey_match_ids is not None else [

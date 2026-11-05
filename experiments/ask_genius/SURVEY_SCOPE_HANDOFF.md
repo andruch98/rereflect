@@ -1,84 +1,124 @@
 # Survey corrections — combined PR #12
 
-November 4, 2026. Branch `fix/ask-genius-survey-selection`, stacked on
-`feat/lifecycle-email-preview` (#11). The four discussed corrections are now
-implemented together. The agreed model-input simplification is now added to the
-same PR. Merge and deployment require separate authorization.
+November 5, 2026 (America/New_York). Branch `fix/ask-genius-survey-selection`,
+stacked on `feat/lifecycle-email-preview` (#11). Implemented in this PR;
+not merged, deployed, or installed on the user's Mac. Human answer-quality
+acceptance remains pending. Property naming remains separately queued.
 
-## Behavior and diagnosis
+## Current additions
 
-1. Named survey descriptions select that questionnaire's originals. Broad,
-   unqualified evaluations cover all types in the chosen period; short
-   follow-ups retain their subject. Previously, the preceding type could stick.
-2. The model receives rating counts grouped by questionnaire and question,
-   alongside all original answers. The shared evidence rules and existing
-   survey section now preserve low ratings, mixed feedback, unresolved issues
-   and reported safety concerns. Individual aspect ratings are distinct from
-   overall experience. Missing saved analysis does not mean missing originals.
-   The user's subsequent private export confirms all nine original records
-   reached all four broad requests. Missing source retrieval did not cause those
-   omissions. Individual questionnaire answers improved; broad summaries still
-   omitted material concerns and made unsupported claims.
-3. Invitation status distinguishes accepted test sends, simulations, missing
-   history, unconfirmed sends, failures and opt-outs in both list and detail.
-   Submission status remains separate. Provider acceptance is not proof of
-   inbox delivery. The previous detail paragraph always said no email was sent.
-4. An untouched blank form no longer starts as saved. A reopened draft or a
-   successful save confirms saving; editing clears that confirmation. Existing
-   revision guards, failure messages and editable answers are preserved.
+### Approved survey examples
 
-The earlier prompt correction was integrated into the shared core and survey
-section. This new step leaves the entire prompt and output contract unchanged.
-Full instructions live at
-`services/backend-api/src/services/ask_genius_instructions.txt`.
+The entire approved five-example Markdown file is read at application startup
+and included verbatim once in every Ask Genius model request, including review
+and mixed-source requests. There is no example selection, summarization,
+retrieval service, extra model call, or new dependency. Locally calculated
+answers still need no model request. Restart/rebuild loads file changes.
 
-## Model-input simplification
+- Main instructions: `services/backend-api/src/services/ask_genius_instructions.txt`
+- Approved bank: `services/backend-api/src/services/ask_genius_survey_examples.md`
+- Assembly and unchanged output contract: `services/backend-api/src/services/ask_genius.py`
 
-Only the model-facing copy changes. Keep the bound question text once; omit
-duplicate context, duplicate free-text labels and form-only constraints. Supply
-an identical rating scale once per submission; retain different scales per
-question. Preserve all answer values, choices, selected labels, dates, context,
-IDs and calculated counts. Source cards and validation use the unchanged full
-records. No database, model, provider, prompt, history or review-input changes.
+Section 6 contains the agreed scope rule: review-only questions must ignore the
+survey examples; mixed questions apply them only to the survey portion.
+Example facts never supply current community evidence. The bank stays outside
+the authorized-evidence message and stored source records. Its introduction,
+five examples and complete source-question appendix match the approved file
+byte for byte. The redundant short survey-count example was removed from the
+main prompt; the distinct source-popup example remains. The complete prompt,
+examples and output contract were reviewed together for conflicting scope,
+format and evidence instructions.
 
-On the four actual captured requests, all nine submissions and 36 answers are
-preserved. Total message content is 24.0–24.3% shorter in characters. This is not
-a token/cost measurement or evidence of improved answer quality. Duplication
-contributing to omissions remains a hypothesis to test.
+This deliberately increases request context, including for reviews. Extra token
+usage, cost and answer-quality improvement have not been measured. The model,
+provider, generation settings, current evidence, history policy and validators
+are unchanged. Inclusion and software checks do not prove the model will follow
+the examples or ignore them correctly on reviews.
 
-## Verification and limitations
+### Share survey conversations
 
-- Fresh Ask Genius offline suite: 253 passed, including four new preservation
-  cases. Model outputs are mocked; these check software behavior, not accuracy.
-- Comparison runner: eight offline tests passed for the four-call bound,
-  preflight checks and stopping without retries after request/validation errors.
-- The first new-test run had two fixture-type errors plus two missing-function
-  failures. After correcting the fixtures, baseline was three failed/one passed;
-  the implementation then passed all four. All attempts are retained privately.
-- Previous combined-update verification, not rerun for this backend-only change:
-  84 survey workflow passes/four PostgreSQL skips; 155 frontend passes/one skip;
-  affected-file ESLint passed. Project-wide TypeScript had 87 pre-existing errors
-  with identical baseline diagnostics. That was not a passing full typecheck.
+The existing Share action now works for survey-only and mixed conversations,
+including older chats carrying the obsolete sharing-block metadata. Like review
+shares, each action creates a frozen read-only copy accessible to anyone with
+the link. Later messages, edits, or deleting private history do not change that
+copy. Existing review shares remain compatible. No links were published to real
+conversations during implementation.
 
-The user's baseline export records 13 generated requests using gpt-4.1-mini,
-128,146 input and 2,237 output tokens; the count question was calculated locally.
-Cost was not recorded. Exact private inputs, outputs, failure/rejection reasons
-and factual-review notes stay outside this public repository. No new live model
-or email call, preview installation, merge or deployment occurred in this step.
-Property naming remains separately queued.
+Attached survey sources are rebuilt from owned, finalized original submissions.
+The snapshot contains their title, type, original question text and displayed
+submitted answers, preserving the topic and selected-question relationship.
+Each submission receives a snapshot-local ID. It excludes resident/contact/unit
+metadata, private survey tokens, live record IDs/links, drafts, raw model payloads
+and unattached records. Resident wording or manager chat text may itself contain
+personal information: this feature is not a redaction service. As with review
+shares, the manager chooses which conversation to share.
 
-## Next action and stopping rule
+The shared page opens the relevant answers first, with the existing option to
+view all answers from the same submission. It never fetches authenticated survey
+records, including when snapshot answers are missing. Ownership checks, snapshot
+size limits and existing public-link protections remain in force. No migration
+or existing-record rewrite is required. Link revocation remains outside this
+existing sharing MVP.
 
-Run the prepared four-question comparison on the existing Mac preview. It uses
-the installed AI adapter, model and validator, with the original frozen chat
-history and only simplified survey evidence. No preview update is needed to run
-this diagnostic. The earlier outputs are the baseline; no paid baseline rerun.
-See `survey_input_comparison/README.md` for scope and complete capture behavior.
+## Earlier work retained
 
-Check bad-survey selection, maintenance/near-fall and move-in condition coverage,
-parking/rent-payment follow-up, and rent-value uncertainty without invented
-delays or causes. Stop on the first request/validation error, then assess facts
-separately. Stop at the first factual failure and diagnose the saved input/output
-before changing instructions or rerunning. Do not resubmit surveys or send email.
-If the diagnostic passes human review, install through a guarded update and
-check the normal chat workflow. Human accuracy acceptance remains pending.
+- Named questionnaire requests switch type; broad unqualified survey evaluations
+  reset to all types within the chosen period; short follow-ups retain subject.
+- Question-specific rating counts and integrated evidence instructions preserve
+  low aspect ratings, unresolved issues and reported safety concerns.
+- Model-facing survey evidence removes repeated context/question wording while
+  preserving every answer, choice, label, scale, original source and count.
+- Sent/simulated/unconfirmed/failed/opted-out invitations remain distinct from
+  submitted feedback. Provider acceptance does not prove inbox delivery.
+- Blank forms no longer claim a saved draft; reopen/save/edit/failure handling
+  remains intact.
+
+The user's private captures showed all nine submissions and 36 answers reached
+failed broad summaries. Missing retrieval did not explain those omissions. A
+fresh-chat summary also omitted poor move-in condition, so chat history alone
+was not a sufficient explanation. The earlier 24.0–24.3% character reduction
+measured evidence simplification only; it does not describe this larger prompt.
+
+## Verification for these additions
+
+- Ask Genius offline backend suite: **268 passed**, with simulated model outputs.
+  Includes review/survey/mixed request construction and follow-ups, all seven
+  questionnaire types, legacy chats, frozen shares, ownership, forged metadata,
+  invalid source references, draft/foreign exclusion and existing review shares.
+- Frontend reviews/surveys suite: **158 passed, one existing skip**. After a final
+  test-only TypeScript correction, the affected Ask Genius suite passed again
+  (**34 tests**, included in the total above).
+- Affected-file ESLint passed. Git whitespace checks passed.
+- Full frontend TypeScript: **87 errors**, byte-identical to a fresh check of the
+  unchanged local baseline. This is not a passing project-wide typecheck.
+- Initial test invocation used the wrong working directory and collected no
+  backend tests. The first frontend run had one obsolete assertion that public
+  survey sources must remain hidden; updated for the approved sharing behavior.
+  Two TypeScript errors in a new test used an unsupported query option; corrected.
+  Attempts, complete available simulated requests/outputs, expected validation
+  rejections and assessments are preserved in the private test record.
+
+No live Ask Genius or judge requests were made; fixture token counts are not
+actual usage. No provider cost was incurred by these offline tests. Tests establish
+software behavior, not human judgment of factual accuracy. Browser-level visual
+inspection and live-provider behavior are not captured in this addition.
+
+## Next action and bounded acceptance
+
+Prepare a guarded local preview update from this PR before the next acceptance
+run. The older evidence-only comparison package must not be reused as though it
+tests these examples: it intentionally requires unchanged instructions.
+
+Bound the next live evaluation to at most eight requests on the same configured
+model: three previously failed survey questions, two unseen synthetic survey
+cases with changed facts, one review-only question, its short follow-up, and one
+mixed-source question. Fix the evidence and expected findings before running;
+retain complete requests, outputs, provider usage/cost when supplied, validator
+results and human assessments. Stop on the first request/validation error; no
+hidden retries or judge calls. Stop and diagnose the first factual failure.
+
+Check omissions, invented causes, correct low-rating/unresolved criteria,
+review/survey separation and no fictional example facts entering real answers.
+Separately test Share and source popups in the normal UI with a synthetic chat.
+Approval of example content is not acceptance of live model quality. Merge and
+deployment still require explicit authorization.

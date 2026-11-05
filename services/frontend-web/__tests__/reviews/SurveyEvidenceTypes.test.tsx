@@ -54,11 +54,12 @@ it('loads the title, type and original answers for an older source without a sna
   expect(get).toHaveBeenCalledExactlyOnceWith(completed.public_id);
 });
 
-it('keeps the new survey labels and private snapshots out of public chats', () => {
+it('renders survey evidence explicitly included in a public snapshot without private access', () => {
   const { completed } = surveyCases[5];
-  show([{ source: 'survey', survey_id: completed.public_id, survey: { title: completed.questionnaire.title, survey_type_label: 'Lease renewal', questions: [{ id: 'renewal_comment', text: 'Private question', answer_label: 'Private resident answer.' }] } }], true);
-  expect(screen.queryByRole('button', { name: /View.*answers/ })).not.toBeInTheDocument();
-  expect(screen.queryByText(completed.questionnaire.title)).not.toBeInTheDocument();
-  expect(screen.queryByText('Private resident answer.')).not.toBeInTheDocument();
+  show([{ source: 'survey', survey_id: completed.public_id, survey: { title: completed.questionnaire.title, survey_type_label: 'Lease renewal', questions: [{ id: 'renewal_comment', text: 'Shared original question', answer_label: 'Shared submitted answer.' }] } }], true);
+  fireEvent.click(screen.getByRole('button', { name: 'View original answers' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent('Lease renewal');
+  expect(screen.getByRole('dialog')).toHaveTextContent('Shared original question');
+  expect(screen.getByRole('dialog')).toHaveTextContent('Shared submitted answer.');
   expect(get).not.toHaveBeenCalled();
 });

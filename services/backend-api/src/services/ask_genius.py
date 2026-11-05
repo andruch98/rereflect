@@ -26,7 +26,9 @@ SCOPE = 'boomsay_reviews'
 MAX_REVIEWS = 100
 MAX_EVIDENCE_CHARS = 80000
 SENTIMENTS = {'positive', 'negative', 'mixed', 'neutral', 'unknown'}
-SYSTEM_PROMPT = Path(__file__).with_name('ask_genius_instructions.txt').read_text(encoding='utf-8')
+SURVEY_ANSWER_EXAMPLES = Path(__file__).with_name('ask_genius_survey_examples.md').read_text(encoding='utf-8')
+SYSTEM_PROMPT = (Path(__file__).with_name('ask_genius_instructions.txt').read_text(encoding='utf-8')
+                 + '\n\n' + SURVEY_ANSWER_EXAMPLES)
 SOURCES = ['apartment_review_ai', 'apartment_review_fallback']
 DEFAULT_ANSWER_CHARS = 1000
 EVIDENCE_ANSWER_CHARS = 3000
