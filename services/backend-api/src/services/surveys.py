@@ -3,14 +3,14 @@ import os
 import secrets
 from urllib.parse import urlsplit
 
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
 from src.models.organization import Organization
-from src.models.customer_health import CustomerHealth
 from src.models.survey import SurveyOccurrence, SurveyInstance, SurveyInvitation, SurveyResident, SurveyUnit, SurveyEmailOptOut, utcnow
 from src.services.survey_catalog import bind_questionnaire, validate_answers, answer_label, event_type_for, EVENT_LABELS
-from src.services.survey_delivery import prepare_invitation, SimulatedSurveySender
+from src.services.survey_delivery import prepare_invitation
+from src.services.survey_schedule import cancel_simulated_work, schedule_invitation
 
 
 def public_base_url() -> str:
@@ -52,7 +52,7 @@ def suppress_email(db, organization_id: int, email: str):
 
 
 def ingest_simulated_event(db, event):
-    """The sole ingestion path this increment: synchronous fake-provider delivery.
+    """Bind a simulated event to one resident survey and apply its community schedule.
 
     Unique constraints are the durable dedupe boundary. The organization row lock
     also serializes concurrent ingestions for PostgreSQL; no Redis is involved.
@@ -105,19 +105,7 @@ def ingest_simulated_event(db, event):
             db.add(invitation); db.flush()
             if event.resident_opt_out:
                 suppress_email(db, org.id, event.resident_email)
-            existing_optout = db.query(CustomerHealth.id).filter(
-                CustomerHealth.organization_id == org.id,
-                func.lower(CustomerHealth.customer_email) == event.resident_email.lower(),
-                CustomerHealth.outreach_opt_out.is_(True)).first()
-            # Honor opt-outs across aliases of the same email within this community too.
-            survey_optout = db.query(SurveyResident.id).filter(
-                SurveyResident.organization_id == org.id,
-                func.lower(SurveyResident.email) == event.resident_email.lower(),
-                SurveyResident.email_opt_out.is_(True)).first()
-            email_optout = db.get(SurveyEmailOptOut, (org.id, event.resident_email.lower()))
-            invitation.status = ('suppressed_opt_out' if resident.email_opt_out or existing_optout or survey_optout
-                                 or email_optout
-                                 else SimulatedSurveySender().send(invitation))
+            schedule_invitation(db, survey, invitation, event.completed_at)
             db.commit()
             return survey
         except IntegrityError:
@@ -146,7 +134,8 @@ def serialize_survey(survey, *, manager=False):
     if manager:
         invitation = survey.invitation
         result['invitation'] = ({key: getattr(invitation, key) for key in (
-            'status', 'provider', 'is_simulated', 'recipient', 'subject', 'html', 'text', 'survey_url', 'created_at')}
+            'status', 'provider', 'is_simulated', 'recipient', 'subject', 'html', 'text', 'survey_url', 'created_at',
+            'scheduled_for', 'sent_at', 'reminder_due_at', 'reminder_simulated_at')}
             if invitation else None)
     return result
 
@@ -170,6 +159,8 @@ def save_answers(db, survey, answers, *, final=False):
         # Retain the conditional final guard in addition to write serialization.
         db.query(SurveyInstance).filter(SurveyInstance.id == survey.id,
             SurveyInstance.submitted_at.is_(None)).update(values, synchronize_session=False)
+        if final:
+            cancel_simulated_work(db, [survey.id], 'suppressed_submitted')
         db.commit()
     except Exception:
         db.rollback()

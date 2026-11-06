@@ -9,9 +9,13 @@ export function ReviewRating({ rating }: { rating?: number | null }) {
   </span>;
 }
 
+export function isApartmentReview(source: string | null) {
+  return source === 'apartment_review_ai' || source === 'apartment_review_fallback';
+}
+
 export function reviewSourceLabel(source: string | null) {
   // These values identify the import/run, not the original publishing platform.
-  if (source === 'apartment_review_ai' || source === 'apartment_review_fallback') return 'Imported review';
+  if (isApartmentReview(source)) return 'Imported review';
   if (source === 'csv_import') return 'CSV import';
   if (source === 'manual') return 'Manual entry';
   return source || 'Source unavailable';

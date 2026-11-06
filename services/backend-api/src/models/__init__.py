@@ -41,6 +41,7 @@ from .copilot_schema_whitelist import CopilotSchemaWhitelist
 from .linear_integration import LinearIntegration, LinearTeamMapping, LinearStatusMapping, FeedbackLinearIssue
 from .response_template import ResponseTemplate
 from .feedback_response import FeedbackResponse
+from .review_reply import ReviewReply
 from .webhook_endpoint import WebhookEndpoint
 from .webhook_delivery import WebhookDelivery
 from .report import Report
@@ -70,8 +71,10 @@ from .saml_config import SamlConfig
 from .saml_auth_request import SamlAuthRequest
 from .outreach_campaign import OutreachCampaign, OutreachCampaignRecipient
 from .automation_email_delivery import AutomationEmailDelivery
+from .agent_settings import CommunityAgentSettings
 
 __all__ = [
+    "CommunityAgentSettings",
     "SurveyResident", "SurveyUnit", "SurveyOccurrence", "MaintenanceOccurrence", "SurveyInstance", "SurveyInvitation", "SurveyEmailOptOut",
     "Base",
     "Organization",
@@ -119,6 +122,7 @@ __all__ = [
     "FeedbackLinearIssue",
     "ResponseTemplate",
     "FeedbackResponse",
+    "ReviewReply",
     "WebhookEndpoint",
     "WebhookDelivery",
     "Report",

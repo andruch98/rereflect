@@ -314,7 +314,7 @@ class TestAlembicSingleHead:
             f"expected exactly one alembic head, got {len(lines)}: {lines}"
         )
         # The head moves with every new migration; update this pin when you add
-        # one (currently a3c927b6d801 — expand survey lifecycle).
-        assert "a3c927b6d801" in lines[0], (
-            f"the single head must be the newest revision a3c927b6d801, got: {lines[0]}"
+        # one (currently 46eeba18d492 — survey manager workflows).
+        assert "46eeba18d492" in lines[0], (
+            f"the single head must be the newest revision 46eeba18d492, got: {lines[0]}"
         )

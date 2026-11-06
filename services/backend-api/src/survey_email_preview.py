@@ -78,9 +78,12 @@ def operate(db, action, test_id, event_type='maintenance_completed'):
                 func.lower(CustomerHealth.customer_email) == RECIPIENT, CustomerHealth.outreach_opt_out.is_(True)).first())
         if suppressed or survey.status != 'pending':
             raise ValueError('This address opted out or the survey is already completed. Nothing sent.')
+        from src.services.agent_settings import survey_settings
+        if not survey_settings(db, org_id).schedule[event_type].enabled:
+            raise ValueError('This survey type is paused. Nothing sent.')
         # Atomic compare-and-set: concurrent helpers cannot both claim the invitation.
         changed = db.query(SurveyInvitation).filter_by(id=invitation.id, status='simulated', is_simulated=True).update({
-            'status': 'email_test_reserved', 'is_simulated': False,
+            'status': 'email_test_reserved', 'is_simulated': False, 'reminder_due_at': None,
             'subject': payload['subject'], 'text': text, 'html': html}, synchronize_session=False)
         if changed != 1:
             db.rollback()
@@ -88,7 +91,8 @@ def operate(db, action, test_id, event_type='maintenance_completed'):
         db.commit()
     elif action in ('accepted', 'failed'):
         changed = db.query(SurveyInvitation).filter_by(id=invitation.id, status='email_test_reserved', is_simulated=False).update(
-            {'status': 'email_test_' + action}, synchronize_session=False)
+            {'status': 'email_test_' + action, 'sent_at': datetime.now(timezone.utc) if action == 'accepted' else None},
+            synchronize_session=False)
         if changed != 1:
             db.rollback()
             raise ValueError('No reserved test attempt to update.')

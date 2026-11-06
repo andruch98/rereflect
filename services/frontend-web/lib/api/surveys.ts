@@ -56,12 +56,25 @@ export interface SurveyContext {
 export interface SurveyInvitation {
   status: string;
   is_simulated: boolean;
+  scheduled_for?: string | null;
+  sent_at?: string | null;
+  reminder_due_at?: string | null;
+  reminder_simulated_at?: string | null;
   recipient: string;
   subject: string;
   html: string;
   text: string;
   survey_url: string;
 }
+export type SurveyView = 'all' | 'sent' | 'submitted' | 'needs_review' | 'reviewed';
+export type SurveyCounts = Record<'sent' | 'submitted' | 'needs_review', number>;
+export interface SurveyAttentionReason { question_id: string; label: string; answer: string }
+export interface SurveyListScope {
+  view?: SurveyView;
+  start_date?: string;
+  end_date?: string;
+}
+
 export interface SurveyInstance {
   public_id: string;
   status: 'pending' | 'draft' | 'submitted';
@@ -71,16 +84,23 @@ export interface SurveyInstance {
   answers: SurveyAnswers;
   draft_answers: SurveyAnswers;
   invitation?: SurveyInvitation;
+  attention_reasons?: SurveyAttentionReason[];
+  can_mark_reviewed?: boolean;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
 }
 
 export const surveysAPI = {
-  async list(page = 1, pageSize = 50, eventType?: SurveyEventType) {
-    return (await apiClient.get<{ surveys: SurveyInstance[]; total: number }>('/api/v1/surveys', {
-      params: { page, page_size: pageSize, ...(eventType ? { event_type: eventType } : {}) },
+  async list(page = 1, pageSize = 50, eventType?: SurveyEventType, scope: SurveyListScope = {}) {
+    return (await apiClient.get<{ surveys: SurveyInstance[]; total: number; counts: SurveyCounts }>('/api/v1/surveys', {
+      params: { page, page_size: pageSize, ...(eventType ? { event_type: eventType } : {}), ...scope },
     })).data;
   },
   async get(id: string) {
     return (await apiClient.get<SurveyInstance>(`/api/v1/surveys/${encodeURIComponent(id)}`)).data;
+  },
+  async markReviewed(id: string) {
+    return (await apiClient.post<SurveyInstance>(`/api/v1/surveys/${encodeURIComponent(id)}/reviewed`)).data;
   },
   async resident(token: string) {
     return (await publicApiClient.get<SurveyInstance>(`/api/v1/resident-surveys/${encodeURIComponent(token)}`)).data;
@@ -109,8 +129,14 @@ export function surveyTypeLabel(survey: SurveyInstance): string {
   return survey.context.survey_type_label || surveyType(survey.context.event_type, survey.questionnaire.id)?.label || 'Survey';
 }
 
+// Use the same day boundaries as the survey dashboard filters.
+const surveyTime = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York', timeZoneName: 'short',
+  month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+});
+
 export function surveyDate(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value.endsWith('Z') || /[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : surveyTime.format(date);
 }

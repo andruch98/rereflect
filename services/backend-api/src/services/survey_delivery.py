@@ -1,10 +1,11 @@
-"""Survey-specific preparation with an explicit provider boundary; no scheduling.
+"""Survey-specific preparation with a separate, explicit provider boundary.
 
 Ingestion in this increment always supplies SimulatedSurveySender. The Resend
 adapter reuses the existing transport and is tested through a mocked transport.
-No CLI/HTTP switch enables it, and it refuses persisted simulated invitations.
+Scheduled simulations have no path to this adapter; it refuses simulated invitations.
 """
 from html import escape
+from datetime import datetime, timezone
 
 
 def prepare_invitation(*, name: str, community_name: str, survey_url: str, unsubscribe_url: str,
@@ -43,4 +44,7 @@ class ResendSurveySender:
         accepted = email_service._send_email(
             to=invitation.recipient, subject=invitation.subject,
             html=invitation.html, text=invitation.text)
-        return 'provider_accepted' if accepted else 'provider_failed'
+        if accepted:
+            invitation.sent_at = datetime.now(timezone.utc)
+            return 'provider_accepted'
+        return 'provider_failed'
