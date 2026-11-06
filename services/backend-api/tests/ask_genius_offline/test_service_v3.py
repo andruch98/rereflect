@@ -89,12 +89,24 @@ def test_analysis_text_not_in_original_is_never_shown_as_resident_quote(flow):
     {'kind': 'review', 'topic': 'Maintenance', 'quotation_index': 999},
     {'kind': 'analysis', 'topic': 'Not a saved topic'},
     {'kind': 'review', 'quotation_index': 0},
-    {'kind': 'review', 'topic': 'Maintenance', 'quotation_index': 0, 'excerpt': 'Repairs took two weeks.'},
+    {'kind': 'review', 'topic': 'Maintenance', 'quotation_index': 0, 'excerpt': 'Helpful staff.'},
     {'kind': 'review', 'excerpt': 'They fixed everything immediately.'},
 ])
 def test_invalid_selectors_or_invented_excerpts_fail_without_model_retry(flow, item):
     flow['model'].update(evidence=[{'review_id': flow['rows'][0].id, **item}])
     assert flow['ask']('Show the original review', period=ALL).status_code == 502
+    assert len(flow['calls']) == 1
+
+
+def test_agreeing_quote_and_index_show_original_source_without_retry(flow):
+    row = flow['rows'][0]
+    flow['model'].update(evidence=[{'review_id': row.id, 'kind': 'review', 'topic': 'Maintenance',
+                                    'quotation_index': 0, 'excerpt': 'Repairs took two weeks.'}])
+    response = flow['ask']('Show the original review', period=ALL)
+    assert response.status_code == 200
+    card = response.json()['structured_data']['sources'][0]
+    assert card['excerpt'] == 'Repairs took two weeks.'
+    assert card['review']['original_review'] == row.text
     assert len(flow['calls']) == 1
 
 

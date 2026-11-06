@@ -53,7 +53,7 @@ def test_duplicates_are_harmless_only_when_identical():
     assert 'duplicate_finding_question_reference' in notes
     assert 'duplicate_identical_finding' in notes
     payload['survey_findings'][-1]['finding'] = 'A different finding.'
-    with pytest.raises(ValueError, match='cover the supplied cohort'):
+    with pytest.raises(ValueError, match='Conflicting response fields'):
         service.validate_answer(json.dumps(payload), evidence, False)
 
 

@@ -21,6 +21,7 @@ from src.models.feedback import FeedbackItem
 from src.services.copilot.llm_resolver import LLMConfig
 from src.services.ask_genius_periods import Period, resolve_period
 from src.services import ask_genius_surveys as survey_service
+from src.services.ask_genius_source_text import recovered_excerpt
 
 SCOPE = 'boomsay_reviews'
 MAX_REVIEWS = 100
@@ -45,8 +46,9 @@ selectors. Do not use output format rules to broaden that scope.
 When the input flag survey_findings_required is true, the RESPONSE starts with
 {"survey_findings": [...], "answer": "..."}. The flag is not a response field.
 survey_findings is a list of {"survey_id": "existing UUID", "question_ids":
-["original question ID"], "finding": "brief factual finding"}, with exactly one
-entry for EVERY supplied survey, including surveys without a reported concern.
+["original question ID"], "finding": "brief factual finding"}. Cover EVERY supplied
+survey, including surveys without a reported concern. A survey can have separate
+findings supported by different questions; count the survey only once.
 Keep each finding brief (aim for 300 characters) and cite the original questions
 supporting its facts, including an unanswered optional question when reporting its absence. Read all answers in the submission; retain distinct ratings, explicit
 unresolved concerns, comments and decision/departure reasons that affect this request.
@@ -57,23 +59,22 @@ reused as chat history. When the flag is false, omit survey_findings.
 If evidence_requested is false, evidence and selections must be empty. If true:
 - evidence selects specific records: review_id (existing integer), kind (review or analysis),
   topic (exact saved name for topic-linked evidence; required for analysis), optional
-  quotation_index (zero-based saved quotation index) OR excerpt (exact contiguous source text).
+  quotation_index (zero-based saved quotation index) or excerpt (contiguous source text). If using both, they must match.
   Omit optional fields when not needed. References are technical IDs, not display labels.
 - For surveys, evidence selects {"survey_id": "existing UUID", "kind": "survey"},
   with topic matching the topic label in the answer and question_id identifying the
   relevant original question. Optionally excerpt exact original submitted text.
   Never use review_id for surveys. These are on-demand findings, not saved analysis.
-- survey_selections selects finalized submissions: {} means the established entire survey
-  cohort, or {"issue_resolution":"unresolved"} (also resolved, partially_resolved, not_checked).
+- survey_selections filters finalized submissions by {"issue_resolution":"unresolved"}
+  (also resolved, partially_resolved, not_checked). Empty filters select nothing.
   Preserve prior restrictions. Use verified survey IDs for narrower narrative findings.
 - selections selects all records matching a filter: optional star_ratings (integers 1-5),
   topic (exact saved name), sentiment (positive/negative/mixed/neutral/unknown).
   Filters combine with AND. With topic, sentiment applies to that topic or its quotations;
   without topic, it applies to overall saved sentiment. For a narrower theme, use verified
   evidence IDs instead of a broad topic filter. Relevant record order comes from supplied data.
-- A selection {} matches the entire supplied cohort. Use it ONLY for an established overall
-  unfiltered review-list request or explicit broadening. It is incorrect after a narrower
-  topic/sentiment discussion when the manager merely says "each/all/those reviews."
+- Empty filters select nothing. For an explicitly requested unfiltered list, use evidence
+  to identify each matching review or survey within the established scope.
 - For negative-topic evidence, use separate topic-linked selections with sentiment=negative,
   or individually verified topic-linked evidence. Preserve the prior topic bullets in answer;
   do not put the reviews in one ungrouped selection. Scope applies equally to both fields.
@@ -230,25 +231,38 @@ def build_authorized_evidence(org_id: int, db: Session, period: Period, scope: s
     return evidence
 
 
+def accepts_source_offer(question: str, history: list[dict]) -> bool:
+    """A short follow-up refers to sources only after an offer or attached sources."""
+    lowered = question.casefold().strip().rstrip('.! ').replace(',', '')
+    show_attached = {'show more', 'more please', 'show them', 'show those', 'open them', 'let me see them'}
+    if lowered not in show_attached | {'yes', 'yes please', 'sure', 'please do', 'go ahead', 'show me'}:
+        return False
+    assistant = next((m['content'].casefold() for m in reversed(history) if m['role'] == 'assistant'), '')
+    reply, _, attachments = assistant.partition('\n\nattached source cards:')
+    offer = r'\b(?:would you like|want|shall i|can show)\s+'
+    action = r'(?:(?:(?:me |us )?to )?(?:see|show|provide|open|include|read|display)\s+)?(?:you\s+)?'
+    modifiers = r'(?:(?:the|some|these|those|original|supporting|submitted|actual|survey|review)\s+)*'
+    sources = r'(?:reviews?|surveys?|answers?|responses?|submissions?|sources?|evidence|excerpts?|records?|analysis)\b'
+    if re.search(offer + action + modifiers + sources, reply):
+        return True
+    supporting_context = bool(attachments or re.search(
+        r'supporting (?:information|feedback|evidence)|\[review #\d+\]\(/feedbacks/\d+\)', reply))
+    return supporting_context and (lowered in show_attached or
+                                   bool(re.search(offer + action + r'(?:it|them|those|more)\b', reply)))
+
+
 def evidence_requested(question: str, history: list[dict]) -> bool:
     """Conservative expansion gate; a request for a longer explanation is insufficient."""
     lowered = question.casefold().strip()
-    if re.search(r"\b(?:do not|don't|without|no)\s+(?:show|include|give|provide)?\s*(?:me\s+)?(?:supporting\s+)?(?:evidence|reviews?|surveys?|answers?|submissions?|excerpts?|quotes?|records?)\b", lowered):
+    if re.search(r"\b(?:do not|don't|don’t|without|no)\s+(?:show|include|give|provide)?\s*(?:me\s+)?(?:(?:the|any|supporting|original)\s+)*(?:evidence|sources?|reviews?|surveys?|answers?|submissions?|excerpts?|quotes?|records?)\b", lowered):
         return False
-    if re.search(r"\b(?:show|see|list|give|provide|display|include|open|read|tie|link|connect|match|trace)\b.{0,90}\b(?:reviews?|surveys?|answers?|submissions?|evidence|excerpts?|quotes?|records?|saved analysis|supporting (?:information|feedback|data)|survey (?:answers?|responses?|data)|management responses?)\b", lowered):
+    if re.search(r"\b(?:show|see|list|give|provide|display|include|open|read|tie|link|connect|match|trace)\b.{0,90}\b(?:reviews?|surveys?|answers?|submissions?|sources?|evidence|excerpts?|quotes?|records?|saved analysis|supporting (?:information|feedback|data)|survey (?:answers?|responses?|data)|management responses?)\b", lowered):
         return True
     if re.search(r"\b(?:which|what)\s+(?:original\s+|actual\s+|specific\s+)?(?:reviews?|submissions?|surveys?)\b", lowered):
         return True
     if re.search(r"\b(?:show|give|provide|see)\b.{0,35}\b(?:topic|theme|sentiment)\b.{0,25}\b(?:breakdown|analysis)\b", lowered):
         return True
-    if re.fullmatch(r"(?:yes|yes please|sure|please do|go ahead|show me|show more|more please|show them|show those|open them|let me see them)[.! ]*", lowered):
-        assistant = next((m['content'].casefold() for m in reversed(history) if m['role'] == 'assistant'), '')
-        offered = re.search(r"\b(?:would you like|want|shall i|can show)\b.{0,100}\b(?:reviews?|evidence|supporting|excerpts?|records?|analysis)\b", assistant, re.S)
-        supporting_context = re.search(r"supporting (?:information|feedback|evidence)|\[Review #\d+\]\(/feedbacks/\d+\)|Attached source cards:", assistant, re.I)
-        pronoun_offer = re.search(r"\b(?:would you like|want|shall i|can show)\b.{0,45}\b(?:it|them|those|more)\b", assistant, re.S)
-        return bool(offered or (supporting_context and (pronoun_offer or lowered.rstrip('.! ') in {
-            'show more', 'more please', 'show them', 'show those', 'open them', 'let me see them'})))
-    return False
+    return accepts_source_offer(question, history)
 
 
 def history_message(message) -> dict:
@@ -322,11 +336,47 @@ class SurveyFinding(BaseModel):
     finding: str = Field(min_length=1, max_length=2000)
 
 
+def _canonical_match(value, choices, normalize):
+    if value in choices:
+        return value
+    key = normalize(value)
+    matches = {choice for choice in choices if normalize(choice) == key}
+    return matches.pop() if len(matches) == 1 else None
+
+
+def _canonical_survey_ids(result, surveys):
+    # Only promote a spelling to the actual ID if it identifies exactly one source.
+    for item in [*result.survey_findings, *result.survey_context, *result.evidence]:
+        if not isinstance(item, (SurveyFinding, SurveyEvidenceItem)):
+            continue
+        survey_id = _canonical_match(item.survey_id, surveys, str.lower)
+        if survey_id is None:
+            continue  # Normal authorization/coverage checks will reject it.
+        item.survey_id = survey_id
+        ids = {q['id'] for q in surveys[survey_id]['questions']}
+        if isinstance(item, SurveyFinding):
+            item.question_ids = [_canonical_match(q.strip(), ids, str.lower) or q for q in item.question_ids]
+        elif item.question_id is not None:
+            item.question_id = _canonical_match(item.question_id, ids, str.lower) or item.question_id
+
+
+def _topic_name(value, topics):
+    def normalize(label):
+        return ' '.join(label.casefold().replace('&', ' and ').split())
+
+    name = _canonical_match(value, {topic['name'] for topic in topics}, normalize)
+    if name is None:
+        raise ValueError('Unknown saved analysis topic')
+    return name
+
+
 def selection_items(selection: ReviewSelection, records: list[dict]) -> list[EvidenceItem]:
     if selection.star_ratings is not None and any(type(r) is not int or r not in range(1, 6) for r in selection.star_ratings):
         raise ValueError('Invalid star rating filter')
-    if selection.topic and not any(t['name'] == selection.topic for r in records for t in r['saved_analysis'].get('topics', [])):
-        raise ValueError('Unknown saved analysis topic')
+    if not (selection.star_ratings or selection.topic or selection.sentiment):
+        return []
+    if selection.topic:
+        selection.topic = _topic_name(selection.topic, [t for r in records for t in r['saved_analysis'].get('topics', [])])
     selected = []
     for record in records:
         if selection.star_ratings is not None and record.get('star_rating') not in selection.star_ratings:
@@ -372,26 +422,33 @@ def _source_preview(text: str) -> tuple[str, bool]:
 def _selected_source(item: EvidenceItem, record: dict) -> str:
     """Resolve structured selectors against saved sources, never model-generated prose."""
     topic = None
+    original = record['original_review']
     if item.topic is not None:
-        topic = next((t for t in record['saved_analysis'].get('topics', []) if t['name'] == item.topic), None)
-        if topic is None:
-            raise ValueError('Unknown saved analysis topic')
+        topics = record['saved_analysis'].get('topics', [])
+        item.topic = _topic_name(item.topic, topics)
+        topic = next(t for t in topics if t['name'] == item.topic)
     if item.kind == 'analysis' and topic is None:
         raise ValueError('Unknown saved analysis topic')
     if item.quotation_index is not None:
-        if item.excerpt is not None or topic is None or item.quotation_index >= len(topic['quotations']):
+        if topic is None or item.quotation_index >= len(topic['quotations']):
             raise ValueError('Invalid saved quotation selector')
         selected = topic['quotations'][item.quotation_index]['text']
-        # Analysis quotations may not match the original review. The card must still show
-        # resident text, while the popup labels and preserves the saved interpretation.
-        return selected if selected in record['original_review'] else record['original_review']
-    if item.excerpt is not None:
-        if item.kind == 'review':
-            if item.excerpt not in record['original_review']:
+        if item.excerpt is not None:
+            selected = recovered_excerpt(selected, item.excerpt)
+            if selected is None:
+                raise ValueError('Invalid saved quotation selector')
+            if item.kind == 'review' and recovered_excerpt(original, selected) is None:
                 raise ValueError('Review excerpt does not match the original')
-        elif not any(item.excerpt in q['text'] for q in topic['quotations']):
+        # The resident card always displays the original text. Stored analysis may differ.
+        return recovered_excerpt(original, selected) or original
+    if item.excerpt is not None:
+        original_excerpt = recovered_excerpt(original, item.excerpt)
+        if item.kind == 'review' and original_excerpt is None:
+            raise ValueError('Review excerpt does not match the original')
+        if item.kind == 'analysis' and not any(recovered_excerpt(q['text'], item.excerpt)
+                                               for q in topic['quotations']):
             raise ValueError('Analysis excerpt does not match saved analysis')
-        return item.excerpt if item.excerpt in record['original_review'] else record['original_review']
+        return original_excerpt or original
     if topic is not None:
         # No transcription is needed from the model. Prefer the named topic's verbatim
         # source quotation; preserve the full saved analysis separately in the popup.
@@ -462,6 +519,39 @@ def _expand_survey_references(items, changes):
     return expanded
 
 
+def _decimal_int(value):
+    if isinstance(value, str) and re.fullmatch(r'(?:0|[1-9][0-9]{0,18})', value.strip()):
+        return int(value)
+    return value
+
+
+def _normalize_selector(key, item, changes):
+    if key == 'evidence':
+        for field in ('review_id', 'quotation_index'):
+            if isinstance(item.get(field), str):
+                value = _decimal_int(item[field])
+                if isinstance(value, int):
+                    item[field] = value
+                    changes.append('numeric_reference')
+    if key == 'selections' and 'star_ratings' in item and item['star_ratings'] is not None:
+        ratings = item['star_ratings']
+        values = [_decimal_int(r) for r in (ratings if isinstance(ratings, list) else [ratings])]
+        if values and all(type(r) is int and 1 <= r <= 5 for r in values):
+            values = list(dict.fromkeys(values))
+            if values != ratings:
+                item['star_ratings'] = values
+                changes.append('numeric_ratings')
+    for field in ('kind', 'sentiment', 'issue_resolution'):
+        if isinstance(item.get(field), str):
+            value = item[field].strip().lower()
+            if value != item[field]:
+                item[field] = value
+                changes.append('enum_representation')
+    for field in ('survey_id', 'question_id'):
+        if isinstance(item.get(field), str):
+            item[field] = item[field].strip()
+
+
 def _read_model_answer(raw: str, normalizations: list | None) -> ModelAnswer:
     """Normalize unambiguous syntax only; selector filters stay strictly validated."""
     changes = normalizations if normalizations is not None else []
@@ -510,6 +600,7 @@ def _read_model_answer(raw: str, normalizations: list | None) -> ModelAnswer:
         for item in payload[key]:
             if not isinstance(item, dict):
                 continue
+            _normalize_selector(key, item, changes)
             for optional in ('excerpt', 'topic', 'question_id'):
                 if isinstance(item.get(optional), str) and not item[optional].strip():
                     item[optional] = None
@@ -536,7 +627,7 @@ def _read_model_answer(raw: str, normalizations: list | None) -> ModelAnswer:
 
 
 _VALIDATION_REASONS = {
-    'Survey findings do not cover the supplied cohort': ('incomplete_survey_coverage', 'The findings must cover each supplied survey exactly once.'),
+    'Survey findings do not cover the supplied cohort': ('incomplete_survey_coverage', 'The findings must cover every supplied survey in this summary.'),
     'Invalid survey finding reference': ('unknown_question', 'A survey finding must cite existing original questions.'),
     'Conflicting response fields': ('invalid_structure', 'The response contains conflicting fields.'),
     'Duplicate JSON field': ('invalid_structure', 'The response contains ambiguous duplicate fields.'),
@@ -559,6 +650,27 @@ _VALIDATION_REASONS = {
 }
 
 
+def _invalid_field_details(errors):
+    # Locations can contain arbitrary, model-supplied keys (including a secret).
+    # Log only known schema names, list indexes, and Pydantic's built-in error codes.
+    fields = {key for model in (ModelAnswer, ReviewSelection, EvidenceItem, SurveySelection,
+                                SurveyFinding, SurveyEvidenceItem) for key in model.model_fields}
+    issues = []
+    for error in errors:
+        path = ''
+        for part in error['loc']:
+            if isinstance(part, int):
+                path += f'[{part}]'
+            elif part not in ('EvidenceItem', 'SurveyEvidenceItem'):
+                path += ('.' if path else '') + (part if part in fields else '<unknown>')
+        issue = f"{path or 'response'} ({error['type']})"
+        if issue not in issues:
+            issues.append(issue)
+        if len(issues) == 4:
+            break
+    return 'Invalid response fields: ' + ', '.join(issues)
+
+
 def validation_failure(exc: ValueError) -> dict:
     """Stable diagnostics without echoing exception inputs or provider secrets."""
     if isinstance(exc, ValidationError):
@@ -570,7 +682,7 @@ def validation_failure(exc: ValueError) -> dict:
         elif any(e['loc'] == ('answer',) and e['type'] == 'string_too_short' for e in errors):
             reason, detail = 'empty_answer', 'The model returned an empty answer.'
         else:
-            reason, detail = 'invalid_structure', 'The response fields do not match the required answer structure.'
+            reason, detail = 'invalid_structure', _invalid_field_details(errors)
     else:
         reason, detail = _VALIDATION_REASONS.get(str(exc), ('invalid_output', 'The answer failed application validation.'))
     return {'validation_reason': reason, 'validation_detail': detail}
@@ -616,15 +728,21 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
     for selection in result.selections:
         items.extend(selection_items(selection, evidence['reviews']))
     surveys = {record['survey_id']: record for record in evidence.get('surveys', [])}
-    if evidence.get('survey_findings_required') or result.survey_findings:
-        ids = [item.survey_id for item in result.survey_findings]
-        if len(ids) != len(set(ids)) or set(ids) != set(surveys):
-            raise ValueError('Survey findings do not cover the supplied cohort')
-        for item in result.survey_findings:
-            original_questions = {q['id'] for q in surveys[item.survey_id]['questions']}
-            if (not item.finding.strip() or len(item.question_ids) != len(set(item.question_ids))
-                    or not set(item.question_ids) <= original_questions):
-                raise ValueError('Invalid survey finding reference')
+    _canonical_survey_ids(result, surveys)
+    notes = {}
+    for item in result.survey_findings:
+        record = surveys.get(item.survey_id)
+        if record is None:
+            raise ValueError('Unknown survey evidence record')
+        questions = frozenset(item.question_ids)
+        if not item.finding.strip() or not questions <= {q['id'] for q in record['questions']}:
+            raise ValueError('Invalid survey finding reference')
+        ref = item.survey_id, questions
+        if ref in notes and notes[ref] != item.finding:
+            raise ValueError('Conflicting response fields')
+        notes[ref] = item.finding
+    if evidence.get('survey_findings_required') and {sid for sid, _ in notes} != set(surveys):
+        raise ValueError('Survey findings do not cover the supplied cohort')
     for item in result.survey_context:
         record = surveys.get(item.survey_id)
         if record is None:
@@ -632,8 +750,10 @@ def validate_answer(raw: str, evidence: dict, expanded: bool, *, survey_context:
         selected = survey_service.source(record, item.excerpt, item.topic, item.question_id)
         validated_survey_context.append(selected)
     for selection in result.survey_selections:
+        if selection.issue_resolution is None:
+            continue
         items.extend(SurveyEvidenceItem(kind='survey', survey_id=record['survey_id'])
-                     for record in surveys.values() if selection.issue_resolution is None or any(
+                     for record in surveys.values() if any(
                          q['id'] == 'issue_resolution' and q['answer'] == selection.issue_resolution for q in record['questions']))
     for item in items:
         if isinstance(item, SurveyEvidenceItem):

@@ -466,3 +466,24 @@ it('allows retrying a saved failed question after reopening its chat', async () 
   expect(mocks.ask).toHaveBeenCalledWith('Show me the original review.', expect.any(String), 'one', { preset: 'all_time' });
   expect(screen.getAllByText('Show me the original review.')).toHaveLength(1);
 });
+
+it.each([
+  ['Show surveys submitted yesterday', '2026-10-26', '2026-10-26'],
+  ['Show reviews from this month', '2026-10-01', '2026-10-27'],
+  ['Show surveys submitted in September 2026', '2026-09-01', '2026-09-30'],
+])('sends "%s" for the server to resolve, without changing the default', async (question, start, end) => {
+  const resolved = { preset: 'custom', start_date: start, end_date: end };
+  mocks.status.mockResolvedValue(connectedStatus({ default_period: null }));
+  mocks.ask.mockResolvedValue({ conversation_id: 'one', title: 'Surveys', answer: 'One submitted survey.',
+    message_id: 10, period: resolved, default_period: null, preference_updated: false });
+  mount();
+  const input = screen.getByRole('textbox', { name: 'Your question' });
+  await waitFor(() => expect(input).toBeEnabled());
+  fireEvent.change(input, { target: { value: 'Did the survey say “I paid yesterday”?' } });
+  expect(screen.getByRole('button', { name: 'Send question' })).toBeDisabled();
+  fireEvent.change(input, { target: { value: question } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('One submitted survey.');
+  expect(mocks.ask).toHaveBeenCalledWith(question, expect.any(String), undefined, undefined);
+  expect(mocks.saveDefaultPeriod).not.toHaveBeenCalled();
+});
