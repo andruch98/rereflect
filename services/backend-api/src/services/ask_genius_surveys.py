@@ -37,6 +37,7 @@ def _type_selections(text):
     for match in re.finditer(r'\b' + group + r'\b', text):
         before, after = text[:match.start()], text[match.end():]
         exclusion = re.search(r'\b(?:not|exclude|excluding|without|except)\s*$', before)
+        milestone_resident = re.fullmatch(r'(?:3|three|6|six|9|nine)[ -]?month', match.group()) and re.match(r'\s+resident\b', after)
         direct = re.match(r'\s+(?:survey|questionnaire|submission|response)s?\b', after)
         after_type = re.search(r'(?:surveys?|questionnaires?|submissions?|responses?) (?:for|from|after)\s*$', before)
         short = re.fullmatch(r'(?:what about (?:the )?|(?:use|show|only) (?:the )?)?' + group + r'[?.! ]*', text)
@@ -44,7 +45,7 @@ def _type_selections(text):
                        and re.match(r'\s+(?:say|report|show)\b', after))
         # "surveys excluding maintenance" has no repeated noun after the type.
         excluded_tail = exclusion and re.search(r'\b(?:surveys?|submissions?|questionnaires?)\b', before)
-        if not (direct or after_type or short or description or excluded_tail):
+        if not (milestone_resident or direct or after_type or short or description or excluded_tail):
             continue
         kinds, occupied = set(), []
         for kind, item in TYPE_PATTERNS.items():
@@ -143,6 +144,18 @@ def needs_findings(question: str, evidence: dict) -> bool:
     return any(re.search(pattern, text) for pattern in patterns)
 
 
+def display_scope(question):
+    """Keep the evidence pool separate from a manager's explicit display restriction."""
+    if not re.search(r'\b(?:read|consult|consider|use|check|look at) both (?:sets|sources|reviews and surveys|surveys and reviews)\b', question, re.I):
+        return None
+    output = re.search(r'\b(?:give me|report|show|list|display|return)\b[^.!?]*?\bonly\b([^.!?]*)', question, re.I)
+    if not output:
+        return None
+    names = set(re.findall(r'\b(reviews?|surveys?)\b', output[1].lower()))
+    scopes = {name.rstrip('s') + 's' for name in names}
+    return scopes.pop() if len(scopes) == 1 else None
+
+
 def source_scope(question: str, previous: str | None = None) -> str | None:
     """Resolve named sources, never infer a source from the subject (e.g. maintenance).
 
@@ -152,6 +165,8 @@ def source_scope(question: str, previous: str | None = None) -> str | None:
     # An instruction to review a set of surveys names a verb, not a second source.
     question = re.sub(r'^\s*(?:(?:please|can you|could you)\s+)*review(?=\s+(?!(?:and|or|versus|vs)\b)[^.!?]*\bsurveys?\b)',
                       '', question, flags=re.I)
+    if display_scope(question):
+        return 'mixed'
     groups = {'reviews': r'reviews?|reviewers?', 'surveys': r'(?:surveys?|submissions?|questionnaires?)'}
     included, excluded = set(), set()
     for name, pattern in groups.items():
@@ -172,6 +187,10 @@ def source_scope(question: str, previous: str | None = None) -> str | None:
         return ({'reviews', 'surveys'} - excluded).pop() if len(excluded) == 1 else None
     if re.fullmatch(r'(?:use |include )?both(?: sources)?[.! ]*', question.strip(), re.I):
         return 'mixed'
+    if re.search(r'\b(?:3|three|6|six|9|nine)[ -]month resident\b', question, re.I):
+        return 'surveys'
+    if previous is None and re.search(r'\b(?:post|posted) about\b', question, re.I):
+        return 'reviews'
     return previous if previous in {'reviews', 'surveys', 'mixed'} else None
 
 

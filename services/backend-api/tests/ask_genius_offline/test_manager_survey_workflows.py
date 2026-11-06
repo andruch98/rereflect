@@ -174,3 +174,22 @@ def test_sources_behind_previous_recommendations_do_not_add_records(survey_flow,
     assert {s['survey_id'] for s in result['structured_data']['sources']} == set(cited)
     assert {s['question_id'] for s in result['structured_data']['sources']} == {'maintenance_comment'}
     assert len(f['calls']) == 1
+
+
+def test_read_both_report_only_public_reviews(survey_flow):
+    f = survey_flow
+    f['create_survey']()
+    result = f['ask']('Read both sets, but show only complaints in public reviews.', period=ALL)
+    assert result.status_code == 200
+    supplied = context(f)
+    assert supplied['source_scope'] == 'mixed'
+    assert supplied['reviews'] and supplied['surveys']
+    assert supplied['display_sources_only'] == 'reviews'
+    assert all(source.get('kind') != 'survey' for source in result.json()['structured_data']['sources'])
+
+
+@pytest.mark.parametrize(('month', 'expected'), [('3', 'lease_month_3'), ('9', 'lease_month_9')])
+def test_milestone_resident_names_a_survey_type(month, expected):
+    question = f'What did the {month}-month resident say?'
+    assert surveys.source_scope(question) == 'surveys'
+    assert surveys.survey_types(question) == [expected]

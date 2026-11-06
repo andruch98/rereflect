@@ -30,3 +30,7 @@ The response instructions were aligned with these checks. The complete system me
 | Can wait | Several original questions from a single survey may produce several source cards. Reading them as separate people or responses would be misleading. | If managers report confusion, group question-level evidence under each distinct submission and preserve links for each original question. |
 
 For the live smoke test, keep the full question, original evidence, raw reply, validation decision, independently reviewed factual assessment, and reported token usage and cost. The stored historical hosted replies and offline controlled responses cannot establish a live pass rate.
+
+## Follow-up implementation
+
+The mixed-source workflow consults both authorized sets when explicitly requested and limits the displayed sources to the requested channel. Milestone-resident questions use the corresponding survey, and a fresh question about what someone posted uses reviews. Yearless months ask for the year, two-month comparisons explain the one-period limit, and a selected all-history period can be narrowed by an explicit month and year. Survey evidence dialogs already group question-level references by submission. The instructions now distinguish a payment follow-up from an actual complaint about price. The six-case live check requires a configured provider and is recorded separately from the controlled suite.

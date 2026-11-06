@@ -388,6 +388,9 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             try:
                 evidence = service.build_authorized_evidence(user.organization_id, db, selected, source_scope, survey_event_types)
                 evidence = survey_service.filter_resolution(evidence, question)
+                display = survey_service.display_scope(question)
+                if display:
+                    evidence['display_sources_only'] = display
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
             if local_answer is None:
@@ -482,6 +485,9 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                                           'reason': safe_error}) from None
         else:
             answer_text = local_answer
+        display = (evidence or {}).get('display_sources_only')
+        if display:
+            sources = [s for s in sources if (s.get('kind') == 'survey') == (display == 'surveys')]
         metadata = {'kind': 'ask_genius', 'period': period_dict(selected),
                     'period_label': resolve_period(selected)['label'] if selected else None,
                     'default_period': period_dict(default_period_for(user)),

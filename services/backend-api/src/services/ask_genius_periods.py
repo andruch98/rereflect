@@ -175,7 +175,9 @@ def _record_date_phrases(question: str):
                 if match.group('year') or (comparison and re.match(r"\s*[?,.!;:]?\s*$", question[match.end():])):
                     raise ValueError(_CLARIFY)
                 continue
-            if not match.group('year') or comparison:
+            if not match.group('year'):
+                raise ValueError(_CLARIFY + f" Which year should I use for {match.group('name')}?")
+            if comparison:
                 raise ValueError(_CLARIFY)
             month = _MONTH_NUMBERS[match.group('name')[:3].lower()]
             start = date(int(match.group('year')), month, 1)
@@ -210,6 +212,10 @@ def without_record_date(question: str) -> str:
 def parse_question_period(question: str) -> Period | None:
     """Recognize supported explicit periods, refusing ambiguous comparisons."""
     question = _period_instructions(question)
+    if (re.search(r'\b(?:compar(?:e|ing)|more|fewer)\b', question, re.I)
+            and len(re.findall(r'\b(?:this month|last month|' + _MONTH_NAMES + r')\b', question, re.I)) >= 2):
+        raise ValueError("Please choose one period. I can show one reporting period at a time. Ask for the first period, then the second.")
+    question = re.sub(r'\bwith all (?:available )?history selected,?\s*(?=show only)', '', question, flags=re.I)
     matches: list[tuple[int, int, Period]] = list(_record_date_phrases(question))
     for match in re.finditer(_DATE_RANGE, question, re.IGNORECASE):
         matches.append((match.start(), match.end(), Period(
