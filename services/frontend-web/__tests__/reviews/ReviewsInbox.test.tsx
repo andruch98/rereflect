@@ -7,6 +7,10 @@ import type { FeedbackItem } from '@/lib/api/feedback';
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), user: { id: 1, organization_id: 11 } }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock('@/lib/api/review-replies', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/api/review-replies')>(),
+  reviewRepliesAPI: { get: vi.fn().mockResolvedValue({ status: 'not_drafted', settings_confirmed: false }) },
+}));
 vi.mock('@/lib/api/feedback', () => ({ feedbackAPI: { list: mocks.list, get: mocks.get } }));
 
 const ratingOnly = { id: 6, organization_id: 11, text: '', source: 'apartment_review_ai', star_rating: 4,
@@ -26,6 +30,7 @@ describe('review inbox and detail', () => {
     expect(screen.getByLabelText('4 out of 5 stars')).toBeInTheDocument();
     expect(screen.getByText('Imported review')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review #6' })).toHaveAttribute('href', '/feedbacks/6');
+    expect(screen.getByRole('link', { name: 'No draft for review #6' })).toHaveAttribute('href', '/feedbacks/6#response');
     expect(screen.getByText('Unavailable')).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Analysis' })).not.toBeInTheDocument();
     expect(screen.queryByText('AI analysis')).not.toBeInTheDocument();
@@ -44,6 +49,32 @@ describe('review inbox and detail', () => {
     await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ sort_by: 'star_rating' })));
     fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
     await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(2, 20, expect.objectContaining({ sort_by: 'star_rating' })));
+  });
+
+  it('keeps internal feedback out of the public response workflow', async () => {
+    const internal = { ...ratingOnly, id: 8, source: 'slack' };
+    mocks.list.mockResolvedValue({ items: [internal], total: 1, total_pages: 1 });
+    mocks.get.mockResolvedValue(internal);
+    const { unmount } = mount(<ReviewsInbox />);
+    expect(await screen.findByText('Not applicable')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /No draft/ })).not.toBeInTheDocument();
+    unmount();
+    mount(<ReviewDetail id={8} />);
+    await screen.findByRole('heading', { name: 'Review #8' });
+    expect(screen.queryByRole('heading', { name: 'BoomSay response' })).not.toBeInTheDocument();
+  });
+
+  it('filters responses across all pages alongside the existing filters', async () => {
+    mocks.list.mockResolvedValue({ items: [{ ...ratingOnly, response_status: 'pending_approval' }], total: 45, total_pages: 3 });
+    mount(<ReviewsInbox />);
+    expect(await screen.findByRole('link', { name: 'Needs approval for review #6' })).toHaveAttribute('href', '/feedbacks/6#response');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by overall sentiment' }), { target: { value: 'positive' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(2, 20, expect.objectContaining({ sentiment: 'positive' })));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by response status' }), { target: { value: 'pending_approval' } });
+    await waitFor(() => expect(mocks.list).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ response_status: 'pending_approval', sentiment: 'positive' })));
+    expect(screen.getByRole('link', { name: 'Needs approval for review #6' })).toHaveAttribute('href', '/feedbacks/6?response_status=pending_approval#response');
+    expect(window.location.search).toBe('?response_status=pending_approval');
   });
 
   it('displays the posting date and requests both date sort directions', async () => {
@@ -75,7 +106,8 @@ describe('review inbox and detail', () => {
 
   it('opens the saved detail with stars and no fabricated topics', async () => {
     mocks.get.mockResolvedValue(ratingOnly);
-    mount(<ReviewDetail id={6} />);
+    mount(<ReviewDetail id={6} responseFilter="pending_approval" />);
+    expect(screen.getByRole('link', { name: 'Back to reviews' })).toHaveAttribute('href', '/feedbacks?response_status=pending_approval');
     expect(await screen.findByRole('heading', { name: 'Review #6' })).toBeInTheDocument();
     expect(screen.getByLabelText('4 out of 5 stars')).toBeInTheDocument();
     expect(screen.getByText(/No written review was provided/)).toBeInTheDocument();

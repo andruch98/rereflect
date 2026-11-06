@@ -8,32 +8,37 @@ from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 
+from src.models.agent_settings import CommunityAgentSettings
+from src.models.review_reply import ReviewReply
 from src.models.survey import SurveyResident, SurveyUnit, MaintenanceOccurrence, SurveyInstance, SurveyInvitation, SurveyEmailOptOut
 
 
 def test_survey_schema_upgrade_roundtrip_and_existing_records():
     root = Path(__file__).parents[2]
-    path = root / 'alembic/versions/f2e8463ab154_add_maintenance_surveys.py'
-    spec = importlib.util.spec_from_file_location('maintenance_survey_migration', path)
-    migration = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(migration)
-    next_spec = importlib.util.spec_from_file_location('lifecycle_survey_migration', root / 'alembic/versions/a3c927b6d801_expand_survey_lifecycle.py')
-    lifecycle = importlib.util.module_from_spec(next_spec)
-    next_spec.loader.exec_module(lifecycle)
+    config = Config()
+    config.set_main_option('script_location', str(root / 'alembic'))
+    script = ScriptDirectory.from_config(config)
+    migration = script.get_revision('f2e8463ab154').module
+    lifecycle = script.get_revision('a3c927b6d801').module
+    settings = script.get_revision('b46200d17e11').module
+    replies = script.get_revision('9b14ce392ac1').module
+    manager_workflows = script.get_revision('46eeba18d492').module
     engine = create_engine('sqlite://')
     with engine.begin() as connection:
         connection.execute(text('CREATE TABLE organizations (id INTEGER PRIMARY KEY, name TEXT)'))
         connection.execute(text("INSERT INTO organizations VALUES (1, 'Existing community')"))
+        connection.execute(text('CREATE TABLE users (id INTEGER PRIMARY KEY)'))
         connection.execute(text('CREATE TABLE feedback_items (id INTEGER PRIMARY KEY, text TEXT, apartment_analysis JSON)'))
         connection.execute(text("INSERT INTO feedback_items VALUES (10, 'Original review', :analysis)"),
                            {'analysis': '{"saved":true}'})
         connection.execute(text('CREATE TABLE conversations (id INTEGER PRIMARY KEY, title TEXT)'))
         connection.execute(text("INSERT INTO conversations VALUES (20, 'Existing private chat')"))
         with Operations.context(MigrationContext.configure(connection)):
-            migration.upgrade()
-            lifecycle.upgrade()
+            for revision in (migration, lifecycle, settings, replies, manager_workflows):
+                revision.upgrade()
             inspector = inspect(connection)
-            for model in (SurveyResident, SurveyUnit, MaintenanceOccurrence, SurveyInstance, SurveyInvitation, SurveyEmailOptOut):
+            for model in (SurveyResident, SurveyUnit, MaintenanceOccurrence, SurveyInstance, SurveyInvitation, SurveyEmailOptOut,
+                          CommunityAgentSettings, ReviewReply):
                 actual = {column['name']: column for column in inspector.get_columns(model.__tablename__)}
                 assert set(actual) == set(model.__table__.columns.keys())
                 for column in model.__table__.columns:
@@ -42,16 +47,15 @@ def test_survey_schema_upgrade_roundtrip_and_existing_records():
             assert connection.execute(text('SELECT * FROM feedback_items')).one() == (10, 'Original review', '{"saved":true}')
             assert connection.execute(text('SELECT * FROM conversations')).one() == (20, 'Existing private chat')
             assert inspector.get_unique_constraints('survey_invitations')[0]['column_names'] == ['survey_id']
-            lifecycle.downgrade()
-            migration.downgrade()
+            for revision in (manager_workflows, replies, settings, lifecycle, migration):
+                revision.downgrade()
             assert not (set(inspect(connection).get_table_names()) & {
                 'survey_residents', 'survey_units', 'maintenance_occurrences', 'survey_instances', 'survey_invitations', 'survey_email_opt_outs'})
             migration.upgrade()
     engine.dispose()
-    config = Config()
-    config.set_main_option('script_location', str(root / 'alembic'))
-    script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == [lifecycle.revision]
+    assert script.get_heads() == [manager_workflows.revision]
+    assert (manager_workflows.down_revision, replies.down_revision, settings.down_revision) == (
+        replies.revision, settings.revision, lifecycle.revision)
     assert lifecycle.down_revision == migration.revision
     assert script.get_revision(migration.revision).down_revision == 'e1d7352fa043'
 
@@ -89,9 +93,21 @@ def test_lifecycle_upgrade_preserves_maintenance_links_drafts_and_final_response
             connection.execute(SurveyInvitation.__table__.insert().values(id=index, organization_id=1, survey_id=index, status='simulated', recipient='legacy@example.invalid',
                 subject='Original invitation', html='<p>Original</p>', text='Original', survey_url=f'http://localhost/survey/original-private-link-{index}'))
         tables = ['survey_residents', 'survey_units', 'maintenance_occurrences', 'survey_instances', 'survey_invitations']
-        before = {table: connection.execute(text(f'SELECT * FROM {table} ORDER BY id')).all() for table in tables}
+        # Preserve values for every historical column when later upgrades append new ones.
+        columns = {table: ', '.join(col['name'] for col in inspect(connection).get_columns(table)) for table in tables}
+        before = {table: connection.execute(text(f'SELECT {columns[table]} FROM {table} ORDER BY id')).all() for table in tables}
         migrations[1].upgrade()
         assert {table: connection.execute(text(f'SELECT * FROM {table} ORDER BY id')).all() for table in tables} == before
+        config = Config()
+        config.set_main_option('script_location', str(root / 'alembic'))
+        script = ScriptDirectory.from_config(config)
+        connection.execute(text('CREATE TABLE feedback_items (id INTEGER PRIMARY KEY)'))
+        connection.execute(text('CREATE TABLE users (id INTEGER PRIMARY KEY)'))
+        for feature_revision in ('b46200d17e11', '9b14ce392ac1', '46eeba18d492'):
+            script.get_revision(feature_revision).module.upgrade()
+        assert {table: connection.execute(text(f'SELECT {columns[table]} FROM {table} ORDER BY id')).all()
+                for table in tables} == before
+        assert connection.execute(text('SELECT reviewed_at,reviewed_by FROM survey_instances')).all() == [(None, None)] * 2
         assert connection.execute(text('SELECT s.token, m.ticket_id FROM survey_instances s JOIN maintenance_occurrences m ON m.id=s.occurrence_id ORDER BY s.id')).all() == [
             ('original-private-link-1', 'legacy-ticket'), ('original-private-link-2', 'legacy-ticket')]
         constraints = {tuple(item['column_names']) for item in inspect(connection).get_unique_constraints('maintenance_occurrences')}

@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from src.api.routes import auth, organizations, feedback, dashboard, analyze, integrations, surveys
+from src.services.survey_schedule import simulated_delivery_timer
+from src.api.routes import agent_settings
 from src.api.routes import source_webhooks, feedback_sources, pending_feedback, billing, team, invites, audit_logs
 from src.api.routes import categories, ai_settings, anomalies, insights, changelog, notifications, analytics, saved_views, shared_links, workflow, email_webhooks
 from src.api.routes import customer_health, activity_feed, dashboard_layout, admin_users, admin_orgs
@@ -20,7 +22,7 @@ from src.api.routes import asana_integration as asana_integration_router
 from src.api.routes import asana_webhook as asana_webhook_router
 from src.api.routes import intercom_integration as intercom_integration_router
 from src.api.routes import zendesk_integration as zendesk_integration_router
-from src.api.routes import response_templates, response_settings, feedback_responses
+from src.api.routes import response_templates, response_settings, feedback_responses, review_replies
 from src.api.routes import feedback_issue_draft as feedback_issue_draft_router  # noqa: E402 — ai-drafted-issue-content
 from src.api.routes import webhooks as webhooks_router
 from src.api.routes import health as health_routes
@@ -222,7 +224,8 @@ async def lifespan(app: FastAPI):
         # embed Copilot templates and seed provider keys; neither belongs in its
         # six-request budget. Keep ordinary startup unchanged outside this mode.
         logger.info("Apartment experiment: skipping unrelated startup seed jobs")
-        yield
+        async with simulated_delivery_timer():
+            yield
         return
     try:
         seed_admin_user()
@@ -284,8 +287,8 @@ async def lifespan(app: FastAPI):
             _webhook_secret_db.close()
     except Exception as e:
         logger.warning(f"Could not check webhook secret configuration: {e}")
-    yield
-    # Shutdown: cleanup if needed
+    async with simulated_delivery_timer():
+        yield
 
 
 # Root path for reverse proxy (e.g., when served under /api)
@@ -400,6 +403,7 @@ app.include_router(conversation_folders.router)
 app.include_router(conversations.router)
 app.include_router(ask_genius.router)
 app.include_router(surveys.router)
+app.include_router(agent_settings.router)
 app.include_router(copilot_ws.router)
 app.include_router(copilot.router)
 app.include_router(copilot_actions.router)
@@ -424,6 +428,7 @@ app.include_router(zendesk_integration_router.router)
 app.include_router(response_templates.router)
 app.include_router(response_settings.router)
 app.include_router(feedback_responses.router)
+app.include_router(review_replies.router)
 # AI-drafted issue content (ai-drafted-issue-content)
 app.include_router(feedback_issue_draft_router.router)
 # Custom Webhooks (M3.1)

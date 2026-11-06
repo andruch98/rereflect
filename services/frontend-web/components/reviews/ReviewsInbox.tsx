@@ -1,38 +1,51 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import { ArrowUpDown, Inbox } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { feedbackAPI, type FeedbackItem, type FeedbackFilters } from '@/lib/api/feedback';
+import { readReplyFilter, replyFilterQuery, replyStatusLabels, type ReplyStatus } from '@/lib/review-response-status';
 import { DataTable } from '@/components/shared/data-table';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ReviewRating, ReviewSentiment, reviewSourceLabel } from './ReviewFields';
+import { ReviewRating, ReviewSentiment, isApartmentReview, reviewSourceLabel } from './ReviewFields';
 
-const columns: ColumnDef<FeedbackItem>[] = [
-  { accessorKey: 'id', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Review <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
-    cell: ({ row }) => <Link className="font-medium underline underline-offset-4" href={`/feedbacks/${row.original.id}`}>Review #{row.original.id}</Link> },
-  { accessorKey: 'review_date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Review date <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
-    cell: ({ row }) => row.original.review_date ? <time dateTime={row.original.review_date}>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${row.original.review_date}T00:00:00Z`))}</time> : <span className="text-muted-foreground">Unavailable</span> },
-  { accessorKey: 'star_rating', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Stars <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
-    cell: ({ row }) => <ReviewRating rating={row.original.star_rating} /> },
-  { accessorKey: 'text', header: 'Review text', cell: ({ row }) => <p className="max-w-xl whitespace-pre-wrap break-words line-clamp-3">{row.original.text.trim() ? row.original.text : row.original.star_rating != null ? 'Rating only — no written review' : 'No written review'}</p> },
-  { accessorKey: 'source', header: 'Source', cell: ({ row }) => reviewSourceLabel(row.original.source) },
-  { accessorKey: 'sentiment_label', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Overall sentiment <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
-    cell: ({ row }) => <ReviewSentiment sentiment={row.original.sentiment_label} /> },
-];
+function reviewColumns(responseFilter: ReplyStatus | ''): ColumnDef<FeedbackItem>[] {
+  const filterQuery = replyFilterQuery(responseFilter);
+  return [
+    { accessorKey: 'id', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Review <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
+      cell: ({ row }) => <Link className="font-medium underline underline-offset-4" href={`/feedbacks/${row.original.id}${filterQuery}`}>Review #{row.original.id}</Link> },
+    { accessorKey: 'review_date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Review date <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
+      cell: ({ row }) => row.original.review_date ? <time dateTime={row.original.review_date}>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${row.original.review_date}T00:00:00Z`))}</time> : <span className="text-muted-foreground">Unavailable</span> },
+    { accessorKey: 'star_rating', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Stars <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
+      cell: ({ row }) => <ReviewRating rating={row.original.star_rating} /> },
+    { accessorKey: 'text', header: 'Review text', cell: ({ row }) => <p className="max-w-xl whitespace-pre-wrap break-words line-clamp-3">{row.original.text.trim() ? row.original.text : row.original.star_rating != null ? 'Rating only — no written review' : 'No written review'}</p> },
+    { accessorKey: 'source', header: 'Source', cell: ({ row }) => reviewSourceLabel(row.original.source) },
+    { accessorKey: 'sentiment_label', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Overall sentiment <ArrowUpDown className="ml-2 h-4 w-4" aria-hidden="true" /></Button>,
+      cell: ({ row }) => <ReviewSentiment sentiment={row.original.sentiment_label} /> },
+    { accessorKey: 'response_status', header: 'Response', cell: ({ row }) => {
+      if (!isApartmentReview(row.original.source)) return <span className="text-muted-foreground">Not applicable</span>;
+      const label = replyStatusLabels[row.original.response_status ?? 'not_drafted'];
+      return <Link href={`/feedbacks/${row.original.id}${filterQuery}#response`} aria-label={`${label} for review #${row.original.id}`}
+        className="inline-block text-sm font-medium text-primary underline underline-offset-4">{label}</Link>;
+    } },
+  ];
+}
 
-export function ReviewsInbox() {
+export function ReviewsInbox({ responseFilter }: { responseFilter?: ReplyStatus | '' } = {}) {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sentiment, setSentiment] = useState('');
+  const [localFilter, setLocalFilter] = useState<ReplyStatus | ''>('');
+  const replyStatus = responseFilter ?? localFilter;
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const columns = useMemo(() => reviewColumns(replyStatus), [replyStatus]);
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
@@ -40,6 +53,7 @@ export function ReviewsInbox() {
   }, [search]);
 
   const filters: FeedbackFilters = {
+    response_status: replyStatus || undefined,
     search: debouncedSearch || undefined, sentiment: sentiment || undefined,
     sort_by: sorting[0]?.id || 'id', sort_order: sorting[0]?.desc ? 'desc' : 'asc',
   };
@@ -56,20 +70,38 @@ export function ReviewsInbox() {
 
   return <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8 [&_th]:text-center [&_td]:text-center [&_td_p]:mx-auto">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div><h1 className="text-3xl font-semibold">Reviews</h1><p className="mt-1 text-muted-foreground">Original reviews and their saved analyses.</p></div>
+      <div><h1 className="text-3xl font-semibold">Reviews</h1><p className="mt-1 text-muted-foreground">Original reviews, saved analyses and BoomSay replies.</p></div>
       <Button variant="outline" onClick={() => query.refetch()} disabled={!user || query.isFetching}>Refresh</Button>
     </div>
+    <div className="flex flex-wrap items-center gap-4">
     <label className="flex w-fit items-center gap-3 text-sm">Overall sentiment
       <select aria-label="Filter by overall sentiment" value={sentiment} onChange={e => { setSentiment(e.target.value); setPage(1); }} className="rounded-md border border-input bg-background px-3 py-2">
         <option value="">All sentiments</option>
         {['positive', 'negative', 'mixed', 'neutral', 'unknown'].map(value => <option key={value} value={value}>{value.charAt(0).toUpperCase() + value.slice(1)}</option>)}
       </select>
     </label>
+    <label className="flex w-fit items-center gap-3 text-sm">Response
+      <select aria-label="Filter by response status" value={replyStatus}
+        onChange={e => {
+          const value = readReplyFilter(e.target.value);
+          if (responseFilter === undefined) setLocalFilter(value);
+          setPage(1);
+          const url = new URL(window.location.href);
+          if (value) url.searchParams.set('response_status', value);
+          else url.searchParams.delete('response_status');
+          window.history.replaceState(null, '', url);
+        }}
+        className="rounded-md border border-input bg-background px-3 py-2">
+        <option value="">All responses</option>
+        {Object.entries(replyStatusLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+      </select>
+    </label>
+    </div>
     {query.isError ? <Alert variant="destructive"><AlertDescription>Reviews could not be loaded. Please try Refresh.</AlertDescription></Alert>
       : query.isPending ? <p role="status">Loading reviews…</p>
       : <DataTable columns={columns} data={query.data.items} searchQuery={search} onSearchChange={setSearch}
         searchPlaceholder="Search review text…" isSearching={search !== debouncedSearch || query.isFetching}
-        emptyIcon={Inbox} emptyTitle="No reviews found" emptyDescription="Try adjusting your search or sentiment filter."
+        emptyIcon={Inbox} emptyTitle="No reviews found" emptyDescription="Try adjusting your search or filters."
         totalCount={query.data.total} serverSide pageCount={Math.max(1, query.data.total_pages)} currentPage={page} pageSize={pageSize}
         onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1); }}
         onSortingChange={next => { setSorting(next); setPage(1); }} getRowId={row => String(row.id)} />}

@@ -1,11 +1,13 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, asc, cast, func
 from sqlalchemy.dialects.postgresql import JSONB
 from src.database.session import get_db
 from src.models.feedback import FeedbackItem
+from src.models.review_reply import ReviewReply
+from src.services.review_replies import APARTMENT_SOURCES, draft_new_reviews
 from src.models.feedback_source import FeedbackSource
 from src.models.organization import Organization
 from src.models.user import User
@@ -203,6 +205,7 @@ class UrgentUpdateRequest(BaseModel):
 
 
 class FeedbackResponse(BaseModel):
+    response_status: str = "not_drafted"
     id: int
     organization_id: int
     text: str
@@ -268,6 +271,7 @@ class CSVImportResponse(BaseModel):
 @router.post("/", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
 async def create_feedback(
     data: FeedbackCreateRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     current_org: Organization = Depends(get_current_org),
     usage: UsageRecord = Depends(get_current_usage),
@@ -332,6 +336,8 @@ async def create_feedback(
         data={"id": feedback.id, "source": feedback.source},
     )
 
+    if feedback.source in APARTMENT_SOURCES:
+        background_tasks.add_task(draft_new_reviews, current_org.id, [feedback.id])
     return feedback
 
 
@@ -363,6 +369,7 @@ def list_feedback(
     customer_email: Optional[str] = Query(None, description="Filter by customer email"),
     workflow_status: Optional[str] = Query(None, description="Filter by workflow status: new, in_review, resolved, closed"),
     assigned_to: Optional[int] = Query(None, description="Filter by assigned user ID"),
+    response_status: Optional[Literal["not_drafted", "pending_approval", "approved", "published", "failed"]] = None,
     sort_by: Optional[str] = Query(None, description="Sort by field: id, created_at, review_date, star_rating, sentiment_label, sentiment_score, text, source, churn_risk_score, workflow_status"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     current_org: Organization = Depends(get_current_org),
@@ -435,6 +442,14 @@ def list_feedback(
     if assigned_to is not None:
         query = query.filter(FeedbackItem.assigned_to == assigned_to)
 
+    if response_status:
+        query = query.outerjoin(ReviewReply, ReviewReply.review_id == FeedbackItem.id).filter(
+            FeedbackItem.source.in_(APARTMENT_SOURCES))
+        if response_status == "not_drafted":
+            query = query.filter(ReviewReply.review_id.is_(None))
+        else:
+            query = query.filter(ReviewReply.status == response_status)
+
     # Get total count
     total = query.count()
 
@@ -487,6 +502,9 @@ def list_feedback(
         users = db.query(User).filter(User.id.in_(assignee_ids)).all()
         assignee_map = {u.id: u.email for u in users}
 
+    review_ids = [item.id for item in items if item.source in APARTMENT_SOURCES]
+    statuses = dict(db.query(ReviewReply.review_id, ReviewReply.status).filter(
+        ReviewReply.review_id.in_(review_ids)).all()) if review_ids else {}
     response_items = []
     for item in items:
         # Use eager-loaded relationship first, fallback to map
@@ -506,6 +524,7 @@ def list_feedback(
 
         item_dict = {
             "id": item.id,
+            "response_status": statuses.get(item.id, "not_drafted"),
             "organization_id": item.organization_id,
             "text": item.text,
             "review_date": item.review_date,
@@ -584,7 +603,9 @@ def get_feedback(
         assignee_user = db.query(User).filter(User.id == feedback.assigned_to).first()
         assigned_to_email = assignee_user.email if assignee_user else None
 
+    reply = db.get(ReviewReply, feedback.id) if feedback.source in APARTMENT_SOURCES else None
     return FeedbackResponse(
+        response_status=reply.status if reply else "not_drafted",
         id=feedback.id,
         organization_id=feedback.organization_id,
         text=feedback.text,
@@ -806,6 +827,7 @@ def set_feedback_urgent(
 
 @router.post("/import-csv", response_model=CSVImportResponse)
 async def import_csv(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     current_org: Organization = Depends(get_current_org),
@@ -908,6 +930,7 @@ async def import_csv(
 
     # Import feedback items
     imported_ids = []
+    new_review_ids = []
     total_rows = 0
     imported_count = 0
     failed_count = 0
@@ -962,6 +985,8 @@ async def import_csv(
             usage.feedback_count += 1
 
             imported_ids.append(feedback.id)
+            if feedback.source in APARTMENT_SOURCES:
+                new_review_ids.append(feedback.id)
 
             # Note: Analysis will be done by background scheduler
             imported_count += 1
@@ -992,6 +1017,9 @@ async def import_csv(
             event_type="feedback:imported",
             data={"count": imported_count},
         )
+
+    if new_review_ids:
+        background_tasks.add_task(draft_new_reviews, current_org.id, new_review_ids)
 
     return CSVImportResponse(
         total_rows=total_rows,

@@ -364,5 +364,6 @@ def test_resend_adapter_uses_existing_transport_only_when_explicitly_allowed(mon
     with pytest.raises(ValueError):
         ResendSurveySender().send(invitation)
     assert ResendSurveySender().send(invitation, allow_live=True) == 'provider_accepted'
+    assert invitation.sent_at is not None
     assert calls == [{'to': invitation.recipient, 'subject': invitation.subject,
                       'html': invitation.html, 'text': invitation.text}]

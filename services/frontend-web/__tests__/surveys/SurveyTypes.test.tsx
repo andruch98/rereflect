@@ -61,9 +61,9 @@ it.each(surveyCases)('shows the original $id answers and separates the event dat
   const context = screen.getByRole('region', { name: id === 'maintenance_v1' ? 'Maintenance context' : 'Survey context' });
   expect(context).toHaveTextContent(label);
   expect(context).toHaveTextContent(dateLabel);
-  expect(context).toHaveTextContent(new Date('2026-11-01T12:00:00Z').toLocaleString());
+  expect(context).toHaveTextContent('Nov 1, 2026, 7:00 AM EST');
   expect(context).toHaveTextContent('Survey submitted');
-  expect(context).toHaveTextContent(new Date('2026-11-02T15:00:00Z').toLocaleString());
+  expect(context).toHaveTextContent('Nov 2, 2026, 10:00 AM EST');
   if (id !== 'maintenance_v1') expect(context).not.toHaveTextContent(/Maintenance ticket|Request|Ticket marked completed|Employee \/ vendor/);
   const answers = screen.getByRole('region', { name: 'Original questions and answers' });
   completed.questionnaire.questions.forEach(question => expect(answers).toHaveTextContent(question.rendered_text));
@@ -91,17 +91,17 @@ it('filters every survey kind through the API and resets pagination when the typ
   mountManager(<SurveyDashboard />);
   await screen.findByText('51 surveys');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  await waitFor(() => expect(api.list).toHaveBeenLastCalledWith(2, 50, undefined));
+  await waitFor(() => expect(api.list).toHaveBeenLastCalledWith(2, 50, undefined, {}));
   for (const { label, survey } of surveyCases) {
     fireEvent.change(screen.getByRole('combobox', { name: 'Survey type' }), { target: { value: survey.context.event_type } });
-    await waitFor(() => expect(api.list).toHaveBeenLastCalledWith(1, 50, survey.context.event_type));
+    await waitFor(() => expect(api.list).toHaveBeenLastCalledWith(1, 50, survey.context.event_type, {}));
     const table = await screen.findByRole('table');
     expect(within(table).getAllByRole('row')).toHaveLength(2);
     expect(table).toHaveTextContent(label);
     expect(screen.getByText('Page 1')).toBeInTheDocument();
   }
   fireEvent.change(screen.getByRole('combobox', { name: 'Survey type' }), { target: { value: '' } });
-  await waitFor(() => expect(api.list).toHaveBeenLastCalledWith(1, 50, undefined));
+  await waitFor(() => expect(api.list).toHaveBeenLastCalledWith(1, 50, undefined, {}));
   expect(await screen.findByText('51 surveys')).toBeInTheDocument();
 });
 
