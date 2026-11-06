@@ -31,7 +31,7 @@ def test_topic_filters_use_quote_sentiment_and_preserve_links_across_overlapping
     assert [(s['review_id'], s['topic']) for s in sources if s['topic'] == 'Billing'] == [(1, 'Billing')]
 
 
-@pytest.mark.parametrize('selection', [{'star_ratings': [6]}, {'star_ratings': [True]}, {'star_ratings': ['1']}, {'topic': 'Invented'}, {'organization_id': 9}])
+@pytest.mark.parametrize('selection', [{'star_ratings': [6]}, {'star_ratings': [True]}, {'star_ratings': ['1.5']}, {'topic': 'Invented'}, {'organization_id': 9}])
 def test_untrusted_filters_fail_closed(selection):
     with pytest.raises(ValueError):
         service.validate_answer(json.dumps({'answer': 'Results.', 'selections': [selection]}), records(), True)
@@ -47,7 +47,7 @@ def test_unrequested_selection_is_hidden_and_zero_matches_are_not_fabricated():
 @pytest.mark.parametrize('expanded', [False, True])
 @pytest.mark.parametrize('length', [1001, 3001, 6000])
 def test_writing_targets_are_not_rejection_limits(expanded, length):
-    payload = {'answer': 'a' * length, 'selections': [{}] if expanded else []}
+    payload = {'answer': 'a' * length, 'selections': [{'star_ratings': [1, 2, 3, 4, 5]}] if expanded else []}
     notes = []
     answer, sources = service.validate_answer(json.dumps(payload), records(), expanded, normalizations=notes)
     assert answer == payload['answer']

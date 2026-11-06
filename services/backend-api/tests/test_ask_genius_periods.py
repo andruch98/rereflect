@@ -101,13 +101,11 @@ def test_ambiguous_or_unsupported_periods_clarify(question):
 
 @pytest.mark.parametrize("question", [
     "What complaints came in today?",
-    "Show yesterday's reviews",
     "What about tomorrow?",
     "What happened in the past few days?",
     "Show feedback from the last several weeks",
     "Review the past couple of months",
     "What did residents mention in September?",
-    "Show reviews during the month of October 2026",
     "Summarize Q2 2026",
     "What happened in the second quarter of 2025?",
     "What were complaints in 2025?",
@@ -169,3 +167,84 @@ def test_temporaries_hypotheticals_negations_and_embedded_commands_do_not_write(
 def test_invalid_preference_command_requests_clarification(text):
     with pytest.raises(ValueError):
         preference_command(text)
+
+
+@pytest.mark.parametrize("quote", [
+    '"I paid yesterday"', '“I paid last month”',
+    "'I didn't pay yesterday'", '‘I didn’t pay yesterday’',
+    '"The trouble started from 2026-01-01 to 2026-01-31"',
+])
+def test_quoted_words_are_content_not_date_filters(quote):
+    assert parse_question_period(f"Did the 3-month survey mention {quote}?") is None
+    assert parse_question_period(f"Which reviews last week mentioned {quote}?").preset == "last_7_days"
+
+
+@pytest.mark.parametrize("question", [
+    "Show yesterday's reviews", "Show yesterday’s survey submissions",
+    "Show survey responses submitted yesterday",
+    "Which surveys from yesterday mentioned “I paid last month”?",
+])
+def test_explicit_yesterday_means_previous_property_calendar_day(monkeypatch, question):
+    monkeypatch.setattr("src.services.ask_genius_periods.community_today", lambda: date(2026, 1, 1))
+    assert parse_question_period(question) == Period(preset="custom", start_date="2025-12-31",
+                                                     end_date="2025-12-31")
+
+
+@pytest.mark.parametrize("question", [
+    "Show reviews since yesterday", "Show all history except yesterday’s reviews",
+    "Compare yesterday’s surveys and last month", "Show surveys about yesterday’s repairs",
+    "How many surveys were not submitted yesterday?", "Show surveys not submitted yesterday",
+    "Don’t show maintenance surveys submitted yesterday",
+    "What about surveys submitted before yesterday?",
+])
+def test_relative_day_with_ambiguous_or_conflicting_scope_clarifies(question):
+    with pytest.raises(ValueError):
+        parse_question_period(question)
+
+
+@pytest.mark.parametrize("question", [
+    "Which residents need a call today?",
+    "Can I tell the parking reviewer that we will add spaces next month?",
+    "Can we tell residents we plan to repair the elevators next week?",
+    "Give me three bullets for tomorrow’s onsite huddle, based on both reviews and surveys.",
+])
+def test_planning_date_is_not_a_filter_on_review_or_submission_dates(question):
+    assert parse_question_period(question) is None
+    assert parse_question_period("Using reviews from last week: " + question).preset == "last_7_days"
+
+def test_planned_action_leaves_an_explicit_submission_date_in_force():
+    period = parse_question_period("Using surveys submitted yesterday, can I say we will fix the faucet next month?")
+    assert period.preset == 'custom'
+    with pytest.raises(ValueError):
+        parse_question_period("Show surveys due next month")
+
+
+@pytest.mark.parametrize("phrase,first,last", [
+    ("How many reviews have a posting date in November 2026?", "2026-11-01", "2026-11-06"),
+    ("Which reviews are we leaving out when we look only at this month?", "2026-11-01", "2026-11-06"),
+    ("Did anybody post about parking this month?", "2026-11-01", "2026-11-06"),
+    ("Show reviews during the month of October 2026", "2026-10-01", "2026-10-31"),
+    ("Show Feb. 2024 surveys", "2024-02-01", "2024-02-29"),
+])
+def test_explicit_named_reporting_month(monkeypatch, phrase, first, last):
+    monkeypatch.setattr("src.services.ask_genius_periods.community_today", lambda: date(2026, 11, 6))
+    assert parse_question_period(phrase) == Period(preset='custom', start_date=first, end_date=last)
+
+
+@pytest.mark.parametrize("question", [
+    "With all available history selected, show only our November reviews.",
+    "Did we get more reviews in November than in October?",
+    "Compare November 2026 with October 2026", "Show reviews in November 2026 and October 2025",
+    "Show surveys since October 2026", "Show surveys from October 2026 onward",
+    "Show December 2026 reviews", "Which reviews were not posted this month?",
+    "Which surveys weren’t submitted in November 2026?",
+])
+def test_unknown_year_two_periods_or_future_month_clarify(monkeypatch, question):
+    monkeypatch.setattr("src.services.ask_genius_periods.community_today", lambda: date(2026, 11, 6))
+    with pytest.raises(ValueError):
+        parse_question_period(question)
+
+
+def test_a_quoted_or_planned_month_preserves_selected_period():
+    assert parse_question_period('Can I tell residents we will add amenities in November 2026?') is None
+    assert parse_question_period('What did the resident mean by “this month”?') is None

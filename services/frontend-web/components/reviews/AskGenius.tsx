@@ -49,6 +49,13 @@ function asksToChangeDefault(value: string): boolean {
     (!text.endsWith('?') && /\bis my default(?:\s+(?:period|timeframe))?$/i.test(command));
 }
 
+// Let the server resolve a written time period in the community's time zone.
+function mentionsPeriod(question: string): boolean {
+  const instructions = question.replace(/"[^"]*"|“[^”]*”|(?<!\w)'(?:[^']|'(?=\w))*'(?!\w)|‘(?:[^’]|’(?=\w))*’(?!\w)/gu, ' ');
+  const namedMonth = /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(?:19|20)\d{2}\b/i;
+  return namedMonth.test(instructions) || /\b(?:yesterday|this month)\b|\b(?:last|past)\s+(?:(?:\d+|one|two|six|seven|fourteen|thirty|calendar)\s+)?(?:days?|weeks?|months?|quarters?)\b|\b(?:all[- ]time|(?:all|entire) (?:available |saved )?history|ytd|year[- ]to[- ]date|this year)\b|\b\d{4}-\d{2}-\d{2}\b/i.test(instructions);
+}
+
 /** A fresh keyed session prevents an account change from reusing private chat state. */
 export function AskGenius() {
   const { user } = useAuth();
@@ -94,7 +101,9 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
   const loadingConversation = !!conversationId && detail.isPending && completed?.id !== conversationId;
   const canInteract = ready && !busy && !savingPreference && !loadingConversation && !detail.isError;
   const canChooseQuestion = canInteract;
-  const canSend = canInteract && (validPeriod(period) || asksToChangeDefault(input));
+  const hasQuestionPeriod = (question: string) => validPeriod(period) || asksToChangeDefault(question) ||
+    (period == null && mentionsPeriod(question));
+  const canSend = canInteract && hasQuestionPeriod(input);
   const availableSources = status.data?.available_sources ?? [];
   const historyConversations = history.data?.conversations ?? [];
   useEffect(() => { if (messages.length || busy) answerEnd.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }); }, [messages.length, busy]);
@@ -146,7 +155,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
 
   function chooseQuestion(question: string) {
     setInput(question);
-    if (!validPeriod(period)) {
+    if (!hasQuestionPeriod(question)) {
       setPeriodRequired(true);
       document.getElementById('genius-period')?.focus();
     } else document.getElementById('genius-question')?.focus();
@@ -154,7 +163,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
 
   async function send(retryQuestion?: string) {
     const question = (retryQuestion ?? input).trim();
-    if (!validPeriod(period) && !asksToChangeDefault(question)) {
+    if (!hasQuestionPeriod(question)) {
       setPeriodRequired(true);
       document.getElementById('genius-period')?.focus();
       return;
@@ -248,7 +257,7 @@ function GeniusSession({ organizationId, userId }: { organizationId: number; use
         </div>
         <form className="shrink-0 border-t p-4" onSubmit={event => { event.preventDefault(); void send(); }}>
           <div className="mx-auto w-full max-w-3xl space-y-2">
-            {!validPeriod(period) && !asksToChangeDefault(input) && input.trim() && <p className="text-sm font-medium text-foreground">Choose a time period above to send your question.</p>}
+            {!hasQuestionPeriod(input) && input.trim() && <p className="text-sm font-medium text-foreground">Choose a time period above to send your question.</p>}
             <label htmlFor="genius-question" className="sr-only">Your question</label>
             <div className="flex items-end gap-2"><Textarea id="genius-question" placeholder={messages.length ? 'Ask a follow-up about this community…' : 'Ask about this community’s reviews…'} className="min-h-14 text-base leading-relaxed md:text-base" value={input} maxLength={2000} rows={2} disabled={!canInteract} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} /><Button type="submit" disabled={!canSend || !input.trim()} aria-label="Send question"><ArrowUp className="h-5 w-5" /></Button></div>
             <p className="text-xs text-muted-foreground">Reviews, saved review analysis, and submitted survey answers connected. Management responses not connected yet.</p>

@@ -123,10 +123,100 @@ _UNSUPPORTED_TIME_CONTEXT = (
     r"|\b(?:in|during|since|before|after|through|until|from|for)\s+(?:the\s+year\s+)?(?:19|20)\d{2}\b"
 )
 
+# These spans describe a quote, planned action or meeting, not when records were submitted.
+_QUOTED_TEXT = re.compile(r'"[^"]*"|“[^”]*”' + r"|(?<!\w)'(?:[^']|'(?=\w))*'(?!\w)|‘(?:[^’]|’(?=\w))*’(?!\w)")
+_ACTION_TIME = re.compile(
+    r"\b(?:call|phone call|follow[ -]up|callback)\s+(?:today|tomorrow)\b"
+    r"|\b(?:today|tomorrow)['’]s\s+(?:(?:onsite|team|staff|management)\s+)?(?:huddle|meeting|briefing)\b"
+    r"|\b(?:will|plan to|intend to)\s+(?:add|build|expand|install|fix|repair|replace|update|offer|open|schedule)"
+    r"(?:\s+(?!(?:reviews?|surveys?|submissions?|responses?|posted|submitted)\b)[\w’'-]+){0,6}\s+"
+    r"(?P<deadline>(?:next|this) (?:week|month|quarter|year)|in (?:" + _MONTH_NAMES +
+    r")(?: (?:19|20)\d{2})?)\b(?!['’]s)", re.I)
+_YESTERDAY_SCOPE = re.compile(
+    r"\b(?:surveys?|reviews?|submissions?|responses?|feedback)\s+"
+    r"(?:(?:were |was )?(?:posted|submitted|received|collected|completed|written)\s+)?"
+    r"(?P<after>(?:(?:from|for)\s+)?yesterday)\b"
+    r"|\b(?P<before>yesterday['’]s)\s+(?:surveys?|reviews?|submissions?|responses?|feedback)\b",
+    re.IGNORECASE,
+)
+
+_MONTH_LABEL = re.compile(r'\b(?:this month|(?P<name>' + _MONTH_NAMES +
+                          r')(?:\.?\s+(?P<year>(?:19|20)\d{2}))?)\b', re.I)
+_MONTH_NUMBERS = {name: i for i, name in enumerate(
+    "jan feb mar apr may jun jul aug sep oct nov dec".split(), start=1)}
+_RECORD_NOUN = r"(?:surveys?|reviews?|submissions?|responses?|feedback|records?)"
+
+
+def _period_instructions(question: str) -> str:
+    # Preserve offsets so local count matching can omit just the recognised day filter.
+    question = _QUOTED_TEXT.sub(lambda m: ' ' * len(m[0]), question)
+    for match in reversed(list(_ACTION_TIME.finditer(question))):
+        start, end = match.span('deadline') if match.group('deadline') else match.span()
+        question = question[:start] + ' ' * (end - start) + question[end:]
+    return question
+
+
+def _record_date_phrases(question: str):
+    """Yield unambiguous reporting day/month filters and their locations in the request."""
+    today = community_today()
+    for match in _YESTERDAY_SCOPE.finditer(question):
+        _check_date_prefix(question[:match.start()])
+        day = today - timedelta(days=1)
+        start, end = match.span("after" if match.group("after") else "before")
+        yield start, end, Period(preset="custom", start_date=day, end_date=day)
+
+    for match in _MONTH_LABEL.finditer(question):
+        prefix = question[:match.start()]
+        prep = re.search(r"\b(?:in|during|for|within|from|over|at)\s+(?:the month of\s+)?$", prefix, re.I)
+        if match.group('name'):
+            before_record = re.match(r"\s+" + _RECORD_NOUN + r"\b", question[match.end():], re.I)
+            comparison = re.search(r"\b(?:or|and|versus|vs\.?|than|with|to|through)\s+$", prefix, re.I)
+            if not (prep or before_record):
+                if match.group('year') or (comparison and re.match(r"\s*[?,.!;:]?\s*$", question[match.end():])):
+                    raise ValueError(_CLARIFY)
+                continue
+            if not match.group('year'):
+                raise ValueError(_CLARIFY + f" Which year should I use for {match.group('name')}?")
+            if comparison:
+                raise ValueError(_CLARIFY)
+            month = _MONTH_NUMBERS[match.group('name')[:3].lower()]
+            start = date(int(match.group('year')), month, 1)
+        else:
+            start = today.replace(day=1)
+        begin = prep.start() if prep else match.start()
+        _check_date_prefix(question[:begin])
+        if start > today or re.match(r"\s+(?:onwards?|or later|to date|through|until)\b",
+                                     question[match.end():], re.I):
+            raise ValueError(_CLARIFY)
+        end = min(start.replace(day=calendar.monthrange(start.year, start.month)[1]), today)
+        yield begin, match.end(), Period(preset='custom', start_date=start, end_date=end)
+
+
+def _check_date_prefix(prefix: str):
+    if (re.search(r"\b(?:before|after|since|until|to|through|than|not|except|excluding|without)\s+(?:the\s+)?$",
+                  prefix, re.I)
+            or re.search(r"\b(?:not|never|weren['’]t|wasn['’]t)\s+(?:posted|submitted|received|written|completed)\s+$",
+                         prefix, re.I)
+            or re.search(r"\b(?:do not|don't|don’t|never)\s+(?:show|include|count|select|list|use)"
+                         r"(?:\s+[\w-]+){0,4}\s+$", prefix, re.I)):
+        raise ValueError(_CLARIFY)
+
+
+def without_record_date(question: str) -> str:
+    """Omit already applied day/month filters, retaining every other predicate for local counts."""
+    for start, end, _ in reversed(sorted(_record_date_phrases(_period_instructions(question)))):
+        question = question[:start] + ' ' + question[end:]
+    return question
+
 
 def parse_question_period(question: str) -> Period | None:
     """Recognize supported explicit periods, refusing ambiguous comparisons."""
-    matches: list[tuple[int, int, Period]] = []
+    question = _period_instructions(question)
+    if (re.search(r'\b(?:compar(?:e|ing)|more|fewer)\b', question, re.I)
+            and len(re.findall(r'\b(?:this month|last month|' + _MONTH_NAMES + r')\b', question, re.I)) >= 2):
+        raise ValueError("Please choose one period. I can show one reporting period at a time. Ask for the first period, then the second.")
+    question = re.sub(r'\bwith all (?:available )?history selected,?\s*(?=show only)', '', question, flags=re.I)
+    matches: list[tuple[int, int, Period]] = list(_record_date_phrases(question))
     for match in re.finditer(_DATE_RANGE, question, re.IGNORECASE):
         matches.append((match.start(), match.end(), Period(
             preset="custom", start_date=match.group(1), end_date=match.group(2))))

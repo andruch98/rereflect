@@ -26,7 +26,7 @@ from src.services import ask_genius as service
 from src.services import ask_genius_sharing as sharing
 from src.services import ask_genius_surveys as survey_service
 from src.services.ask_genius_followups import topic_review_followup
-from src.services.ask_genius_periods import Period, parse_question_period, preference_command, resolve_period
+from src.services.ask_genius_periods import Period, parse_question_period, preference_command, resolve_period, without_record_date
 from src.services.review_preview import require_preview_organization
 
 router = APIRouter(prefix='/api/v1/ask-genius', tags=['ask-genius'])
@@ -388,11 +388,18 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
             try:
                 evidence = service.build_authorized_evidence(user.organization_id, db, selected, source_scope, survey_event_types)
                 evidence = survey_service.filter_resolution(evidence, question)
+                display = survey_service.display_scope(question)
+                if display:
+                    evidence['display_sources_only'] = display
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
             if local_answer is None:
-                direct = survey_service.local_answer(question, evidence, prior_metadata if selected == prior_period and source_scope == previous_scope
-                    and survey_event_types == prior_metadata.get('survey_event_types', []) else None)
+                previous = (prior_metadata if selected == prior_period and source_scope == previous_scope
+                            and survey_event_types == prior_metadata.get('survey_event_types', []) else None)
+                local_question = without_record_date(question) if explicit_period else question
+                if previous and expanded and service.accepts_source_offer(question, history):
+                    local_question = 'Show sources behind that'
+                direct = survey_service.local_answer(local_question, evidence, previous)
                 if direct is not None:
                     local_answer, local_sources, survey_match_ids = direct
                     survey_context = [s for s in local_sources if s.get('kind') == 'survey']
@@ -478,6 +485,9 @@ async def ask_question(body: Question, user: User = Depends(get_current_user), d
                                           'reason': safe_error}) from None
         else:
             answer_text = local_answer
+        display = (evidence or {}).get('display_sources_only')
+        if display:
+            sources = [s for s in sources if (s.get('kind') == 'survey') == (display == 'surveys')]
         metadata = {'kind': 'ask_genius', 'period': period_dict(selected),
                     'period_label': resolve_period(selected)['label'] if selected else None,
                     'default_period': period_dict(default_period_for(user)),

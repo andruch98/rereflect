@@ -43,7 +43,8 @@ def test_exact_reported_three_turn_flow_attaches_reviews_under_each_negative_top
 
 def test_explicit_broadening_uses_model_and_preserves_all_matching_sources(flow):
     chat = negative_topic_conversation(flow)
-    flow['model'].update(answer='There are five saved reviews.', selections=[{}])
+    flow['model'].update(answer='There are five saved reviews.',
+                         evidence=[{'kind': 'review', 'review_id': row.id} for row in flow['rows']])
     result = flow['ask']('Show all reviews from this period, including positive ones.', conversation_id=chat)
     assert result.status_code == 200
     assert len(flow['calls']) == 3
@@ -52,7 +53,8 @@ def test_explicit_broadening_uses_model_and_preserves_all_matching_sources(flow)
 
 def test_changed_period_does_not_reuse_previous_answer_or_sources(flow):
     chat = negative_topic_conversation(flow)
-    flow['model'].update(answer='One review matches this period.', selections=[{}])
+    flow['model'].update(answer='One review matches this period.',
+                         evidence=[{'kind': 'review', 'review_id': flow['rows'][0].id}])
     result = flow['ask']('let me see each review', conversation_id=chat, period={'preset': 'last_7_days'})
     assert result.status_code == 200
     assert len(flow['calls']) == 3
