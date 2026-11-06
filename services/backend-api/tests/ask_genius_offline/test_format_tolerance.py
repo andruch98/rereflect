@@ -130,3 +130,44 @@ def test_refusal_is_distinct_from_format_failure(flow, monkeypatch):
     assert response.status_code == 502
     assert 'declined' in response.json()['detail']['message']
     assert flow['db'].query(ConversationMessage).filter_by(role='user').one().raw_request['validation_reason'] == 'model_refusal'
+
+
+# Three saved gpt-4.1-mini replies to "What did the 3-month survey say about rent payments?"
+RENT_SURVEY = 'dc0cc723-9ee2-4c65-bc74-36fca9e61232'
+RENT_IDS = ['follow_up_requested', 'lease_month_3_comment']
+RENT_EVIDENCE = {'reviews': [], 'surveys': [{'survey_id': RENT_SURVEY, 'questions': [
+    {'id': RENT_IDS[0], 'answer_label': 'Yes'},
+    {'id': RENT_IDS[1], 'answer': 'rent payments'},
+]}]}
+
+
+@pytest.mark.parametrize('attempt,answer', [
+    (121, 'The 3-month survey response rates living overall as 5 — Excellent and community team help as 4 — Good. However, the resident requests follow-up on an unresolved concern, writing “rent payments” in the comment. The specific issue with rent payments is not explained in the submission.'),
+    (122, 'The 3-month survey response rated overall living experience as 5 — Excellent and community team help as 4 — Good. However, it also indicated an unresolved concern that needs follow-up. The resident commented “rent payments,” implying some issue related to that but providing no further detail or explanation about the nature of the problem.'),
+    (123, 'The 3-month survey response rated overall living as 5 — Excellent and the help from the community team as 4 — Good. Despite these positive ratings, the resident requested follow-up on an unresolved concern, writing "rent payments" in the comments. The specific issue with rent payments is not detailed.'),
+])
+def test_hosted_rent_replies(attempt, answer):
+    ref = {'survey_id': RENT_SURVEY}
+    if attempt != 122:
+        ref['kind'] = 'survey'
+    refs = ([{**ref, 'question_id': q} for q in RENT_IDS] if attempt == 123
+            else [{**ref, 'question_ids': RENT_IDS}])
+    raw = json.dumps({'answer': answer, 'evidence': [], 'selections': [],
+                      'survey_selections': [] if attempt == 122 else {}, 'survey_context': refs})
+    context = []
+    text, sources = service.validate_answer(raw, RENT_EVIDENCE, False, survey_context=context)
+    assert text == answer and not sources
+    assert [r['question_id'] for r in context] == RENT_IDS
+
+
+@pytest.mark.parametrize('group', [RENT_IDS + ['nonexistent'], [None], [''], []])
+def test_malformed_or_unknown_grouped_reference_is_rejected(group):
+    raw = json.dumps({'answer': 'Rent payments.', 'survey_context': {
+        'survey_id': RENT_SURVEY, 'question_ids': group}})
+    with pytest.raises(ValueError):
+        service.validate_answer(raw, RENT_EVIDENCE, False)
+
+
+def test_empty_selection_is_not_a_select_all_filter():
+    raw = '{"answer":"Rent payments.","survey_selections":{}}'
+    assert service.validate_answer(raw, RENT_EVIDENCE, True) == ('Rent payments.', [])
