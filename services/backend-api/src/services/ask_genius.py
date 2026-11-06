@@ -446,6 +446,22 @@ def _unique_json_fields(pairs):
     return result
 
 
+def _expand_survey_references(items, changes):
+    expanded = []
+    for item in items:
+        if (isinstance(item, dict) and 'survey_id' in item and 'review_id' not in item
+                and 'question_id' not in item and isinstance(item.get('question_ids'), list)
+                and item['question_ids'] and all(isinstance(q, str) and q.strip()
+                                                for q in item['question_ids'])):
+            reference = dict(item)
+            ids = reference.pop('question_ids')
+            expanded.extend({**reference, 'question_id': q} for q in ids)
+            changes.append('grouped_survey_question_references')
+        else:
+            expanded.append(item)
+    return expanded
+
+
 def _read_model_answer(raw: str, normalizations: list | None) -> ModelAnswer:
     """Normalize unambiguous syntax only; selector filters stay strictly validated."""
     changes = normalizations if normalizations is not None else []
@@ -483,8 +499,14 @@ def _read_model_answer(raw: str, normalizations: list | None) -> ModelAnswer:
         if key in payload and payload[key] is None:
             payload[key] = []
             changes.append('null_optional_list')
+        if isinstance(payload.get(key), dict):
+            value = payload[key]
+            payload[key] = [value] if value else []
+            changes.append('optional_object_as_list')
         if not isinstance(payload.get(key), list):
             continue
+        if key in ('survey_context', 'evidence'):
+            payload[key] = _expand_survey_references(payload[key], changes)
         for item in payload[key]:
             if not isinstance(item, dict):
                 continue
