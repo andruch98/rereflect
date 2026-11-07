@@ -1,0 +1,254 @@
+name: boomsay-cloud
+
+x-runtime: &runtime
+  restart: unless-stopped
+  init: true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  security_opt:
+    - no-new-privileges:true
+
+x-backend: &backend
+  image: boomsay-backend:${RELEASE_TAG:-local}
+  build:
+    context: ../../services
+    dockerfile: backend-api/Dockerfile
+    args:
+      BAKE_SENTIMENT_MODEL: "false"
+      BAKE_EMBEDDING_MODEL: "false"
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql://boomsay:${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}@postgres:5432/boomsay
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?Configure REDIS_PASSWORD}
+  JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET}
+  LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:?Configure LLM_ENCRYPTION_KEY}
+  INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?Configure INTERNAL_API_SECRET}
+  SELF_HOSTED: "true"
+  CACHE_ENABLED: "false"
+  BOOMSAY_REVIEW_PREVIEW: "true"
+  BOOMSAY_PREVIEW_ORGANIZATION_ID: "1"
+  BOOMSAY_SURVEY_SIMULATION: "true"
+  SURVEY_PUBLIC_BASE_URL: https://${APP_HOST:?Configure a dedicated APP_HOST}
+  APP_URL: https://${APP_HOST:?Configure a dedicated APP_HOST}
+  CORS_ORIGINS: https://${APP_HOST:?Configure a dedicated APP_HOST}
+  # Only this deployment performs migrations in its explicit one-shot gate.
+  BOOMSAY_SKIP_STARTUP_MIGRATIONS: "true"
+  # The guarded demo is explicitly provisioned; skip unrelated seed/model jobs.
+  APARTMENT_EXPERIMENT_ORG_ID: "1"
+  ASK_GENIUS_ENABLED: ${ASK_GENIUS_ENABLED:-false}
+  ASK_GENIUS_PROVIDER: ${ASK_GENIUS_PROVIDER:-}
+  ASK_GENIUS_MODEL: ${ASK_GENIUS_MODEL:-}
+  ASK_GENIUS_BASE_URL: ${ASK_GENIUS_BASE_URL:-}
+  ASK_GENIUS_API_KEY: ${ASK_GENIUS_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
+  # Live delivery is a separate decision. Simulation never emails a resident.
+  RESEND_API_KEY: ""
+  SENTRY_DSN: ""
+  ai_analysis_enabled: "false"
+
+services:
+  postgres:
+    <<: *runtime
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: boomsay
+      POSTGRES_DB: boomsay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}
+    command: [postgres, -c, shared_buffers=64MB, -c, work_mem=4MB, -c, maintenance_work_mem=64MB, -c, max_connections=50]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [data]
+    mem_limit: 384m
+    pids_limit: 150
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U boomsay -d boomsay]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    <<: *runtime
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Configure REDIS_PASSWORD}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Configure REDIS_PASSWORD}
+    command: [sh, -c, 'exec redis-server --appendonly yes --appendfsync everysec --maxmemory 64mb --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"']
+    volumes:
+      - redis_data:/data
+    networks: [data]
+    mem_limit: 192m
+    pids_limit: 80
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    <<: *backend
+    profiles: [tools]
+    environment: *app-env
+    command: [python, -m, alembic, upgrade, head]
+    networks: [data]
+    mem_limit: 768m
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  initialize:
+    <<: *backend
+    profiles: [tools]
+    environment:
+      <<: *app-env
+      BOOMSAY_SURVEY_DEMO: "true"
+      SURVEY_DEMO_PASSWORD: ${SURVEY_DEMO_PASSWORD:?Configure a private demo password}
+    command: [python, -m, src.survey_demo, init]
+    networks: [data]
+    mem_limit: 768m
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    <<: [*runtime, *backend]
+    environment: *app-env
+    command: [python, -m, uvicorn, src.api.main:app, --host, 0.0.0.0, --port, "8000", --workers, "1", --no-access-log]
+    networks: [data, app, outbound]
+    mem_limit: 768m
+    pids_limit: 200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 20s
+      timeout: 8s
+      retries: 6
+      start_period: 90s
+
+  worker:
+    <<: *runtime
+    image: boomsay-worker:${RELEASE_TAG:-local}
+    build:
+      context: ../../services
+      dockerfile: worker-service/Dockerfile
+      args:
+        BAKE_SENTIMENT_MODEL: "false"
+    environment:
+      DATABASE_URL: postgresql://boomsay:${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}@postgres:5432/boomsay
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Configure REDIS_PASSWORD}
+      LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:?Configure LLM_ENCRYPTION_KEY}
+      INTERNAL_API_URL: http://backend:8000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?Configure INTERNAL_API_SECRET}
+      SELF_HOSTED: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
+      RESEND_API_KEY: ""
+      SENTRY_DSN: ""
+      ai_analysis_enabled: "false"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    # Full task registration and scheduler remain enabled; only concurrency changes.
+    command: [celery, -A, src.celery_app, worker, --beat, --concurrency=1, --prefetch-multiplier=1, --loglevel=info, --schedule=/app/state/celerybeat-schedule]
+    volumes:
+      - worker_state:/app/state
+    networks: [data, app, outbound]
+    mem_limit: 1024m
+    pids_limit: 200
+    stop_grace_period: 11m
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, 'celery -A src.celery_app inspect ping --destination "celery@$$HOSTNAME" --timeout 5 | grep -q pong']
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+
+  frontend:
+    <<: *runtime
+    image: boomsay-frontend:${RELEASE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: services/frontend-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${APP_HOST:?Configure a dedicated APP_HOST}
+        NEXT_PUBLIC_BOOMSAY_REVIEW_PREVIEW: "true"
+        NEXT_PUBLIC_SENTRY_DSN: ""
+        NEXT_PUBLIC_MIXPANEL_TOKEN: ""
+        NODE_OPTIONS: --max-old-space-size=2048
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_OPTIONS: --max-old-space-size=384
+    networks: [app]
+    mem_limit: 512m
+    pids_limit: 100
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
+
+  caddy:
+    <<: *runtime
+    image: caddy:2-alpine
+    environment:
+      APP_HOST: ${APP_HOST:?Configure a dedicated APP_HOST}
+      TLS_EMAIL: ${TLS_EMAIL:?Configure TLS_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [app, outbound]
+    mem_limit: 128m
+    pids_limit: 100
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    depends_on:
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:2019/config/]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  data:
+    internal: true
+  app:
+    internal: true
+  outbound: {}
+
+volumes:
+  postgres_data:
+  redis_data:
+  worker_state:
+  caddy_data:
+  caddy_config:

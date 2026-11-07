@@ -54,7 +54,7 @@ COPY analysis-engine/src/analyzer ./analyzer
 ENV PYTHONPATH=/app
 
 # Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN useradd -m -u 1000 appuser && mkdir -p /app/state && chown -R appuser:appuser /app
 USER appuser
 
 # Default: run worker with beat scheduler

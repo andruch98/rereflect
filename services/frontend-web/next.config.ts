@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Serialize prerender workers so a small VPS does not launch eight Node heaps.
+  // This affects build parallelism, not the application's request handling.
+  experimental: { cpus: 1 },
   // Enable standalone output for Docker deployments
   output: "standalone",
   // Required for monorepo: tells Next.js to trace dependencies from the workspace root
