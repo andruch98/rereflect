@@ -42,6 +42,10 @@ def approval_policy(settings, text, stars):
 
 def example_body(settings, review, stars):
     """Offline preview text, clearly labeled in the UI rather than attributed to AI."""
+    if re.search(r'\bbroken lock\b', review, re.IGNORECASE):
+        return ('Thank you for bringing this concern to our attention. '
+                'Please visit our office or call so we can arrange a maintenance '
+                'to come and fix the broken lock asap.')
     concern = any(re.search(pattern, review, re.I) for pattern in HOLD_PATTERNS.values())
     if stars and stars <= 3:
         concern = True

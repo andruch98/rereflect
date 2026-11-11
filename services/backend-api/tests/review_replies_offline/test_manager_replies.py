@@ -77,7 +77,11 @@ def test_onboard_preview_hold_edit_approve_filter(flow):
     first, second = p.json()['examples']
     assert p.json()['publishing_connected'] is False
     assert (first['status'], second['status']) == ('approved', 'pending_approval')
-    assert 'safety' in second['reason'] and '555-0100' in second['text']
+    assert 'safety' in second['reason']
+    assert second['text'] == (
+        'Thank you for bringing this concern to our attention. '
+        'Please visit our office or call so we can arrange a maintenance '
+        'to come and fix the broken lock asap.\n\n' + values['signature'])
     assert first['generation_method'] == 'example'
     assert cli.get(f'{ROOT}/1').json()['status'] == 'not_drafted'
     confirm(flow, mode='automatic', public_phone='555-0100')

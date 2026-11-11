@@ -47,9 +47,10 @@ it('uses full filtered counts, opens the flagged original answer from the row an
     start_date: '2026-11-01', end_date: '2026-11-03', view: 'needs_review',
   }));
   const row = await screen.findByRole('row', { name: /Fictional Resident/ });
-  const original = within(row).getByRole('link', { name: /No|Good|Bad/ });
+  const original = within(row).getByRole('link', { name: submitted.attention_reasons![0].label + ' ' + submitted.attention_reasons![0].answer });
   expect(original.getAttribute('href')).toContain('#answer-maintenance_overall');
-  const extra = within(row).getByRole('link', { name: 'View 1 more flagged answer' });
+  const extra = within(row).getByRole('link', { name: submitted.attention_reasons![1].label + ' ' + submitted.attention_reasons![1].answer });
+  expect(within(row).queryByText(/more flagged answer/)).not.toBeInTheDocument();
   expect(extra.getAttribute('href')).toContain('#answer-issue_resolution');
   const listPath = window.location.pathname + window.location.search;
   const search = Object.fromEntries(new URLSearchParams(window.location.search));

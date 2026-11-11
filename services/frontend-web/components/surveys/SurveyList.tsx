@@ -49,7 +49,6 @@ function SurveyRows({ surveys, filters }: { surveys: SurveyInstance[]; filters: 
         const typeLabel = surveyTypeLabel(survey);
         const ticket = surveyType(survey.context.event_type, survey.questionnaire.id)?.eventType === 'maintenance_completed' && survey.context.ticket_id;
         const reasons = survey.attention_reasons || [];
-        const primaryReason = reasons[0];
         return <tr key={survey.public_id} className="grid grid-cols-2 gap-x-3 gap-y-3 p-4 md:table-row">
           <td className="min-w-0 break-words align-top md:px-4 md:py-4">
             <span className="font-medium">{survey.context.resident_name || 'Unknown resident'}</span>
@@ -64,11 +63,10 @@ function SurveyRows({ surveys, filters }: { surveys: SurveyInstance[]; filters: 
           <td className="min-w-0 break-words align-top md:px-4 md:py-4">
             {survey.reviewed_at ? <ReviewedBy survey={survey} /> :
               reasons.length ? <p className="text-sm font-semibold">Needs review</p> : <span className="text-muted-foreground">{survey.status === 'submitted' ? 'No flags' : '—'}</span>}
-            {primaryReason && <div className="mt-1 space-y-1">
-              <Link href={detail + '#answer-' + encodeURIComponent(primaryReason.question_id)} className="block text-sm underline decoration-muted-foreground underline-offset-4 hover:text-primary">
-                {primaryReason.label} <span className="font-medium">{primaryReason.answer}</span>
-              </Link>
-              {reasons.length > 1 && <Link className="block text-xs text-primary underline underline-offset-4" href={detail + '#answer-' + encodeURIComponent(reasons[1].question_id)}>View {reasons.length - 1} more flagged answer{reasons.length === 2 ? '' : 's'}</Link>}
+            {!!reasons.length && <div className="mt-2 space-y-3">
+              {reasons.map(reason => <Link key={reason.question_id} href={detail + '#answer-' + encodeURIComponent(reason.question_id)} className="block text-sm underline decoration-muted-foreground underline-offset-4 hover:text-primary">
+                {reason.label} <span className="font-medium">{reason.answer}</span>
+              </Link>)}
             </div>}
           </td>
           <td className="col-span-2 align-top md:px-4 md:py-4"><Link href={detail} className="whitespace-nowrap text-primary underline underline-offset-4">
