@@ -1,0 +1,26 @@
+{
+	email {$TLS_EMAIL}
+}
+
+{$APP_HOST} {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+	# This is an operator-provisioned private demo, not a public signup service.
+	# Existing JWT auth protects manager data; resident links retain their tokens.
+	@registration path /signup /api/v1/auth/signup /api/v1/auth/google/signup
+	respond @registration 404
+	@api path /api/* /health
+	handle @api {
+		reverse_proxy backend:8000
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+	# No access log: resident link paths are bearer capabilities.
+}
