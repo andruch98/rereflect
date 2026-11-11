@@ -1,3 +1,4 @@
+import type { ReplyStatus } from '../review-response-status';
 import apiClient from '../api-client';
 
 export interface SourceMetadata {
@@ -19,6 +20,7 @@ export interface FeedbackItem {
   star_rating?: number | null;
   source_external_id?: string | null;
   apartment_analysis?: unknown;
+  response_status?: ReplyStatus;
   // Source tracking
   source_id: number | null;
   source_name: string | null;  // From FeedbackSource.name
@@ -101,6 +103,7 @@ export interface CSVImportResponse {
 }
 
 export interface FeedbackFilters {
+  response_status?: ReplyStatus;
   search?: string;
   sentiment?: string;
   source?: string;
@@ -128,6 +131,7 @@ export const feedbackAPI = {
       page_size: pageSize.toString(),
     });
 
+    if (filters?.response_status) params.append('response_status', filters.response_status);
     if (filters?.search) params.append('search', filters.search);
     if (filters?.sentiment) params.append('sentiment', filters.sentiment);
     if (filters?.source) params.append('source', filters.source);

@@ -288,6 +288,13 @@ def require_owner(current_user: User = Depends(get_current_user)) -> bool:
     return True
 
 
+def require_community_manager(current_user: User = Depends(get_current_user)) -> User:
+    """Only community owners and admins may confirm settings or act for the property."""
+    if current_user.role not in {'owner', 'admin'}:
+        raise HTTPException(403, 'A community admin or owner is required for this action.')
+    return current_user
+
+
 def require_system_admin(current_user: User = Depends(get_current_user)) -> User:
     """
     Dependency to check if user is a system admin.

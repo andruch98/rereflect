@@ -1,18 +1,22 @@
 """Authenticated survey inspection and occurrence-specific resident capabilities."""
 import os
+from datetime import date
 from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import AliasChoices, AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from src.api.dependencies import get_current_user, require_admin_or_owner
+from src.api.dependencies import get_current_user, require_admin_or_owner, require_community_manager
 from src.database.session import get_db
-from src.models.survey import SurveyInstance, SurveyResident, SurveyOccurrence
+from src.models.survey import SurveyInstance, SurveyOccurrence, SurveyResident
 from src.models.user import User
 from src.services import surveys as service
+from src.services.agent_settings import survey_settings
+from src.services.survey_dashboard import activity_page, manager_detail, mark_reviewed
+from src.services.survey_schedule import cancel_simulated_work
 from src.services.review_preview import require_preview_organization
 
 router = APIRouter(tags=['surveys'])
@@ -128,6 +132,11 @@ def unsubscribe_resident(token: str, request: Request, response: Response,
             func.lower(SurveyResident.email) == row.occurrence.resident_email.lower())).update(
                 {'email_opt_out': True}, synchronize_session=False)
     service.suppress_email(db, row.organization_id, row.occurrence.resident_email)
+    affected = select(SurveyInstance.id).join(SurveyOccurrence).where(
+        SurveyInstance.organization_id == row.organization_id, or_(
+            SurveyOccurrence.resident_record_id == resident.id,
+            func.lower(SurveyOccurrence.resident_email) == row.occurrence.resident_email.lower()))
+    cancel_simulated_work(db, affected, 'suppressed_opt_out')
     db.commit()
     return {'status': 'unsubscribed', 'message': 'Future survey invitations for this community are stopped.'}
 
@@ -153,23 +162,41 @@ def simulate_survey_event(body: SimulatedSurveyEvent, response: Response,
 def list_surveys(response: Response, page: int = Query(default=1, ge=1),
                  page_size: int = Query(default=20, ge=1, le=100),
                  event_type: SurveyEventType | None = Query(default=None),
+                 start_date: date | None = Query(default=None), end_date: date | None = Query(default=None),
+                 view: Literal['all', 'sent', 'submitted', 'needs_review', 'reviewed'] = 'all',
                  user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     private_response(response)
     require_preview_organization(user.organization_id)
-    query = db.query(SurveyInstance).filter_by(organization_id=user.organization_id)
-    if event_type:
-        query = query.join(SurveyOccurrence).filter(SurveyOccurrence.event_type == event_type)
-    total = query.count()
-    rows = query.order_by(SurveyInstance.created_at.desc(), SurveyInstance.id.desc()).offset((page-1)*page_size).limit(page_size).all()
-    return {'surveys': [service.serialize_survey(row, manager=True) for row in rows], 'total': total}
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(422, 'The start date must be on or before the end date.')
+    return activity_page(db, user.organization_id, event_type, start_date, end_date, view, page, page_size)
+
+
+def manager_survey_row(db, user, public_id):
+    require_preview_organization(user.organization_id)
+    row = db.query(SurveyInstance).filter_by(public_id=str(public_id), organization_id=user.organization_id).first()
+    if row is None:
+        raise HTTPException(404, 'Survey not found')
+    return row
 
 
 @router.get('/api/v1/surveys/{public_id}')
 def get_survey(public_id: UUID, response: Response, user: User = Depends(get_current_user),
                db: Session = Depends(get_db)):
     private_response(response)
-    require_preview_organization(user.organization_id)
-    row = db.query(SurveyInstance).filter_by(public_id=str(public_id), organization_id=user.organization_id).first()
-    if row is None:
-        raise HTTPException(404, 'Survey not found')
-    return service.serialize_survey(row, manager=True)
+    row = manager_survey_row(db, user, public_id)
+    return {**manager_detail(row, survey_settings(db, user.organization_id)),
+            'can_mark_reviewed': user.role in {'admin', 'owner'} and row.submitted_at is not None
+                                 and row.reviewed_at is None}
+
+
+@router.post('/api/v1/surveys/{public_id}/reviewed')
+def mark_survey_reviewed(public_id: UUID, response: Response, user: User = Depends(require_community_manager),
+                         db: Session = Depends(get_db)):
+    private_response(response)
+    row = manager_survey_row(db, user, public_id)
+    try:
+        mark_reviewed(db, row, user)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
+    return manager_detail(row, survey_settings(db, user.organization_id))

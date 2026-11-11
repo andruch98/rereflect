@@ -87,6 +87,9 @@ class SurveyInstance(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    # Snapshot the authenticated manager's identity so account changes preserve the audit.
+    reviewed_by = Column(String, nullable=True)
     occurrence = relationship('SurveyOccurrence')
     invitation = relationship('SurveyInvitation', uselist=False, back_populates='survey')
     __table_args__ = (Index('ix_survey_instances_org_submitted', 'organization_id', 'submitted_at'),)
@@ -106,6 +109,10 @@ class SurveyInvitation(Base):
     text = Column(Text, nullable=False)
     survey_url = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    scheduled_for = Column(DateTime(timezone=True), nullable=True, index=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    reminder_due_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    reminder_simulated_at = Column(DateTime(timezone=True), nullable=True)
     survey = relationship('SurveyInstance', back_populates='invitation')
 
 
